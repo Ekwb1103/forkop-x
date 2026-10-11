@@ -75,6 +75,19 @@ for mode in enabled all-disabled lo-disabled missing; do
     signature=$(ucode -L "$FORKOP_LIB" "$NFT_UC" nft-runtime-signature-fixture "$WORK_DIR/fixture.json")
     state_signature=$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/service/state.uc" nft-signature-fixture "$WORK_DIR/fixture.json")
     [ "$signature" = "$state_signature" ] || fail 'nft and reload signatures disagree'
+    for disable_quic in 0 1; do
+        sed "s/\"dns_server\"/\"disable_quic\":\"$disable_quic\",\"dns_server\"/" \
+            "$WORK_DIR/fixture.json" >"$WORK_DIR/quic-$disable_quic.json"
+        quic_signature=$(ucode -L "$FORKOP_LIB" "$NFT_UC" nft-runtime-signature-fixture "$WORK_DIR/quic-$disable_quic.json")
+        quic_state_signature=$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/service/state.uc" nft-signature-fixture "$WORK_DIR/quic-$disable_quic.json")
+        [ "$quic_signature" = "$quic_state_signature" ] || fail "$mode QUIC=$disable_quic signatures disagree"
+        if [ "$disable_quic" = 0 ]; then
+            quic_off_signature=$quic_signature
+        else
+            [ "$quic_signature" != "$quic_off_signature" ] || fail "$mode QUIC toggle did not change signature"
+            [ "$quic_signature" = "$signature" ] || fail "$mode default QUIC signature differs from enabled"
+        fi
+    done
     sb_signature=$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/service/state.uc" sing-box-signature-fixture "$WORK_DIR/fixture.json")
     if [ "$mode" = enabled ]; then enabled_signature=$signature; else
         [ "$signature" != "$enabled_signature" ] || fail 'IPv6 change did not change nft signature'

@@ -1370,12 +1370,13 @@ function section_rule_condition_csv(section, key, kind) {
 
 function nft_runtime_signature_body(settings, sections) {
     let body = "";
-    body = signature_add_value(body, "settings.disable_quic", bool_option_value(settings, "disable_quic", true));
 
     body = signature_add_value(body, "runtime.ipv6_tproxy", core_ip.ipv6_tproxy_enabled() ? "1" : "0");
 
     body = signature_add_value(body, "settings.source_network_interfaces", option(settings, "source_network_interfaces", "br-lan"));
     body = signature_add_value(body, "settings.exclude_ntp", bool_option(settings, "exclude_ntp", false) ? "1" : "0");
+    // Keep the field order identical to nft/apply.uc: it is part of the hash.
+    body = signature_add_value(body, "settings.disable_quic", bool_option(settings, "disable_quic", true) ? "1" : "0");
 
     for (let section in sections) {
         section = object_or_empty(section);
