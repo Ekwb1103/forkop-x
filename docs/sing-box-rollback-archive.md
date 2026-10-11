@@ -26,6 +26,19 @@ APK files are obtained via official HTTPS feed listings and archived with
 their computed digest; client-side APK metadata validation remains required.
 Additional architectures can be configured with `--arches`.
 
+On 2026-10-08, `--history` imported all retained sing-box/Tiny versions from
+official `archive.openwrt.org` package feeds for the configured architectures.
+The deployed service now uses `--refresh --history`. Historical downloads
+use official HTTPS and computed SHA-256; current IPKs additionally match
+the official index hash. Inputs are archived before refresh, retaining
+previous builds when upstream rebuilds the same package version.
+
+The first historical sync published 65 blobs. All public downloads passed
+SHA-256 verification. The four 1.12.17-r1 APKs (sing-box/Tiny, aarch64/x86_64)
+passed internal name/version/architecture inspection with OpenWrt 25
+`apk adbdump`. No VM packages or services were changed. Two tests covering
+retention, corruption rejection and historical discovery/idempotence passed.
+
 Deployment on Openwrt-Mirror:
 
 - `/usr/local/lib/forkop/archive-sing-box.py`
@@ -34,11 +47,10 @@ Deployment on Openwrt-Mirror:
   before feed sync and refresh/import afterward.
 
 The public archive initially contains 14 artifacts, including retained
-1.13.18-r1 APKs, current 1.13.21-r1 APKs and 1.12.22-r1 IPKs. The original
-1.12.12-r1 package was absent from the local mirror and the current official
-feeds; it has not been reconstructed or substituted. This archive prevents
-future loss of versions it observes, but cannot recover previously deleted
-upstream packages. Missing versions remain a fail-closed preflight error.
+1.13.18-r1 APKs, current 1.13.21-r1 APKs and 1.12.22-r1 IPKs. Historical
+1.12.12-r1 and 1.12.17-r1 packages were recovered from the official archive
+on 2026-10-08. Missing upstream packages cannot be reconstructed or
+substituted. Missing versions remain a fail-closed preflight error.
 
 Validation: Python archive retention/rebuild/corruption test; catalog identity
 and URL tests on existing OpenWrt 24/25 VMs; real IPK/APK staging from the public

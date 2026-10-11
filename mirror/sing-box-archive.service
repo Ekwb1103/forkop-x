@@ -5,5 +5,5 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /usr/local/lib/forkop/archive-sing-box.py --refresh
+ExecStart=/usr/bin/python3 /usr/local/lib/forkop/archive-sing-box.py --refresh --history
 Nice=10

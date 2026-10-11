@@ -76,6 +76,7 @@ ops/deployed-nginx/
 !/tests/sing_box_package_preflight.sh
 !/tests/sing_box_payload_size.sh
 !/tests/sing_box_flash_transition_vm.sh
+!/tests/sing_box_storage_low_space_vm.sh
 !/tests/sing_box_tmp_shortage_vm.sh
 !/tests/sing_box_previous_release.sh
 !/tests/sing_box_component_transition_vm.sh
@@ -122,6 +123,12 @@ ops/deployed-nginx/
 !/tests/xhttp_capabilities.sh
 !/tests/support_operator_migration.sh
 !/tests/singbox_transient_process.sh
+!/tests/sing_box_memory_storage.sh
+!/tests/installer_download_memory.sh
+!/tests/installer_unattended_storage.sh
+!/tests/helpers/
+/tests/helpers/*
+!/tests/helpers/udp_echo.c
 !/tests/tachyon_improvements.sh
 !/tests/ruleset_transport_nft.sh
 !/tests/subscription_runtime_readiness.sh

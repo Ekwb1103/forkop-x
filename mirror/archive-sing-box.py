@@ -56,9 +56,9 @@ def refresh_feeds(source, upstream, arches):
                 path = source / relative / name
                 identify(path, source)
                 if path.exists():
-                    if expected and hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-                        raise ValueError(f'Changed upstream package: {path}')
-                    continue
+                    if not expected or hashlib.sha256(path.read_bytes()).hexdigest() == expected:
+                        continue
+                    # main archives old inputs before refresh, preserving rebuilt revisions.
                 data = fetch(base + name)
                 if expected and hashlib.sha256(data).hexdigest() != expected:
                     raise ValueError(f'Upstream hash mismatch: {name}')
@@ -79,6 +79,36 @@ def identify(path, root):
             return dict(package=name, version=match[1], arch=arch,
                         format=path.suffix[1:])
     raise ValueError(f'Unrecognized package path: {path.relative_to(root)}')
+
+
+def refresh_history(source, arches):
+    """Import every retained stable/Tiny version from official historical feeds."""
+    upstream = 'https://archive.openwrt.org'
+    listing = fetch(upstream + '/releases/').decode()
+    roots = sorted(set(re.findall(r'href="(packages-2[4-9]\.\d+)/"', listing)))
+    if not roots:
+        raise ValueError('Historical OpenWrt feed discovery returned no results')
+    for root in roots:
+        for arch in arches:
+            if not re.fullmatch(r'[A-Za-z0-9_-]+', arch):
+                raise ValueError(f'Invalid architecture: {arch}')
+            relative = f'releases/{root}/{arch}/packages'
+            base = upstream + '/' + relative + '/'
+            html = fetch(base).decode()
+            for filename in re.findall(r'href="([^"/]+\.(?:apk|ipk))"', html):
+                path = source / relative / filename
+                try:
+                    identify(path, source)
+                except ValueError:
+                    continue
+                if path.exists():
+                    continue
+                data = fetch(base + filename)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = path.with_suffix(path.suffix + '.new')
+                temporary.write_bytes(data)
+                temporary.replace(path)
+                print('Fetched historical', relative + '/' + filename, flush=True)
 
 
 def atomic_json(path, data):
@@ -136,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument('--source', type=Path, default=Path('/srv/mirror/public/openwrt'))
     parser.add_argument('--destination', type=Path, default=Path('/srv/mirror/public/forkop/sing-box-archive'))
     parser.add_argument('--refresh', action='store_true', help='Fetch current official feeds before archiving')
+    parser.add_argument('--history', action='store_true', help='Fetch all retained official historical feed versions')
     parser.add_argument('--upstream', default='https://downloads.openwrt.org')
     parser.add_argument('--arches', nargs='+', default=['aarch64_cortex-a53', 'x86_64'])
     args = parser.parse_args()
@@ -143,6 +174,9 @@ if __name__ == '__main__':
     with (args.destination / '.sync.lock').open('a') as sync_lock:
         fcntl.flock(sync_lock, fcntl.LOCK_EX)
         feed_source = args.destination / '.feeds'
+        archive(args.source, args.destination, feed_source)
         if args.refresh:
             refresh_feeds(feed_source, args.upstream.rstrip('/'), args.arches)
+        if args.history:
+            refresh_history(feed_source, args.arches)
         archive(args.source, args.destination, feed_source)

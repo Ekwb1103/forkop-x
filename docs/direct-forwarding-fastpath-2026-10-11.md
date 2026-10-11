@@ -106,3 +106,56 @@ The harness is tests/core_tproxy_fastpath_vm.sh. Baseline and patched outputs
 are retained locally under tmp/speed-diagnostic/core-routing-*.log. Disposable
 namespaces were removed, temporary socat and kmod-veth packages uninstalled,
 and the VM returned to 225 packages with Forkop running.
+
+## UDP harness localization (2026-10-11)
+
+The failures above were resolved by correcting the test fixture. No core or
+production nft change was necessary. Repeating the corrected test with both
+the archived original generator and the optimized generator passed every
+scenario for Sing-Box X 1.0.3 and Rust X 0.0.7 on the existing OpenWrt 25 VM.
+
+Read-only packet diagnostics and isolated namespace probes established:
+
+- The original socat UDP echo fixture stopped answering subsequent probes:
+  plain client UDP passed, but plain router UDP already failed before loading
+  nft rules or starting a core. Requests reached WAN, with no echo response.
+  Adding server `ignoreeof` was insufficient for the full sequence.
+- The stream-based socat client emitted a zero-length UDP datagram at stdin
+  EOF. With a deterministic echo server, Rust X returned both datagrams, but
+  the empty reply could precede the token reply. The trace showed the token
+  reaching the client interface after the empty reply while socat reported an
+  empty result. This was an invalid stream-EOF assumption in the UDP probe,
+  not evidence that the Rust X inbound failed to receive or route UDP.
+- Debug Rust X logs recorded both client and router UDP and selected
+  `Outbound(0)`. The earlier info-level logs did not expose this packet path.
+- `ip route get` selected WAN with source 11.0.0.2 for unmarked traffic and
+  mark 0x08000000; mark 0x04000000 selected the local route in table 305.
+  nft traces confirmed interception mark 0x04000000 and the direct socket's
+  0x08000000 output bypass. WAN responses were unmarked and not reclassified.
+  Reply packets retained source 11.0.0.1:18081 and reached either br-lan for
+  the client or loopback for the router's original UDP socket.
+- Both cores passed the corrected UDP probe in the diagnostic topology
+  without a default route. Sing-Box's missing-default-interface message was
+  therefore not the cause of this failure for the connected echo destination.
+  The maintained harness now includes a WAN default route for realism.
+
+`tests/helpers/udp_echo.c` replaces UDP socat on both ends. It uses datagram
+socket operations, verifies three sequential payload exchanges on the same
+socket and a valid empty exchange, and treats timeouts as failures. TCP still
+uses socat. The harness first checks plain client/router UDP without nft,
+then checks both cores, verifies increasing UDP TPROXY counters, and verifies
+excluded client TCP and UDP without increasing their interception counters.
+Cleanup also kills remaining namespace processes before deleting namespaces.
+The fixture needs gcc (or CC), already installed on this VM.
+
+Local evidence: `tmp/speed-diagnostic/udp-final-baseline.log`,
+`udp-final-patched.log`, `udp-fixed-trace/` (packet and nft traces, core logs),
+and `udp-stream-eof-trace/` (the empty-reply ordering observation). These are
+focused direct/TPROXY echo checks, not subscription or transport compatibility
+certification. Both production cores and the nft optimization remain unchanged.
+
+Package versions and service state were captured before temporary installation
+of socat, kmod-veth, tcpdump and libpcap1. All four additions were removed;
+the final package list exactly matched the initial 225 packages. All service
+instance running states and PIDs matched the initial snapshot, including
+Forkop and its core; no namespace remained. Mihomo and 192.168.90.1 were untouched.
