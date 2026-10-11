@@ -7,6 +7,7 @@ let as_string = common.as_string;
 
 const UCI_STATE_FILE = getenv("FORKOP_UCI_STATE_FILE") || getenv("UCI_STATE") || "";
 const UCI_LOG_FILE = getenv("FORKOP_UCI_LOG_FILE") || getenv("UCI_LOG") || "";
+const UCI_CONFIG_DIR = getenv("FORKOP_UCI_CONFIG_DIR") || "/etc/config";
 
 let runtime_cursor = false;
 let loaded_packages = {};
@@ -267,7 +268,7 @@ function cursor() {
         return runtime_cursor;
 
     try {
-        runtime_cursor = require("uci").cursor();
+        runtime_cursor = require("uci").cursor(UCI_CONFIG_DIR, getenv("FORKOP_UCI_SAVE_DIR"));
     }
     catch (e) {
         runtime_cursor = null;
@@ -291,7 +292,8 @@ function load(package_name) {
         return false;
 
     try {
-        c.load(package_name);
+        if (!c.load(package_name))
+            return false;
         loaded_packages[package_name] = true;
         return true;
     }
@@ -410,6 +412,20 @@ function set_section(path, type_name) {
     let c = cursor();
     if (c == null || parts == null || parts.option != "")
         return false;
+    // libuci cannot create a section in a package with no backing config.
+    // Only create a genuinely absent file; never replace an invalid config.
+    if (match(parts.package, /^[A-Za-z0-9_-]+$/) == null)
+        return false;
+    let config_path = UCI_CONFIG_DIR + "/" + parts.package;
+    if (fs.stat(config_path) == null) {
+        let file = fs.open(config_path, "wx");
+        if (file == null) {
+            if (fs.stat(config_path) == null)
+                return false;
+        }
+        else
+            file.close();
+    }
     if (!load(parts.package))
         return false;
     parts = resolve_parts(c, parts);

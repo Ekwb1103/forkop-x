@@ -6,6 +6,7 @@ let common = require("core.common");
 let core_ip = require("core.ip");
 let runtime_dns = require("singbox.dns");
 let worker_identity = require("core.worker_identity");
+let runtime_health = require("core.runtime_health");
 
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
@@ -15,6 +16,8 @@ const PID_FILE = getenv("FORKOP_DNS_FAILOVER_PID_FILE") || RUNTIME_STATE_DIR + "
 const DNS_FAILOVER_UC = getenv("FORKOP_DNS_FAILOVER_UC") || LIB_DIR + "/singbox/dns_failover.uc";
 const SERVICE_BIN = getenv("FORKOP_BIN") || "/usr/bin/forkop";
 const CHECK_DOMAIN = "example.com";
+const STATE_UC = LIB_DIR + "/service/state.uc";
+const CORE_GRACE_SECONDS = 90;
 
 function as_string(value) {
     return value == null ? "" : "" + value;
@@ -266,12 +269,31 @@ function worker() {
     let next_recovery = now_seconds() + recovery_interval;
     let all_down = { main: false, bootstrap: false };
     let active_failures = { main: 0, bootstrap: 0 };
+    let observed_runtime = null;
 
     while (true) {
         let now = now_seconds();
         let current_cfg = settings();
         if (!runtime_dns.state_matches(runtime_dns.state_template(current_cfg), state))
             return 0;
+
+        if (now >= next_active || now >= next_recovery) {
+            let provenance = null;
+            try {
+                provenance = json(command_output_from_args([ "ucode", "-L", LIB_DIR, STATE_UC, "sing-box-runtime-provenance" ]));
+            }
+            catch (e) {}
+            let observed = runtime_health.observe_runtime(observed_runtime, provenance, int(clock(true)[0]), CORE_GRACE_SECONDS);
+            observed_runtime = observed.state;
+            if (!observed.ready) {
+                active_failures = { main: 0, bootstrap: 0 };
+                all_down = { main: false, bootstrap: false };
+                next_active = now + active_interval;
+                next_recovery = now + recovery_interval;
+                command_success_from_args([ "sleep", "1" ]);
+                continue;
+            }
+        }
 
         if (now >= next_active) {
             let bootstrap = choose_index("bootstrap", state, int(state.bootstrap_index), timeout_seconds, false);

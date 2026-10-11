@@ -3217,7 +3217,7 @@ function add_json_ruleset_subnets_to_nft_for_section(section, json_file, label) 
         NFT_COMMON6_SET_NAME,
         NFT_IP_PORT6_SET_NAME
     ]);
-    remove_files([ unscoped_tmpfile, scoped_tmpfile ]);
+    remove_files([ unscoped_tmpfile, scoped_tmpfile, scoped_tmpfile + ".tcp", scoped_tmpfile + ".udp" ]);
     return ok;
 }
 
@@ -4146,6 +4146,23 @@ function subscription_prepare_cache_request(force, target_section, target_source
     return { ok: true, updated, failed, unchanged, superseded };
 }
 
+function subscription_restore_runtime(backup, config_path, timeout) {
+    let restore = backup + ".restore";
+    let restored = service_state_success([ "stop-managed-sing-box-runtime", timeout ]) &&
+        command_success_from_args([ "cp", "-p", backup, restore ]) &&
+        singbox_runtime_success([ "restore-config-stage", restore ]) &&
+        service_state_success([ "start-managed-sing-box-runtime", timeout ]) &&
+        service_state_success([ "wait-managed-sing-box-config-listeners", config_path,
+            as_string(getenv("FORKOP_SING_BOX_READY_TIMEOUT") || "90") ]);
+    if (!restored) {
+        log_message("Failed to recover the previous subscription runtime; backup retained at " + backup, "error");
+        return false;
+    }
+    module_success([ PRIORITY_UC, "start-runtime" ]);
+    module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+    return true;
+}
+
 function subscription_update_common_locked(force, target_section, target_source_index) {
     subscription_outbounds_changed = false;
     let sing_box_config_path = option(uci_settings(), "config_path", "");
@@ -4167,19 +4184,29 @@ function subscription_update_common_locked(force, target_section, target_source_
 
     if (!singbox_runtime_success([ "configure-service" ]))
         return false;
+    let backup_dir = trim(command_output_from_args([ "mktemp", "-d", "/tmp/forkop-subscription-runtime.XXXXXX" ]));
+    let backup = backup_dir + "/previous.json";
+    let previous = fs.readfile(sing_box_config_path);
+    if (backup_dir == "" || !fs.chmod(backup_dir, 0700) || previous == null ||
+        common.write_private_file(backup, previous) == null) {
+        if (backup_dir != "")
+            command_success_from_args([ "rm", "-rf", backup_dir ]);
+        log_message("Cannot stage the previous subscription runtime", "error");
+        return false;
+    }
     module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
     module_success([ PRIORITY_UC, "stop-runtime" ]);
     let transition_timeout = as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15");
     if (!service_state_success([ "stop-managed-sing-box-runtime", transition_timeout ])) {
+        command_success_from_args([ "rm", "-rf", backup_dir ]);
         module_success([ PRIORITY_UC, "start-runtime" ]);
         module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
         log_message("Refusing subscription runtime update: the previous sing-box runtime did not stop safely", "error");
         return false;
     }
     if (!singbox_runtime_success([ "init-config", "0", "1", "1" ])) {
-        module_success([ LIB_DIR + "/service/state.uc", "start-managed-sing-box-runtime", transition_timeout ]);
-        module_success([ PRIORITY_UC, "start-runtime" ]);
-        module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+        if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
+            command_success_from_args([ "rm", "-rf", backup_dir ]);
         log_message("Failed to rebuild sing-box after subscription update", "error");
         return false;
     }
@@ -4187,10 +4214,20 @@ function subscription_update_common_locked(force, target_section, target_source_
         "start-managed-sing-box-runtime",
         transition_timeout
     ])) {
-        module_success([ PRIORITY_UC, "start-runtime" ]);
-        module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+        if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
+            command_success_from_args([ "rm", "-rf", backup_dir ]);
         return false;
     }
+    if (!service_state_success([
+        "wait-managed-sing-box-config-listeners", sing_box_config_path,
+        as_string(getenv("FORKOP_SING_BOX_READY_TIMEOUT") || "90")
+    ])) {
+        log_message("Updated subscription runtime did not open its configured listeners", "error");
+        if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
+            command_success_from_args([ "rm", "-rf", backup_dir ]);
+        return false;
+    }
+    command_success_from_args([ "rm", "-rf", backup_dir ]);
     if (!module_success([ PRIORITY_UC, "start-runtime" ])) {
         log_message("Failed to restart Priority runtime after subscription update", "error");
         return false;

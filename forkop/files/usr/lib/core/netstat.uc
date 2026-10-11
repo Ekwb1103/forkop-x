@@ -45,7 +45,9 @@ function netstat_addr_matches(addr, listen, port) {
         return false;
 
     let host = netstat_addr_host(addr);
-    return host == listen || host == "0.0.0.0" || host == "::" || host == "*";
+    return host == listen || host == "*" ||
+        (host == "0.0.0.0" && index(listen, ":") < 0) ||
+        (host == "::" && index(listen, ":") >= 0);
 }
 
 function listen_port_in_use(netstat, listen, port) {
@@ -61,7 +63,7 @@ function listen_port_in_use(netstat, listen, port) {
     return false;
 }
 
-function tcp_listen_port_owned(netstat, listen, port, pid) {
+function socket_port_owned(netstat, protocol, listen, port, pid) {
     netstat = netstat == null ? "" : "" + netstat;
     pid = int(pid || 0);
     if (pid <= 0)
@@ -70,16 +72,26 @@ function tcp_listen_port_owned(netstat, listen, port, pid) {
     let expected_owner = "" + pid;
     for (let line in split(netstat, "\n")) {
         let fields = netstat_fields(line);
-        if (length(fields) < 7 || index(fields[0], "tcp") != 0 || fields[5] != "LISTEN")
+        if (length(fields) < 6 || (fields[0] != protocol && fields[0] != protocol + "6"))
             continue;
+        let owner_index = protocol == "tcp" ? 6 : 5;
+        if (protocol == "tcp" && (length(fields) < 7 || fields[5] != "LISTEN"))
+            continue;
+        // BusyBox omits the state column for unconnected UDP sockets.
+        if (protocol == "udp" && index(fields[5], "/") < 0 && length(fields) > 6)
+            owner_index = 6;
         if (!netstat_addr_matches(fields[3], listen, port))
             continue;
 
-        let slash = index(fields[6], "/");
-        if (slash > 0 && substr(fields[6], 0, slash) == expected_owner)
+        let slash = index(fields[owner_index], "/");
+        if (slash > 0 && substr(fields[owner_index], 0, slash) == expected_owner)
             return true;
     }
     return false;
 }
 
-return { sing_box_standard_ports_listening, listen_port_in_use, tcp_listen_port_owned };
+function tcp_listen_port_owned(netstat, listen, port, pid) {
+    return socket_port_owned(netstat, "tcp", listen, port, pid);
+}
+
+return { sing_box_standard_ports_listening, listen_port_in_use, tcp_listen_port_owned, socket_port_owned };

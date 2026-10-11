@@ -4,6 +4,7 @@ let fs = require("fs");
 let constants = require("core.constants");
 let uci_core = require("core.uci");
 let netstat = require("core.netstat");
+let github_http = require("core.github_http");
 
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || constants.FORKOP_CONFIG_NAME || "forkop";
@@ -13,6 +14,7 @@ const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "
 const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "Screamshow/forkop-x";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
+const GITHUB_BACKOFF_FILE = RUNTIME_STATE_DIR + "/github-api-backoff.json";
 const MANAGED_UPGRADE_SING_BOX_MARKER = getenv("FORKOP_MANAGED_UPGRADE_SING_BOX_MARKER") || "/tmp/forkop-managed-upgrade-sing-box";
 const PACKAGE_UPGRADE_STATE = getenv("FORKOP_PACKAGE_UPGRADE_STATE") || "/tmp/forkop-package-was-running";
 const PACKAGE_UPGRADE_QUIESCE_FILE = getenv("FORKOP_PACKAGE_UPGRADE_QUIESCE_FILE") || RUNTIME_STATE_DIR + "/package-upgrade.quiesce";
@@ -1070,15 +1072,75 @@ stage_archived_sing_box_package = function(package_name, version) {
     return info;
 };
 
+function github_backoff_active() {
+    let state;
+    try { state = json(read_file(GITHUB_BACKOFF_FILE)); }
+    catch (e) { return false; }
+    let remaining = int(state?.until || 0) - time();
+    if (remaining <= 0 || remaining > 86400)
+        return false;
+    updates_log("GitHub API rate limit backoff; retry in " + remaining + "s", "warn");
+    return true;
+}
+
+function fetch_github_json(url) {
+    if (github_backoff_active())
+        return "";
+    if (!command_exists("curl"))
+        return http_get(url);
+    let output = make_tmp_file("github-body");
+    let headers = make_tmp_file("github-headers");
+    let status_path = make_tmp_file("github-status");
+    if (output == "" || headers == "" || status_path == "")
+        return "";
+    let proxy = service_proxy_address();
+    for (let address in (proxy == "" ? [ "" ] : [ proxy, "" ])) {
+        let args = [ "curl", "--connect-timeout", "5", "-m", "30", "-sSL",
+            "-H", "User-Agent: Forkop-OpenWrt", "-D", headers,
+            "-o", output, "-w", "%{http_code}" ];
+        if (address != "") {
+            push(args, "-x");
+            push(args, "http://" + address);
+        }
+        push(args, url);
+        let ok = bounded_download(command_from_args(args) + " >" + shell_quote(status_path));
+        let status = trim(read_file(status_path));
+        let body = read_file(output);
+        let limit = ok ? github_http.rate_limit(status, read_file(headers), body, time()) : null;
+        if (limit != null) {
+            if (ensure_dir(RUNTIME_STATE_DIR)) {
+                let staged = GITHUB_BACKOFF_FILE + "." + owner_pid();
+                if (write_file(staged, sprintf("%J", limit)))
+                    fs.rename(staged, GITHUB_BACKOFF_FILE);
+                remove_file(staged);
+            }
+            updates_log(limit.message, "warn");
+            break;
+        }
+        if (ok && status == "200" && helper_success_input(body, "github-response-ok", [])) {
+            remove_file(output);
+            remove_file(headers);
+            remove_file(status_path);
+            return body;
+        }
+        updates_log("GitHub API request failed (HTTP " + (status || "000") + ")" +
+            (address != "" ? "; retrying directly" : ""), "warn");
+    }
+    remove_file(output);
+    remove_file(headers);
+    remove_file(status_path);
+    return "";
+}
+
 function fetch_github_release_json(owner, repo) {
-    let response = http_get("https://api.github.com/repos/" + as_string(owner) + "/" + as_string(repo) + "/releases/latest");
+    let response = fetch_github_json("https://api.github.com/repos/" + as_string(owner) + "/" + as_string(repo) + "/releases/latest");
     if (response == "" || !helper_success_input(response, "github-response-ok", []))
         return "";
     return response;
 }
 
 function fetch_github_releases_json(owner, repo, per_page) {
-    let response = http_get("https://api.github.com/repos/" + as_string(owner) + "/" + as_string(repo) + "/releases?per_page=" + as_string(per_page || "30"));
+    let response = fetch_github_json("https://api.github.com/repos/" + as_string(owner) + "/" + as_string(repo) + "/releases?per_page=" + as_string(per_page || "30"));
     if (response == "" || !helper_success_input(response, "github-response-ok", []))
         return "";
     return response;
@@ -1236,6 +1298,7 @@ function managed_sing_box_service_text() {
         "    [ \"$enabled\" -eq \"1\" ] || return 0\n\n" +
         "    config_get config_file \"main\" \"conffile\" \"/etc/sing-box/config.json\"\n" +
         "    config_get working_directory \"main\" \"workdir\" \"/usr/share/sing-box\"\n" +
+        "    mkdir -p \"$working_directory\" || return 1\n" +
         "    config_get_bool log_stderr \"main\" \"log_stderr\" \"1\"\n\n" +
         "    procd_open_instance\n" +
         "    procd_set_param command \"$PROG\" run -c \"$config_file\" -D \"$working_directory\"\n" +
@@ -3319,6 +3382,10 @@ let mode = ARGV[0] || "";
 
 if (mode == "component-action")
     component_action(ARGV[1], ARGV[2], ARGV[3]);
+else if (mode == "github-json-fixture") {
+    print(fetch_github_json("https://api.github.com/repos/fixture/fixture/releases"));
+    cleanup_tmp_dir();
+}
 else if (mode == "latest-forkop-release-json")
     print(latest_forkop_release_json());
 else if (mode == "latest-forkop-version")

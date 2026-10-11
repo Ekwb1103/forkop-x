@@ -671,6 +671,8 @@ function section_priority_needs_ip_port_rules(section) {
 }
 
 function section_priority_needs_udp_ip_port_rules(section) {
+    if (length(connections.rule_sets_with_subnets(section)) > 0)
+        return true;
     if (!bool_option(section, "community_subnets", true))
         return false;
     for (let community in connections.community_lists(section))
@@ -1943,7 +1945,7 @@ function nft_add_json_ruleset_subnets_for_section(section, json_path, label, tab
     if (!section_needs_priority_sets(section))
         return true;
 
-    routing_rulesets.extract_ip_cidr_nft_elements(
+    routing_rulesets.extract_ip_cidr_nft_protocol_elements(
         json_path,
         unscoped_path,
         scoped_path,
@@ -1951,7 +1953,16 @@ function nft_add_json_ruleset_subnets_for_section(section, json_path, label, tab
         sprintf("%J", rule_port_ranges(ports))
     );
 
-    return nft_add_extracted_ruleset_subnets(unscoped_path, scoped_path, label, table, sets.subnets, sets.ip_ports, chunk_size_text, sets.subnets6, sets.ip6_ports);
+    let has_shared = file_nonempty(unscoped_path) || file_nonempty(scoped_path);
+    let has_transport = file_nonempty(scoped_path + ".tcp") || file_nonempty(scoped_path + ".udp");
+    if ((has_shared || !has_transport) &&
+        !nft_add_extracted_ruleset_subnets(unscoped_path, scoped_path, label, table, sets.subnets, sets.ip_ports, chunk_size_text, sets.subnets6, sets.ip6_ports))
+        return false;
+    if (file_nonempty(scoped_path + ".tcp") &&
+        !nft_add_file_chunks_to_family_sets(scoped_path + ".tcp", table, sets.tcp_ip_ports, sets.tcp_ip6_ports, "ip-ports", "", chunk_size_text))
+        return false;
+    return !file_nonempty(scoped_path + ".udp") ||
+        nft_add_file_chunks_to_family_sets(scoped_path + ".udp", table, sets.udp_ip_ports, sets.udp_ip6_ports, "ip-ports", "", chunk_size_text);
 }
 
 function nft_add_community_subnet_file_for_section(section, service, filepath, table, common_set, ip_port_set, interface_set, discord_set, mark, chunk_size_text, common6_set, ip_port6_set, discord6_set) {

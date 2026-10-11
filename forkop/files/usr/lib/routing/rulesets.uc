@@ -339,9 +339,31 @@ function union_port_filters(first, second) {
     return normalize_port_intervals(result);
 }
 
-function extract_port_filter(rule) {
+// AND propagates sibling transport restrictions; OR keeps its branches
+// independent. Inverted rules cannot provide positive IP classification.
+function network_possible(rule, network) {
+    if (type(rule) != "object")
+        return false;
+    if (rule.network != null && index(array_from_value(rule.network), network) < 0)
+        return false;
+    if (rule.type != "logical" || type(rule.rules) != "array")
+        return true;
+    let is_or = as_string(rule.mode) == "or";
+    for (let child in rule.rules) {
+        let possible = child.invert ? true : network_possible(child, network);
+        if (is_or && possible)
+            return true;
+        if (!is_or && !possible)
+            return false;
+    }
+    return !is_or;
+}
+
+function extract_port_filter(rule, network) {
     if (type(rule) != "object")
         return null;
+    if (network != null && (rule.invert || !network_possible(rule, network)))
+        return [];
 
     let own_filter = direct_port_filter(rule);
     if (rule.type != "logical" || type(rule.rules) != "array")
@@ -353,7 +375,7 @@ function extract_port_filter(rule) {
         let initialized = false;
 
         for (let child in rule.rules) {
-            let child_filter = extract_port_filter(child);
+            let child_filter = extract_port_filter(child, network);
             if (!initialized) {
                 result = child_filter;
                 initialized = true;
@@ -371,7 +393,7 @@ function extract_port_filter(rule) {
 
     let result = own_filter;
     for (let child in rule.rules) {
-        result = intersect_port_filters(result, extract_port_filter(child));
+        result = intersect_port_filters(result, extract_port_filter(child, network));
         if (filter_is_empty(result))
             return result;
     }
@@ -407,8 +429,10 @@ function add_ip_cidr_values_to_nft_outputs(rule, port_filter, unscoped_lines, sc
     }
 }
 
-function collect_ip_cidr_nft_outputs(rule, inherited_filter, unscoped_lines, scoped_lines) {
+function collect_ip_cidr_nft_outputs(rule, inherited_filter, unscoped_lines, scoped_lines, network) {
     if (type(rule) != "object")
+        return;
+    if (network != null && (rule.invert || !network_possible(rule, network)))
         return;
 
     let own_filter = direct_port_filter(rule);
@@ -420,7 +444,7 @@ function collect_ip_cidr_nft_outputs(rule, inherited_filter, unscoped_lines, sco
     if (rule.type == "logical" && type(rule.rules) == "array") {
         if (as_string(rule.mode) == "and") {
             for (let child in rule.rules) {
-                filter = intersect_port_filters(filter, extract_port_filter(child));
+                filter = intersect_port_filters(filter, extract_port_filter(child, network));
                 if (filter_is_empty(filter))
                     return;
             }
@@ -429,7 +453,7 @@ function collect_ip_cidr_nft_outputs(rule, inherited_filter, unscoped_lines, sco
         add_ip_cidr_values_to_nft_outputs(rule, filter, unscoped_lines, scoped_lines);
 
         for (let child in rule.rules)
-            collect_ip_cidr_nft_outputs(child, filter, unscoped_lines, scoped_lines);
+            collect_ip_cidr_nft_outputs(child, filter, unscoped_lines, scoped_lines, network);
 
         return;
     }
@@ -461,6 +485,45 @@ function extract_ip_cidr_nft_elements(json_path, unscoped_output_path, scoped_ou
 
     write_lines(unscoped_output_path, unscoped_lines);
     write_lines(scoped_output_path, scoped_lines);
+}
+
+// Keep the old two-output API for callers which only need IP/port extraction.
+// nft consumers use these additional transport-specific outputs instead.
+function extract_ip_cidr_nft_protocol_elements(json_path, unscoped_path, scoped_path, ports_text, port_ranges_text) {
+    let ruleset = object_or_empty(read_json_file(json_path));
+    let outer_filter = direct_port_filter({
+        port: array_or_empty(json_decode_text(ports_text)),
+        port_range: array_or_empty(json_decode_text(port_ranges_text))
+    });
+    let tcp = { ips: {}, ports: {} };
+    let udp = { ips: {}, ports: {} };
+    for (let rule in array_or_empty(ruleset.rules)) {
+        collect_ip_cidr_nft_outputs(rule, outer_filter, tcp.ips, tcp.ports, "tcp");
+        collect_ip_cidr_nft_outputs(rule, outer_filter, udp.ips, udp.ports, "udp");
+    }
+    let common_ips = {};
+    let common_ports = {};
+    for (let value in keys(tcp.ips)) {
+        if (udp.ips[value]) {
+            common_ips[value] = true;
+            delete udp.ips[value];
+        }
+        else
+            tcp.ports[value + " . 1-65535"] = true;
+    }
+    for (let value in keys(udp.ips))
+        udp.ports[value + " . 1-65535"] = true;
+    for (let value in keys(tcp.ports)) {
+        if (udp.ports[value]) {
+            common_ports[value] = true;
+            delete tcp.ports[value];
+            delete udp.ports[value];
+        }
+    }
+    write_lines(unscoped_path, common_ips);
+    write_lines(scoped_path, common_ports);
+    write_lines(scoped_path + ".tcp", tcp.ports);
+    write_lines(scoped_path + ".udp", udp.ports);
 }
 
 function value_has_domain_matchers(value) {
@@ -536,6 +599,7 @@ function module_exports() {
         import_plain_list,
         extract_ip_cidr,
         extract_ip_cidr_nft_elements,
+        extract_ip_cidr_nft_protocol_elements,
         has_domain_matchers,
         has_ip_matchers,
         has_rules,

@@ -122,3 +122,7 @@ ops/deployed-nginx/
 !/tests/xhttp_capabilities.sh
 !/tests/support_operator_migration.sh
 !/tests/singbox_transient_process.sh
+!/tests/tachyon_improvements.sh
+!/tests/ruleset_transport_nft.sh
+!/tests/subscription_runtime_readiness.sh
+!/tests/dns_failover_startup_grace.sh

@@ -3,6 +3,7 @@
 let fs = require("fs");
 let uci_core = require("core.uci");
 let netstat = require("core.netstat");
+let runtime_health = require("core.runtime_health");
 let core_ip = require("core.ip");
 let rule_config = require("config.rule");
 let connections = require("config.connections");
@@ -650,22 +651,11 @@ function sing_box_current_owned_service_runtime() {
         process_start_ticks_for_pid(provenance.pid) == provenance.start_ticks;
 }
 
-// Readiness requires every bootstrap TCP socket to belong to the same
+// Readiness requires every configured TCP/UDP socket to belong to the same
 // verified procd-owned process before and after the netstat snapshot.
 function wait_managed_sing_box_config_listeners(config_path, timeout) {
-    let config = object_or_empty(read_json_file(config_path));
-    let inbounds = type(config.inbounds) == "array" ? config.inbounds : [];
-    let listeners = [];
-    for (let inbound in inbounds) {
-        inbound = object_or_empty(inbound);
-        if (as_string(inbound.type) != "mixed" || int(inbound.listen_port || 0) <= 0)
-            continue;
-        push(listeners, {
-            listen: as_string(inbound.listen || "127.0.0.1"),
-            port: as_string(inbound.listen_port)
-        });
-    }
-    if (length(listeners) == 0)
+    let requirements = runtime_health.config_requirements(read_json_file(config_path));
+    if (requirements == null)
         return false;
 
     timeout = timeout == null || timeout == "" ? 15 : int(timeout);
@@ -678,13 +668,22 @@ function wait_managed_sing_box_config_listeners(config_path, timeout) {
             current.start_ticks != expected.start_ticks ||
             !pid_has_current_sing_box_exe(current.pid))
             return false;
-        let snapshot = command_output_from_args([ "netstat", "-lntp" ]);
+        let snapshot = command_output_from_args([ "netstat", "-lntup" ]);
         let ready = true;
-        for (let listener in listeners)
-            if (!netstat.tcp_listen_port_owned(snapshot, listener.listen, listener.port, expected.pid)) {
+        for (let listener in requirements.listeners)
+            if (!netstat.socket_port_owned(snapshot, listener.protocol, listener.listen, listener.port, expected.pid)) {
                 ready = false;
                 break;
             }
+        for (let interface in requirements.tunnels) {
+            let owned = false;
+            for (let path in fs.glob("/proc/" + expected.pid + "/fdinfo/*"))
+                for (let line in split(as_string(fs.readfile(path)), "\n"))
+                    if (match(line, /^iff:[ \t]+/) && trim(substr(line, 4)) == interface)
+                        owned = true;
+            if (!owned || fs.stat("/sys/class/net/" + interface) == null)
+                ready = false;
+        }
         if (ready) {
             // Close the snapshot race: prove that the socket owner is still
             // the same sole managed executable after inspecting netstat.
@@ -2256,6 +2255,12 @@ else if (mode == "sing-box-single-owned-service-runtime")
     exit(sing_box_single_owned_service_runtime() ? 0 : 1);
 else if (mode == "sing-box-current-owned-service-runtime")
     exit(sing_box_current_owned_service_runtime() ? 0 : 1);
+else if (mode == "sing-box-runtime-provenance") {
+    let provenance = sing_box_runtime_provenance();
+    if (provenance == null || !pid_has_current_sing_box_exe(provenance.pid))
+        exit(1);
+    print(sprintf("%J\n", provenance));
+}
 else if (mode == "wait-managed-sing-box-config-listeners")
     exit(wait_managed_sing_box_config_listeners(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "sing-box-deleted-owned-service-runtime")
