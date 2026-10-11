@@ -27,7 +27,7 @@ BASE = 'https://mirror.51343.ru'
 
 def run(*args, capture=False):
     if capture:
-        return subprocess.check_output([str(a) for a in args], text=True).strip()
+        return subprocess.check_output([str(a) for a in args], text=True, encoding='utf-8').strip()
     subprocess.run([str(a) for a in args], check=True)
 
 
@@ -60,6 +60,15 @@ def version_key(version):
     if not match:
         raise ValueError('Invalid catalog version')
     return (*map(int, match.groups()[:3]), match[4] is None, int(match[4] or 0))
+
+
+def release_source_ref(value):
+    if not value.get('draft'):
+        return value['tag_name']
+    ref = value.get('target_commitish', '')
+    if not re.fullmatch(r'[0-9a-f]{40}', ref):
+        raise ValueError('Draft release must pin its exact source commit')
+    return ref
 
 
 def verify_uploaded(release, directory, names):
@@ -119,7 +128,10 @@ class Release:
             raise ValueError(f'{self.tag} already exists; use --resume to continue verification/sync')
         self.source = gh('api', f'repos/{self.repo}/commits/main')['sha']
         if self.existing:
-            self.source = gh('api', f'repos/{self.repo}/commits/{self.tag}')['sha']
+            # A draft created by workflow_dispatch may not create its tag until
+            # publication. Resume from its pinned build commit in that case.
+            ref = release_source_ref(self.existing)
+            self.source = gh('api', f'repos/{self.repo}/commits/{ref}')['sha']
         if self.project == 'rust-x' and not self.existing:
             import base64
             content = gh('api', f'repos/{self.repo}/contents/Cargo.toml?ref={self.source}')
@@ -178,8 +190,13 @@ class Release:
         release = self.current()
         if not release['isDraft']:
             raise ValueError('Refusing to replace a public Forkop release')
-        if gh('api', f'repos/{self.repo}/commits/{self.tag}')['sha'] != self.source:
-            raise ValueError('Release tag does not match build source')
+        value = gh('api', f'repos/{self.repo}/releases/{release["databaseId"]}')
+        if gh('api', f'repos/{self.repo}/commits/{release_source_ref(value)}')['sha'] != self.source:
+            raise ValueError('Release does not match build source')
+        refs = gh('api', f'repos/{self.repo}/git/matching-refs/tags/{self.tag}')
+        if any(r['ref'] == 'refs/tags/' + self.tag for r in refs):
+            if gh('api', f'repos/{self.repo}/commits/{self.tag}')['sha'] != self.source:
+                raise ValueError('Release tag does not match build source')
         self.directory.mkdir(parents=True, exist_ok=True)
         signer = load(ROOT / 'mirror/sign-forkop-release.py')
         assets = []

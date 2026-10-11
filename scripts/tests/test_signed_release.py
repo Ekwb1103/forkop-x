@@ -115,6 +115,12 @@ class SignatureGateTests(unittest.TestCase):
         self.assertLess(release.version_key('2.2.3-canary.2'), release.version_key('2.2.3-canary.10'))
         self.assertLess(release.version_key('2.2.3-canary.10'), release.version_key('2.2.3'))
 
+    def test_draft_resume_uses_pinned_source_before_tag_exists(self):
+        self.assertEqual(release.release_source_ref({'draft': True, 'target_commitish': 'a' * 40}), 'a' * 40)
+        with self.assertRaisesRegex(ValueError, 'exact source commit'):
+            release.release_source_ref({'draft': True, 'target_commitish': 'main'})
+        self.assertEqual(release.release_source_ref({'draft': False, 'tag_name': '2.2.3-canary.1'}), '2.2.3-canary.1')
+
     def operation(self):
         return release.Release(SimpleNamespace(output=self.directory, ssh_key=Path('test-key'), timeout=1, resume=True), 'forkop', '2.2.3-canary.1')
 
