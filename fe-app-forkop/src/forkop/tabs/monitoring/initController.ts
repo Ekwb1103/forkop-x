@@ -13,6 +13,7 @@ import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
 import { logger, socket, store, StoreType } from '../../services';
 import { Forkop } from '../../types';
 import { formatRouteReason } from './routeReason';
+import { customRulesetTag, customRulesetLabel } from './rulesetLabels';
 import {
   expandRouteConditions,
   type RuntimeRouteRule,
@@ -128,6 +129,7 @@ let selectedDeviceFilter = ALL_FILTER_VALUE;
 let searchQuery = '';
 let localDeviceChoices: LocalDeviceChoices = {};
 let routeDisplayNames: Record<string, string> = {};
+let rulesetDisplayNames: Record<string, string> = {};
 let routeSections: Array<{ sectionName: string; displayName: string }> = [];
 let lastDeviceFilterSignature = '';
 let loading = true;
@@ -201,6 +203,17 @@ function getDisplayName(section: Forkop.ConfigSection) {
 }
 
 function buildRouteDisplayNames(sections: Forkop.ConfigSection[]) {
+  rulesetDisplayNames = {};
+  for (const section of sections) {
+    for (const reference of [
+      ...getListValues(section.rule_set),
+      ...getListValues(section.rule_set_with_subnets),
+    ]) {
+      if (/^(?:https?:\/\/|\/)/.test(reference))
+        rulesetDisplayNames[customRulesetTag(reference)] =
+          customRulesetLabel(reference);
+    }
+  }
   const map: Record<string, string> = {
     'bypass-out': 'Bypass',
     'direct-out': 'direct',
@@ -387,6 +400,7 @@ function getRouteReason(connection: MonitoredConnection): string {
     connection.rulePayload,
     (value) => labels[value] || value,
     connection.metadata,
+    rulesetDisplayNames,
   );
 }
 

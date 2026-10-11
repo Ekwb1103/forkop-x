@@ -5,6 +5,7 @@ export function formatRouteReason(
   payload = '',
   translate: (value: string) => string = (value) => value,
   metadata?: MatchMetadata,
+  rulesetLabels: Record<string, string> = {},
 ): string {
   const text = rule.trim();
   if (!text) return translate('Not available');
@@ -26,6 +27,7 @@ export function formatRouteReason(
     .filter(Boolean);
   if (tags.length) {
     const labels = [...new Set(tags)].map((tag) => {
+      if (rulesetLabels[tag]) return rulesetLabels[tag];
       const community = tag.match(/-(.+)-community-ruleset$/);
       if (community) {
         // Section names can contain hyphens; known built-in service suffixes
