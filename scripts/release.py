@@ -277,6 +277,14 @@ class Release:
         else:
             canary = '-canary.' in self.version
             service = 'forkop-canary-mirror.service' if canary else 'forkop-mirror.service'
+            if not canary:
+                remote = f'/srv/mirror/build/forkop-stable/{self.tag}-{self.source[:12]}'
+                self.remote(f'umask 077; mkdir -p {remote}')
+                manifest = json.loads((self.directory / 'forkop-manifest.json').read_text())
+                names = [a['file'] for a in manifest['assets']] + ['forkop-manifest.json', 'forkop-apk.pem', 'SHA256SUMS']
+                run(*self.scp, ROOT / 'mirror/sign-forkop-release.py', ROOT / 'mirror/publish-forkop-stable.py',
+                    *[self.directory / n for n in names], f'{HOST}:{remote}/')
+                print(self.remote(f'flock /run/lock/forkop-git-build.lock python3 {remote}/publish-forkop-stable.py {remote}'), flush=True)
             url = BASE + '/forkop/updates/' + ('canary.json' if canary else 'stable.json')
             # GitHub's anonymous release-list cache can lag behind publication.
             # Re-run the existing service until its public pointer agrees.

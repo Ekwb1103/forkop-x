@@ -22,6 +22,7 @@ def module(name, path):
 
 signer = module('signer', ROOT / 'mirror/sign-forkop-release.py')
 release = module('release', ROOT / 'scripts/release.py')
+stable = module('stable', ROOT / 'mirror/publish-forkop-stable.py')
 
 
 def archive(name, data):
@@ -38,7 +39,7 @@ class SignatureGateTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
-        version = '2.2.3-canary.1'
+        version = '2.2.3'
         self.manifest = dict(version=version, source_commit='a' * 40, apk_signed=False, assets=[])
         for package in signer.PACKAGES:
             for ext in ('apk', 'ipk'):
@@ -135,6 +136,42 @@ class SignatureGateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unsigned APK'):
                 operation.finalize()
             self.assertTrue(all(call.args[:3] == ('gh', 'release', 'download') for call in commands.call_args_list))
+
+    def stable_setup(self):
+        root = self.directory / 'public'
+        root.mkdir()
+        (root / 'forkop-apk.pem').write_bytes(b'public-key')
+        (self.directory / 'forkop-apk.pem').write_bytes(b'public-key')
+        self.manifest.update(apk_signed=True, signing_public_key_sha256=hashlib.sha256(b'public-key').hexdigest())
+        for asset in self.manifest['assets']:
+            if asset['format'] == 'apk':
+                asset['signed'] = True
+        (self.directory / 'forkop-manifest.json').write_text(json.dumps(self.manifest))
+        (self.directory / 'SHA256SUMS').write_text('')
+        return root
+
+    def test_stable_publisher_refuses_changed_existing_archive(self):
+        root = self.stable_setup()
+        archive_dir = root / 'updates/releases/2.2.3'
+        archive_dir.mkdir(parents=True)
+        (archive_dir / self.manifest['assets'][0]['file']).write_bytes(b'different-old-package')
+        with patch('sys.argv', ['publisher', str(self.directory), '--root', str(root)]), patch.object(stable.subprocess, 'run') as commands:
+            with self.assertRaisesRegex(ValueError, 'existing stable archive'):
+                stable.main()
+            self.assertEqual(commands.call_count, 1)  # signature check, no publication
+
+    def test_stable_publisher_checks_result_and_updates_catalog(self):
+        root = self.stable_setup()
+        def command(args, **kwargs):
+            if args[0] == '/usr/local/sbin/publish-forkop-feed':
+                archive_dir = root / 'updates/releases/2.2.3'
+                archive_dir.mkdir(parents=True)
+                for asset in self.manifest['assets']:
+                    (archive_dir / asset['file']).write_bytes((self.directory / asset['file']).read_bytes())
+        with patch('sys.argv', ['publisher', str(self.directory), '--root', str(root)]), patch.object(stable.subprocess, 'run', side_effect=command) as commands:
+            stable.main()
+            self.assertIn('/usr/local/lib/forkop/write-release-catalog.py', commands.call_args.args[0])
+        self.assertTrue((root / 'updates/releases/2.2.3/forkop-manifest.json').is_file())
 
 
 if __name__ == '__main__':

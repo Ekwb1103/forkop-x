@@ -32,7 +32,8 @@ signing secret or self-hosted runner is required. Forkop releases include
 `forkop-manifest.json`, `forkop-apk.pem` and `SHA256SUMS`; Rust X retains its
 existing `openwrt-manifest.json` format.
 
-After publication the command runs the existing stable/canary mirror service
+After publication the command runs the existing canary mirror service,
+publishes the signed stable packages through the existing feed publisher,
 or publishes Rust X's signed directory. It downloads the public packages and
 checks catalogs, archived manifests and hashes. The mirror's anonymous
 GitHub cache may delay canary selection; synchronization retries within the
@@ -58,8 +59,29 @@ This change does not remove `--allow-untrusted` from legacy installation or
 rollback paths. It adds publisher signatures and enforces them during release
 publication, without changing the existing client trust policy.
 
+The mirror's stable Git updater uses `sync-signed-forkop-stable.py` for releases
+containing `forkop-manifest.json`, preserving the exact GitHub package bytes.
+Older releases retain their existing rebuild path. The operator publisher and
+the timer share `/run/lock/forkop-git-build.lock`; the signed publisher checks
+existing archive hashes before calling the feed publisher. Deploy the three
+Python files from `mirror/` (`sign-forkop-release.py`, `publish-forkop-stable.py`,
+`sync-signed-forkop-stable.py`) to `/usr/local/lib/forkop/` and the updater to
+`/usr/local/sbin/update-forkop-from-git`. Preserve the previous updater first.
+
 Verification:
 
 ```powershell
 python -m unittest discover -s scripts/tests -p test_signed_release.py
 ```
+
+Verified on 2026-10-11: 14 focused tests passed. Copies of all six real
+2.2.2-canary.1 packages were checked and the three APK were signed on the
+existing mirror. Re-running the signer preserved all three APK hashes.
+The unified `--rust 0.0.7 --resume` command completed signature verification,
+mirror synchronization and public checks for all four packages. No public
+Forkop 2.2.2 assets were replaced and no new release was published for testing.
+The stable updater and helpers were deployed with matching SHA-256 values;
+the previous updater is retained as
+`/usr/local/sbin/update-forkop-from-git.before-signed-20261011`. Stable feed
+publication and conflict refusal were tested with isolated fixtures; a new
+stable production release was not issued as part of this change.
