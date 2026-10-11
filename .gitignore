@@ -133,3 +133,4 @@ ops/deployed-nginx/
 !/tests/ruleset_transport_nft.sh
 !/tests/subscription_runtime_readiness.sh
 !/tests/dns_failover_startup_grace.sh
+!/tests/service_memory.uc

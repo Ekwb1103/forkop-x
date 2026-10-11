@@ -1765,6 +1765,12 @@ async function renderSystemInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 
+function formatServiceMemory(bytes?: number | null) {
+  return typeof bytes === 'number' && Number.isFinite(bytes) && bytes >= 0
+    ? `${_('✔ Running')} (${prettyBytes(bytes)} RSS)`
+    : _('✔ Running');
+}
+
 async function renderServicesInfoWidget() {
   logger.debug('[DASHBOARD]', 'renderServicesInfoWidget');
   const servicesInfoWidget = store.get().servicesInfoWidget;
@@ -1794,7 +1800,7 @@ async function renderServicesInfoWidget() {
       {
         key: 'Forkop',
         value: servicesInfoWidget.data.forkopRunning
-          ? _('✔ Running')
+          ? formatServiceMemory(servicesInfoWidget.data.forkopMemoryBytes)
           : _('✘ Stopped'),
         attributes: {
           class: servicesInfoWidget.data.forkopRunning
@@ -1805,7 +1811,7 @@ async function renderServicesInfoWidget() {
       {
         key: getSingBoxName(store.get().diagnosticsSystemInfo),
         value: servicesInfoWidget.data.singbox
-          ? _('✔ Running')
+          ? formatServiceMemory(servicesInfoWidget.data.singboxMemoryBytes)
           : _('✘ Stopped'),
         attributes: {
           class: servicesInfoWidget.data.singbox

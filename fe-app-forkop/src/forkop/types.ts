@@ -385,6 +385,7 @@ export namespace Forkop {
   }
 
   export interface GetStatus {
+    memory_rss_bytes?: number | null;
     running: number;
     stop_available?: number;
     restart_blocked?: number;
@@ -400,6 +401,7 @@ export namespace Forkop {
   }
 
   export interface GetSingBoxStatus {
+    memory_rss_bytes?: number | null;
     running: number;
     enabled: number;
     status: string;

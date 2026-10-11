@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let process_memory = require("core.process_memory");
 let uci_core = require("core.uci");
 
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
@@ -1181,6 +1182,7 @@ function current_ui_state_json() {
         service: {
             forkop: {
                 running: forkop_is_running,
+                memory_rss_bytes: process_memory.service_rss_bytes(SERVICE_NAME),
                 restart_blocked: restart_blocked ? 1 : 0,
                 stop_available: stop_available ? 1 : 0,
                 enabled: forkop_is_enabled,
@@ -1189,6 +1191,7 @@ function current_ui_state_json() {
             },
             sing_box: {
                 running: sing_box_is_running,
+                memory_rss_bytes: process_memory.service_rss_bytes("sing-box"),
                 enabled: sing_box_is_enabled,
                 status: sing_box_status
             }

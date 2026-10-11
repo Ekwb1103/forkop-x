@@ -24,6 +24,7 @@ describe('fetchServicesInfo', () => {
           running: 1,
           enabled: 1,
           status: 'restarting',
+          memory_rss_bytes: 3145728,
           dns_configured: 1,
           restart_blocked: 1,
         },
@@ -31,6 +32,7 @@ describe('fetchServicesInfo', () => {
           running: 1,
           enabled: 0,
           status: 'running but disabled',
+          memory_rss_bytes: 41943040,
         },
       },
       capabilities: {
@@ -69,6 +71,8 @@ describe('fetchServicesInfo', () => {
 
     expect(state.servicesInfoWidget.data.forkopStatus).toBe('restarting');
     expect(state.servicesInfoWidget.data.restartBlocked).toBe(1);
+    expect(state.servicesInfoWidget.data.forkopMemoryBytes).toBe(3145728);
+    expect(state.servicesInfoWidget.data.singboxMemoryBytes).toBe(41943040);
     expect(state.diagnosticsActions.restart.loading).toBe(true);
   });
 

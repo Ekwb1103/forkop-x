@@ -120,6 +120,8 @@ function applyServiceState(uiState: Forkop.UiState) {
       failed: false,
       data: {
         singbox: uiState.service.sing_box.running,
+        singboxMemoryBytes: uiState.service.sing_box.memory_rss_bytes,
+        forkopMemoryBytes: uiState.service.forkop.memory_rss_bytes,
         forkopRunning: uiState.service.forkop.running,
         stopAvailable:
           uiState.service.forkop.stop_available ??

@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let process_memory = require("core.process_memory");
 let constants = require("core.constants");
 let core_ip = require("core.ip");
 let uci_core = require("core.uci");
@@ -1037,11 +1038,12 @@ function service_status_label(running, enabled) {
     return arg_number(enabled) == 1 ? "stopped but enabled" : "stopped & disabled";
 }
 
-function write_service_status(running, enabled, dns_configured) {
+function write_service_status(running, enabled, dns_configured, service_name) {
     write_json({
         running,
         enabled,
         status: service_status_label(running, enabled),
+        memory_rss_bytes: process_memory.service_rss_bytes(service_name),
         dns_configured
     });
 }
@@ -1057,7 +1059,7 @@ function get_sing_box_status() {
     ]) ? 1 : 0;
     let enabled = file_executable("/etc/rc.d/S99sing-box") ? 1 : 0;
     let dns_configured = dnsmasq_has_forkop_dns() ? 1 : 0;
-    write_service_status(running, enabled, dns_configured);
+    write_service_status(running, enabled, dns_configured, "sing-box");
     return 0;
 }
 
@@ -1067,7 +1069,7 @@ function get_status() {
     ]) ? 1 : 0;
     let enabled = file_executable("/etc/rc.d/S99" + FORKOP_SERVICE_NAME) ? 1 : 0;
     let dns_configured = dnsmasq_has_forkop_dns() ? 1 : 0;
-    write_service_status(running, enabled, dns_configured);
+    write_service_status(running, enabled, dns_configured, FORKOP_SERVICE_NAME);
     return 0;
 }
 

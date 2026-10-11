@@ -51,6 +51,10 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "commitish=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           RAW_RELEASE_NOTES="$(git tag -l --format='%(contents)' "$VERSION")"
+          if [ -z "$RAW_RELEASE_NOTES" ] && [ -f "docs/releases/$VERSION.md" ]; then
+            RAW_RELEASE_NOTES="$(cat "docs/releases/$VERSION.md")"
+            RAW_RELEASE_NOTES="$RAW_RELEASE_NOTES"$'\n\n'"Built from main $(git rev-parse HEAD)."
+          fi
           export RAW_RELEASE_NOTES
           NORMALIZED_RELEASE_NOTES="$(node <<'NODE'
           process.stdout.write(process.env.RAW_RELEASE_NOTES.replace('\\n', '\n'));

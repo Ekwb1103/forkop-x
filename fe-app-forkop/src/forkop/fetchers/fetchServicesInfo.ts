@@ -52,6 +52,12 @@ export async function fetchServicesInfo() {
       loading: false,
       failed: !forkop.success || !singbox.success,
       data: {
+        singboxMemoryBytes: singbox.success
+          ? singbox.data.memory_rss_bytes
+          : undefined,
+        forkopMemoryBytes: forkop.success
+          ? forkop.data.memory_rss_bytes
+          : undefined,
         singbox: singbox.success ? singbox.data.running : previousData.singbox,
         forkopRunning: forkop.success
           ? forkop.data.running

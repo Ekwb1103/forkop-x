@@ -159,6 +159,8 @@ export interface StoreType {
     data: {
       singbox: number;
       forkopRunning: number;
+      forkopMemoryBytes?: number | null;
+      singboxMemoryBytes?: number | null;
       stopAvailable: number;
       restartBlocked: number;
       restartConflictConfirmed?: boolean;
