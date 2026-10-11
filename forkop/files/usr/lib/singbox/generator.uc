@@ -5,6 +5,7 @@ let common = require("core.common");
 let core_ip = require("core.ip");
 let uci_core = require("core.uci");
 let runtime_constants = require("singbox.constants");
+let cache_identity = require("singbox.cache_identity");
 let runtime_country = require("singbox.country");
 let runtime_dns = require("singbox.dns");
 let runtime_route = require("singbox.route");
@@ -445,7 +446,7 @@ function source_dns_inbound_matcher() {
 function base_config(settings, service_address, runtime_context) {
     let log_level = option(settings, "log_level", "warn");
     let rewrite_ttl = int_option(settings, "dns_rewrite_ttl", "60");
-    let cache_path = option(settings, "cache_path", "/tmp/sing-box/cache.db");
+    let cache_path = cache_identity.path(option(settings, "cache_path", "/tmp/sing-box/cache.db"), object_or_empty(runtime_context).core_version);
     let dns_config = runtime_dns.config(settings);
     if (dns_config.unsupported)
         runtime_generate_unsupported(dns_config.unsupported);
@@ -3403,6 +3404,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     let bootstrap_lists = getenv("FORKOP_LIFECYCLE_LIST_BOOTSTRAP") == "1";
     let source_aware_dns = bootstrap_lists ? [] : source_aware_dns_sources(sections);
     let config = base_config(settings, service_address, {
+        core_version: sing_box_version,
         mwan3_active: cli_bool(mwan3_active),
         source_aware_dns: length(source_aware_dns) > 0
     });

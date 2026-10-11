@@ -1798,7 +1798,7 @@ async function renderServicesInfoWidget() {
     title: _('Services info'),
     items: [
       {
-        key: 'Forkop',
+        key: 'Forkop X',
         value: servicesInfoWidget.data.forkopRunning
           ? formatServiceMemory(servicesInfoWidget.data.forkopMemoryBytes)
           : _('✘ Stopped'),

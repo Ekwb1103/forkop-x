@@ -5,6 +5,11 @@ let constants = require("core.constants");
 let uci_core = require("core.uci");
 let netstat = require("core.netstat");
 let github_http = require("core.github_http");
+let cache_identity = require("singbox.cache_identity");
+let storage_cleanup = require("components.storage_cleanup");
+let previous_sing_box_cache = "";
+let candidate_sing_box_cache = "";
+let sing_box_change_ready = false;
 
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || constants.FORKOP_CONFIG_NAME || "forkop";
@@ -46,6 +51,16 @@ let wait_forkop_running_after_sing_box_change;
 
 function as_string(value) {
     return value == null ? "" : "" + value;
+}
+
+function configured_runtime_cache() {
+    let config_path = as_string(uci_core.get(CONFIG_NAME + ".settings.config_path") || "/etc/sing-box/config.json");
+    try {
+        let config = json(fs.readfile(config_path));
+        return config.experimental.cache_file.enabled
+            ? as_string(config.experimental.cache_file.path) : "";
+    }
+    catch (e) { return ""; }
 }
 
 function shell_quote(value) {
@@ -201,8 +216,8 @@ function helper_success(mode, args) {
 }
 
 function cleanup_stale_tmp_files() {
-    command_success_from_args([ "find", "/tmp", "-maxdepth", "1", "-type", "d", "-name", "forkop-updates.*", "-mmin", "+" + as_string(TMP_STALE_TTL_MINUTES), "-exec", "rm", "-rf", "{}", "+" ]);
-    command_success_from_args([ "find", "/tmp", "-maxdepth", "1", "-type", "f", "(", "-name", "forkop-updates-command.*", "-o", "-name", "forkop-updates-http.*", ")", "-mmin", "+" + as_string(TMP_FILE_STALE_TTL_MINUTES), "-delete" ]);
+    storage_cleanup.prune("/tmp", [ "/usr/bin/sing-box", "/usr/lib/libcronet.so" ], now_seconds(),
+        int(TMP_STALE_TTL_MINUTES) * 60, int(TMP_FILE_STALE_TTL_MINUTES) * 60, COMPONENT_LOCK_DIR, owner_pid());
 }
 
 function init_tmp_dir() {
@@ -218,6 +233,7 @@ function init_tmp_dir() {
             return false;
         }
     }
+    write_file(tmp_dir + "/.forkop-owner", owner_pid() + "\n");
     return true;
 }
 
@@ -262,8 +278,10 @@ function helper_success_input(input, mode, args) {
 }
 
 function cleanup_tmp_dir() {
-    if (preserve_update_recovery_files)
+    if (preserve_update_recovery_files) {
+        if (tmp_dir != "") write_file(tmp_dir + "/.forkop-recovery", "1\n");
         return;
+    }
     if (tmp_dir != "") {
         command_success_from_args([ "rm", "-rf", tmp_dir ]);
         tmp_dir = "";
@@ -337,6 +355,9 @@ function restart_forkop_after_failed_sing_box_change() {
 }
 
 function action_success(component, action, message, current_version, latest_version, changed, status, release_url) {
+    if (component == "sing_box" && sing_box_change_ready &&
+        !cache_identity.cleanup_previous(previous_sing_box_cache, configured_runtime_cache(), true))
+        updates_log("Could not remove previous sing-box cache database: " + previous_sing_box_cache, "warn");
     updates_response(true, component, action, message, current_version, latest_version, changed || 0, status || "", release_url || "");
     cleanup_action();
     exit(0);
@@ -345,6 +366,10 @@ function action_success(component, action, message, current_version, latest_vers
 function action_fail(component, action, message, current_version, latest_version, status, release_url) {
     updates_log(message, "error");
     restart_forkop_after_failed_sing_box_change();
+    if (component == "sing_box" && sing_box_change_ready && !preserve_update_recovery_files &&
+        configured_runtime_cache() == previous_sing_box_cache &&
+        !cache_identity.cleanup_previous(candidate_sing_box_cache, previous_sing_box_cache, true))
+        updates_log("Could not remove failed candidate cache database: " + candidate_sing_box_cache, "warn");
     updates_response(false, component, action, message, current_version || "", latest_version || "", 0, status || "", release_url || "");
     cleanup_action();
     exit(1);
@@ -985,7 +1010,8 @@ function http_get_once(url, output_path, proxy_address, timeout) {
     timeout = as_string(timeout || "30");
 
     if (command_exists("curl")) {
-        let args = [ "curl", "--connect-timeout", "5", "-m", timeout, "-fsSL" ];
+        let args = [ "curl", "--connect-timeout", "5", "-m", timeout,
+            "--speed-time", "15", "--speed-limit", "1", "-fsSL" ];
         if (proxy_address != "") {
             push(args, "-x");
             push(args, "http://" + proxy_address);
@@ -1445,6 +1471,12 @@ function restart_forkop_after_successful_change() {
 function stop_forkop_before_sing_box_change() {
     if (forkop_stopped_for_sing_box_change)
         return;
+    // A SIGKILL during package replacement must not let a later TTL sweep
+    // discard the exact rollback package. Mark before the first mutation.
+    if (tmp_dir != "" && !write_file(tmp_dir + "/.forkop-recovery", "transition\n"))
+        action_fail("sing_box", "install", "Cannot protect rollback files before component change");
+    previous_sing_box_cache = configured_runtime_cache();
+    sing_box_change_ready = false;
     forkop_stopped_for_sing_box_change = true;
 
     if (forkop_was_running && file_exists(SERVICE_INIT))
@@ -1457,6 +1489,7 @@ function stop_forkop_before_sing_box_change() {
 }
 
 wait_forkop_running_after_sing_box_change = function() {
+    sing_box_change_ready = false;
     if (!forkop_was_running)
         return true;
     if (!file_exists(BIN_PATH))
@@ -1466,8 +1499,10 @@ wait_forkop_running_after_sing_box_change = function() {
     while (waited < 180) {
         if (forkop_status_running_with_timeout()) {
             command_success_from_args([ "sleep", "8" ]);
-            if (forkop_status_running_with_timeout())
+            if (forkop_status_running_with_timeout()) {
+                sing_box_change_ready = true;
                 return true;
+            }
         }
         command_success_from_args([ "sleep", "4" ]);
         waited += 4;
@@ -2056,6 +2091,8 @@ function sing_box_runtime_success(mode, args) {
 }
 
 function write_sing_box_variant_state(marker, version) {
+    if (forkop_stopped_for_sing_box_change && candidate_sing_box_cache == "")
+        candidate_sing_box_cache = cache_identity.path(as_string(uci_core.get("forkop.settings.cache_path") || "/tmp/sing-box/cache.db"), version);
     if (!sing_box_runtime_success("write-variant-marker", [ marker ]))
         updates_log("Failed to write sing-box variant marker", "warn");
     if (!sing_box_runtime_success("write-version-state", [ version ]))
@@ -3405,6 +3442,8 @@ else if (mode == "forkop-release-catalog-fixture") {
     if (input) input.close();
     write_json(parse_forkop_release_catalog(data, ARGV[1]));
 }
+else if (mode == "runtime-cache-path-fixture")
+    print(configured_runtime_cache(), "\n");
 else if (mode == "forkop-package-version-fixture")
     write_json({ package_version: forkop_package_version(ARGV[1]), release_version: forkop_release_version(ARGV[2]) });
 else if (mode == "forkop-package-space-fixture") {

@@ -26,14 +26,19 @@ cat >"$WORK_DIR/bin/curl" <<'EOF'
 #!/bin/sh
 output=''
 url=''
+speed_time=''
+speed_limit=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --output) output="$2"; shift 2 ;;
+    --speed-time) speed_time="$2"; shift 2 ;;
+    --speed-limit) speed_limit="$2"; shift 2 ;;
     --proxy|--connect-timeout|--max-time) shift 2 ;;
     --fail|--location|--silent|--show-error) shift ;;
     *) url="$1"; shift ;;
   esac
 done
+[ "$speed_time" = 15 ] && [ "$speed_limit" = 1 ] || exit 1
 case "$url" in
   *.json) cp "$RULESET_TEST_SOURCE_JSON" "$output" ;;
   *.srs) cp "$RULESET_TEST_SOURCE_SRS" "$output" ;;
