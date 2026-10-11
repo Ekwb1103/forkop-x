@@ -1347,7 +1347,16 @@ function wait_for_forkop_restore(wait_for_explicit_start) {
 }
 
 function capture_forkop_running_state() {
-    forkop_was_running = file_exists(BIN_PATH) && forkop_status_running_with_timeout();
+    // Readiness can fail temporarily (API timeout, respawn, young process).
+    // Preserve an active managed lifecycle, rather than interpreting that as
+    // an explicit Stop. Stop removes watchdog.ready and records shutdown=1.
+    let state_module = LIB_DIR + "/service/state.uc";
+    let managed_active = file_exists(RUNTIME_STATE_DIR + "/watchdog.ready") &&
+        uci_core.get(CONFIG_NAME + ".settings.shutdown_correctly") == "0" &&
+        file_exists(state_module) &&
+        module_success([ state_module, "sing-box-service-running" ]);
+    forkop_was_running = file_exists(BIN_PATH) &&
+        (managed_active || forkop_status_running_with_timeout());
 }
 
 function capture_managed_upgrade_sing_box_marker() {

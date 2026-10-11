@@ -948,6 +948,19 @@ function nft_create_runtime_base(table, localv4_set, common_set, port_set, ip_po
     return true;
 }
 
+function nft_add_direct_quic_rules(table, interface_set, localv4_set, localv6_set, fakeip_mark, enabled) {
+    if (!arg_bool(enabled))
+        return true;
+    // Forward runs after prerouting classification/TPROXY. Restrict this to
+    // Forkop client interfaces and preserve local services and port forwards.
+    // Test our mark bit, not mark==0: mwan3 may mark direct WAN traffic too.
+    return nft_create_chain(table, "quic_forward", "{ type filter hook forward priority -1; policy accept; }") &&
+        nft_add_rule(table, "quic_forward", [ "ct", "status", "dnat", "return" ]) &&
+        nft_add_rule(table, "quic_forward", [ "ip", "daddr", "@" + as_string(localv4_set), "return" ]) &&
+        nft_add_rule(table, "quic_forward", [ "ip6", "daddr", "@" + as_string(localv6_set), "return" ]) &&
+        nft_add_rule(table, "quic_forward", [ "iifname", "@" + as_string(interface_set), "meta", "mark", "&", fakeip_mark, "==", "0", "udp", "dport", "443", "counter", "reject", "with", "icmpx", "type", "port-unreachable" ]);
+}
+
 function nft_create_runtime_base_from_uci(table, localv4_set, common_set, port_set, ip_port_set, interface_set, fakeip_mark, outbound_mark, fakeip_range, tproxy_port, localv6_set, common6_set, ip_port6_set, fakeip6_range, tproxy6_address) {
     let settings = uci_settings();
 
@@ -969,7 +982,9 @@ function nft_create_runtime_base_from_uci(table, localv4_set, common_set, port_s
         ip_port6_set,
         fakeip6_range,
         tproxy6_address
-    );
+    ) && nft_add_direct_quic_rules(table, interface_set, localv4_set,
+        default_arg(localv6_set, "localv6"), fakeip_mark,
+        bool_option(settings, "disable_quic", true) ? "1" : "0");
 }
 
 function nft_create_runtime_output_rules(table, localv4_set, common_set, port_set, ip_port_set, fakeip_mark, fakeip_range, localv6_set, common6_set, ip_port6_set, fakeip6_range) {
@@ -1543,6 +1558,7 @@ function nft_runtime_signature_from_settings_and_sections(settings, sections) {
 
     body = signature_add_value(body, "settings.source_network_interfaces", option(settings, "source_network_interfaces", "br-lan"));
     body = signature_add_value(body, "settings.exclude_ntp", bool_option(settings, "exclude_ntp", false) ? "1" : "0");
+    body = signature_add_value(body, "settings.disable_quic", bool_option(settings, "disable_quic", true) ? "1" : "0");
 
     for (let section in sections)
         body = nft_rule_signature_body(body, object_or_empty(section));
@@ -2093,6 +2109,8 @@ else if (mode == "nft-populate-runtime-sets-fixture")
     exit(nft_populate_runtime_sets_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13]) ? 0 : 1);
 else if (mode == "nft-runtime-signature")
     exit(nft_runtime_signature_from_uci() ? 0 : 1);
+else if (mode == "nft-add-direct-quic-rules-fixture")
+    exit(nft_add_direct_quic_rules(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]) ? 0 : 1);
 else if (mode == "nft-runtime-signature-fixture")
     exit(nft_runtime_signature_from_fixture(ARGV[1]) ? 0 : 1);
 else if (mode == "nft-table-present-fixture")

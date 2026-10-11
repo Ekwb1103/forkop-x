@@ -1370,6 +1370,7 @@ function section_rule_condition_csv(section, key, kind) {
 
 function nft_runtime_signature_body(settings, sections) {
     let body = "";
+    body = signature_add_value(body, "settings.disable_quic", bool_option_value(settings, "disable_quic", true));
 
     body = signature_add_value(body, "runtime.ipv6_tproxy", core_ip.ipv6_tproxy_enabled() ? "1" : "0");
 
