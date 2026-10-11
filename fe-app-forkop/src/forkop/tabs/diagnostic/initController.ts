@@ -864,6 +864,7 @@ function renderDiagnosticAvailableActionsWidget() {
       loading: restartLoading,
       visible: shouldShowRestartAction({
         forkopRunning,
+        stopAvailable,
         restartBlocked,
         restartLoading,
         startLoading,

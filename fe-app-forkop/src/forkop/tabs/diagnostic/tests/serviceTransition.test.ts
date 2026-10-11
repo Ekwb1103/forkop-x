@@ -118,6 +118,20 @@ describe('diagnostic service transitions', () => {
     ).toBe(true);
   });
 
+  it('offers recovery for unhealthy runtime while respecting conflicts and transitions', () => {
+    const unhealthy = {
+      forkopRunning: false,
+      stopAvailable: true,
+      restartLoading: false,
+      startLoading: false,
+      stopLoading: false,
+    };
+    expect(shouldShowRestartAction(unhealthy)).toBe(true);
+    expect(shouldShowRestartAction({ ...unhealthy, restartBlocked: true })).toBe(false);
+    expect(shouldShowRestartAction({ ...unhealthy, startLoading: true })).toBe(false);
+    expect(shouldShowRestartAction({ ...unhealthy, stopLoading: true })).toBe(false);
+  });
+
   it('does not show restart from transient running state while start or stop is active', () => {
     expect(
       shouldShowRestartAction({

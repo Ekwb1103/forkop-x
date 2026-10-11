@@ -101,12 +101,14 @@ export function getAvailableActionsDisabledState({
 
 export function shouldShowRestartAction({
   forkopRunning,
+  stopAvailable = false,
   restartBlocked = false,
   restartLoading,
   startLoading,
   stopLoading,
 }: {
   forkopRunning: boolean;
+  stopAvailable?: boolean;
   restartBlocked?: boolean;
   restartLoading: boolean;
   startLoading: boolean;
@@ -114,7 +116,10 @@ export function shouldShowRestartAction({
 }) {
   return (
     restartLoading ||
-    (forkopRunning && !restartBlocked && !startLoading && !stopLoading)
+    ((forkopRunning || stopAvailable) &&
+      !restartBlocked &&
+      !startLoading &&
+      !stopLoading)
   );
 }
 
