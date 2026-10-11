@@ -53,4 +53,25 @@ ip netns exec "$NS" nft 'add chain inet FastpathTest probe_mark { type filter ho
 ip netns exec "$NS" nft 'add rule inet FastpathTest probe_mark iifname br-lan ip protocol icmp meta mark set 0x04000100'
 ip netns exec "$PEER" ping -c 3 -W 1 11.0.0.1 >/dev/null
 [ "$(count intercepted)" = 3 ] || { echo 'Forkop mark plus mwan3 bits skipped interception'; exit 1; }
+ip netns exec "$NS" nft flush chain inet FastpathTest probe_mark
+# Generated priority rules rely on the parent ingress guard. Verify that both
+# destination and fully-routed bypass decisions terminate client classification.
+cat >"$WORK/priority.json" <<'EOF'
+{"section":[{".name":"direct",".type":"section","action":"bypass","ip_cidr":"11.0.0.1/32","fully_routed_ips":["192.0.2.2/32","192.0.2.6/32"]}]}
+EOF
+FORKOP_NFT_BATCH_FILE="$WORK/priority.nft" ucode -L "$LIB" "$LIB/nft/apply.uc" nft-add-section-priority-rules-fixture \
+    "$WORK/priority.json" FastpathTest interfaces localv4 localv6 0x04000000 198.18.0.0/15 fc00::/18
+ip netns exec "$NS" nft -c -f "$WORK/priority.nft"
+ip netns exec "$NS" nft -f "$WORK/priority.nft"
+ip netns exec "$NS" nft 'add element inet FastpathTest forkop_rule_direct_subnets { 11.0.0.1 }'
+ip netns exec "$PEER" ping -c 3 -W 1 11.0.0.1 >/dev/null
+[ "$(count classified)" = 6 ] || { echo 'Priority destination bypass did not terminate classification'; exit 1; }
+ip netns exec "$NS" nft flush set inet FastpathTest forkop_rule_direct_subnets
+ip netns exec "$NS" nft 'add element inet FastpathTest forkop_rule_direct_fully_sources { 192.0.2.2, 192.0.2.6 }'
+ip netns exec "$PEER" ping -c 3 -W 1 11.0.0.1 >/dev/null
+[ "$(count classified)" = 6 ] || { echo 'Fully-routed bypass did not terminate classification'; exit 1; }
+ip -n "$PEER" route replace 11.0.0.1/32 via 192.0.2.5
+ip netns exec "$PEER" ping -I uplink -c 3 -W 1 11.0.0.1 >/dev/null
+hits=$(ip netns exec "$NS" nft list chain inet FastpathTest priority_rules | awk '/counter packets/ {for(i=1;i<=NF;i++) if($i=="packets") sum+=$(i+1)} END {print sum+0}')
+[ "$hits" = 6 ] || { echo 'WAN ingress reached generated priority rules'; exit 1; }
 echo 'Direct fastpath namespace packet checks passed'

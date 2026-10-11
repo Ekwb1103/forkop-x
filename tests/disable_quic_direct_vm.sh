@@ -69,7 +69,8 @@ EOF
 r nft -f "$work/base.nft"
 apply() { r ucode -L "$lib" "$module" nft-add-direct-quic-rules-fixture quic_test sources local4 local6 0x10000 "$1"; }
 echo_probe() {
-    result="$(printf 'probe\n' | c socat -T 1 - "$1" 2>"$work/client.err" || true)"
+    # Keep stream EOF from sending an extra empty datagram before the reply.
+    result="$(printf 'probe\n' | c socat -T 1 STDIO,ignoreeof "$1" 2>"$work/client.err" || true)"
     if [ "$result" != probe ]; then
         for ns in "$client" "$router" "$server"; do ip -n "$ns" -6 addr; ip -n "$ns" -6 route; ip -n "$ns" -6 neigh; done
         fail "expected echo: $1 $(cat "$work/client.err")"
@@ -97,7 +98,14 @@ r nft delete chain inet quic_test quic_forward
 apply 1
 echo_probe UDP4:10.1.0.2:443
 echo_probe 'UDP6:[fd00::2]:443'
+r nft add counter inet quic_test client_forward
+r nft add counter inet quic_test client_sent
+r nft add rule inet quic_test classify iifname fqi udp dport 444 counter name client_sent
+r nft add rule inet quic_test quic_forward counter name client_forward
 echo_probe UDP4:198.51.100.2:444
+hits="$(r nft list counter inet quic_test client_forward | awk '/packets/ {print $2}')"
+sent="$(r nft list counter inet quic_test client_sent | awk '/packets/ {print $2}')"
+[ "$sent" -gt 0 ] && [ "$hits" = "$sent" ] || fail 'QUIC chain did not skip non-client reply direction'
 echo_probe TCP4:198.51.100.2:443
 r nft add rule inet quic_test classify meta mark set 0x10000
 echo_probe UDP4:198.51.100.2:443
