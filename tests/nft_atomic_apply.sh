@@ -130,5 +130,17 @@ if grep -Fq 'tcp dport @forkop_rule_discord_udp_ip_ports' "$WORK_DIR/discord-rul
   fail "Discord shared ranges unexpectedly intercept TCP"
 fi
 
+FORKOP_NFT_BATCH_FILE="$WORK_DIR/outbound-mark.nft" \
+  ucode -L "$FORKOP_LIB" "$NFT_UC" nft-create-runtime-base \
+    ForkopMarkTest localv4 common ports ip_ports interfaces br-lan \
+    0x04000000 0x08000000 198.18.0.0/15 18602 0 \
+    localv6 common6 ip_ports6 fc00::/18 ::1
+grep -Fq 'meta mark & 0x08000000 == 0x08000000 counter return' "$WORK_DIR/outbound-mark.nft" ||
+  fail "own-traffic bypass lost its mask"
+if grep -Fq 'meta mark 0x08000000 counter return' "$WORK_DIR/outbound-mark.nft"; then
+  fail "own-traffic bypass still requires exact equality"
+fi
+
+printf 'outbound mark generation checks passed\n'
 printf 'transition guard checks passed\n'
 printf 'atomic nft candidate checks passed\n'
