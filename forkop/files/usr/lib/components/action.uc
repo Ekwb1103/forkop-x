@@ -48,6 +48,9 @@ let preserve_update_recovery_files = false;
 let forkop_package_init = "";
 let stage_archived_sing_box_package;
 let wait_forkop_running_after_sing_box_change;
+// Repository staging is declared before the download helpers. ucode needs a
+// shared binding here instead of capturing an uninitialised function value.
+let limited_download_command;
 
 function as_string(value) {
     return value == null ? "" : "" + value;
@@ -753,7 +756,7 @@ function temporary_available_kib() {
     return temporary_capacity_kib(available_kib(tmp_dir || "/tmp"), memory == null ? -1 : int(memory[1]));
 }
 
-function limited_download_command(command, capacity_kib) {
+limited_download_command = function(command, capacity_kib) {
     // tmpfs capacity alone does not describe physical RAM. Bound the output
     // file using BusyBox sh's 512-byte RLIMIT_FSIZE units, leaving workspace.
     let budget = (capacity_kib == null ? temporary_available_kib() : capacity_kib) - 8192;
@@ -762,7 +765,7 @@ function limited_download_command(command, capacity_kib) {
         return "";
     }
     return "sh -c " + shell_quote("ulimit -f " + (budget * 2) + " || exit 1; " + command);
-}
+};
 
 function bounded_download(command, capacity_kib) {
     let limited = limited_download_command(command, capacity_kib);
@@ -3531,6 +3534,15 @@ else if (mode == "sing-box-package-info-fixture") {
     let info = staged_package_info(ARGV[1], ARGV[2], ARGV[3]);
     if (info == null)
         exit(1);
+    write_json(info);
+}
+else if (mode == "repository-package-stage-fixture") {
+    init_tmp_dir();
+    let info = stage_repository_package(ARGV[1], ARGV[2]);
+    if (info == null) {
+        cleanup_tmp_dir();
+        exit(1);
+    }
     write_json(info);
 }
 else if (mode == "sing-box-package-preflight-fixture") {
