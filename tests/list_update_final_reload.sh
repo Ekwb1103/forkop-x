@@ -182,3 +182,8 @@ fi
   fail "aborted transaction replaced the committed generation"
 
 printf 'final list update/reload lifecycle checks passed\n'
+stale_reason="$(FORKOP_LIST_UPDATE_RELOAD_FILE="$WORK_DIR/list-update.reload" \
+  ucode -L "$FORKOP_LIB" "$LIFECYCLE_UC" reload-reason-fixture pending 0)"
+[ "$stale_reason" = "list-source-retry" ] || fail "stale generation was retried as local content"
+explicit_stale="$(ucode -L "$FORKOP_LIB" "$LIFECYCLE_UC" reload-reason-fixture list-content 0)"
+[ "$explicit_stale" = "list-source-retry" ] || fail "explicit content reload accepted stale generation"

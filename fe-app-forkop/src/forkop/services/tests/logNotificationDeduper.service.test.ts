@@ -106,3 +106,8 @@ describe('LogNotificationDeduper', () => {
     ).toBe('routing-warning:discord-cloudflare-overlap');
   });
 });
+
+it('classifies a rejected list apply as a warning notification', () => {
+  const line = '[error] [rule-set-unavailable] Settings were not applied';
+  expect(getForkopLogNotification(line)).toEqual({ kind: 'rule-set-unavailable', line });
+});

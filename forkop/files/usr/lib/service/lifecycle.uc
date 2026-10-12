@@ -1576,14 +1576,23 @@ function dns_failover_apply(candidate_state_path) {
     return status;
 }
 
+function reload_reason_for_generation(reason, pending, generation_current) {
+    if (reason == "list-content" || pending)
+        return generation_current ? "list-content" : "list-source-retry";
+    return reason;
+}
+
 function reload(reason) {
     reason = as_string(reason || "");
-    // A completed list generation whose final runtime apply failed is safe to
-    // retry locally. Never let a later generic/pending reload skip that
-    // generation or trigger a second network update.
-    if (reason != "list-content" && fs.stat(LIST_UPDATE_RELOAD_FILE) != null) {
-        log_message("A committed list generation is pending runtime apply; performing a local list-content reload", "info");
-        reason = "list-content";
+    // Retry a completed generation locally only while its source signature
+    // matches UCI. Cancelling or replacing a failed edit needs a new generation
+    // before the pending runtime apply can continue.
+    if (reason == "list-content" || fs.stat(LIST_UPDATE_RELOAD_FILE) != null) {
+        reason = reload_reason_for_generation(reason, true,
+            module_success(UPDATES_UC, [ "runtime-list-cache-active" ]));
+        log_message(reason == "list-content"
+            ? "A committed list generation is pending runtime apply; performing a local list-content reload"
+            : "Pending list generation no longer matches the settings; preparing the current list sources before applying", "info");
     }
     let status;
     // This remains false until a complete nft transaction was accepted or a
@@ -1676,7 +1685,14 @@ function reload(reason) {
     let plan = parse_reload_plan(plan_result.output);
     // A changed source must first become a complete active generation. Do not
     // publish a freshly rebuilt table without its replacement list data.
-    if (reason == "list-content") {
+    if (reason == "list-source-retry") {
+        plan.has_work = 1;
+        plan.needs_nft_rebuild = 1;
+        plan.needs_sing_box_reload = 1;
+        plan.needs_list_update = 1;
+        plan.changed_list = 1;
+    }
+    else if (reason == "list-content") {
         plan.has_work = 1;
         plan.needs_nft_rebuild = 1;
         plan.needs_list_update = 0;
@@ -1865,6 +1881,13 @@ function reload(reason) {
         if (nft_candidate_batch_file == "" && !module_success(NFT_UC, [ "remove-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ]))
             return hot_reload ? abort_hot_transition(1, staged_singbox_config, staged_singbox_backup) : abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
         transition_guard_active = false;
+        if (hot_reload) {
+            let closed = module_capture(HOT_RELOAD_UC, [ "close-retired", staged_singbox_backup, sing_box_config_path ]);
+            if (closed.status != 0)
+                log_message("Configuration applied, but closing connections of removed rule sets failed", "warn");
+            else if (int(trim(closed.output)) > 0)
+                log_message("Closed " + trim(closed.output) + " connections of removed rule sets", "info");
+        }
         remove_file(staged_singbox_config + ".hot-plan");
         remove_file(staged_singbox_backup);
         runtime_changed = true;
@@ -1926,6 +1949,9 @@ function reload(reason) {
     if (reason == "list-content")
         remove_file(LIST_UPDATE_RELOAD_FILE);
 
+    if (needs_singbox_transition)
+        module_success(RULESET_CACHE_UC, [ "prune-applied" ]);
+
     // Background workers may update UCI selector state or materialized list
     // files immediately. Start them only after the reload snapshot and config
     // fingerprint have been committed, otherwise Forkop mistakes its own
@@ -1969,8 +1995,8 @@ function reload_tracked(reason) {
 
 function reload_reason_fixture(reason) {
     reason = as_string(reason || "");
-    if (reason != "list-content" && fs.stat(LIST_UPDATE_RELOAD_FILE) != null)
-        reason = "list-content";
+    reason = reload_reason_for_generation(reason, fs.stat(LIST_UPDATE_RELOAD_FILE) != null,
+        as_string(ARGV[2] || "1") == "1");
     print(reason, "\n");
 }
 

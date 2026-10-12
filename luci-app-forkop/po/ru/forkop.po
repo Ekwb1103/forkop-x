@@ -2272,3 +2272,9 @@ msgstr "Rust X (экспериментальный)"
 
 msgid "Rust X configuration compatibility confirmed"
 msgstr "Совместимость конфигурации Rust X подтверждена"
+
+msgid "List changes were not applied"
+msgstr "Изменения списков не применены"
+
+msgid "A required list could not be downloaded or validated. The previous working configuration is still active. Check the list source and apply the settings again."
+msgstr "Не удалось скачать или проверить необходимый список. Прежняя рабочая конфигурация продолжает действовать. Проверьте источник списка и примените настройки повторно."

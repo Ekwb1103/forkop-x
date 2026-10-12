@@ -970,14 +970,16 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
     }
     log_file_lines(runtime_log, "warn", "sing-box config generator: ");
 
-    // Configuration generation must be deterministic and network-free. Missing
-    // remote rule sets are represented by an empty local placeholder and are
-    // refreshed only by the serialized post-start/update worker.
+    // Cold start can bootstrap missing remote lists in its background worker.
+    // A live transition must resolve every newly declared list before ACK:
+    // refreshing the old manifest cannot discover a new UCI list declaration.
+    // Existing valid caches remain offline; a failed download rejects the stage.
     // The preparation config has no remote rulesets. Materializing its empty
     // declaration would prune the existing last-known-good ruleset cache.
     if (getenv("FORKOP_LIFECYCLE_LIST_BOOTSTRAP") != "1" &&
-        !module_success([ RULESET_CACHE_UC, "materialize-config", temp_config, "cache-only" ])) {
-        log_message("Failed to materialize remote rule sets into the persistent local cache. Aborted.", "fatal");
+        !module_success([ RULESET_CACHE_UC, "materialize-config", temp_config,
+            as_string(stage_path) != "" ? "required" : "cache-only" ])) {
+        log_message("[rule-set-unavailable] A required rule-set could not be downloaded or validated. Settings were not applied; the previous running configuration is preserved.", "error");
         remove_files([ temp_config, runtime_log ]);
         exit(1);
     }

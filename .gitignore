@@ -136,3 +136,5 @@ ops/deployed-nginx/
 !/tests/service_memory.uc
 !/tests/rust_x_hot_reload.sh
 !/tests/list_cache_runtime_preservation.sh
+!/tests/ruleset_required_reload.sh
+!/tests/retired_rule_connections.sh

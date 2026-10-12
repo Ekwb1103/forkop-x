@@ -586,7 +586,7 @@ function prune_runtime_cache(manifest, runtime_manifest) {
     }
 }
 
-function local_rule_set(rule_set, manifest, previous_manifest, runtime_manifest, allow_download) {
+function local_rule_set(rule_set, manifest, previous_manifest, runtime_manifest, allow_download, required) {
     let url = as_string(rule_set.url);
     let format = as_string(rule_set.format) == "source" ? "source" : "binary";
     let key = cache_key(url);
@@ -603,7 +603,9 @@ function local_rule_set(rule_set, manifest, previous_manifest, runtime_manifest,
 
     let path = active_cache_path(runtime_manifest, url, format);
     if (allow_download && !valid_cache(path, format)) {
-        let result = refresh_entry(entry, "", runtime_manifest);
+        let proxy = required && uci_core.get(CONFIG_NAME + ".settings.download_lists_via_proxy") == "1"
+            ? constants.SB_SERVICE_MIXED_INBOUND_ADDRESS + ":" + as_string(constants.SB_SERVICE_MIXED_INBOUND_PORT) : "";
+        let result = refresh_entry(entry, proxy, runtime_manifest);
         if (result.ok && result.persisted)
             entry.last_success = int(clock()[0]);
         path = active_cache_path(runtime_manifest, url, format);
@@ -611,6 +613,10 @@ function local_rule_set(rule_set, manifest, previous_manifest, runtime_manifest,
 
     let local_format = format;
     if (!valid_cache(path, format)) {
+        if (required) {
+            warn("Required rule-set unavailable for tag ", as_string(rule_set.tag), "; preserving the running configuration\n");
+            return null;
+        }
         path = empty_ruleset_path(url);
         local_format = "source";
         warn("rule-set cache unavailable for tag ", as_string(rule_set.tag), "; starting with an empty local rule-set\n");
@@ -624,7 +630,7 @@ function local_rule_set(rule_set, manifest, previous_manifest, runtime_manifest,
     };
 }
 
-function materialize_config(config_path, allow_download) {
+function materialize_config(config_path, allow_download, required) {
     if (!ensure_cache_dir())
         return false;
     cleanup_stale_temporary_files();
@@ -636,9 +642,14 @@ function materialize_config(config_path, allow_download) {
     let previous_manifest = common.object_or_empty(common.read_json_file(MANIFEST_PATH));
     let runtime_manifest = read_runtime_manifest();
     let manifest = {};
-    for (let i = 0; i < length(values); i++)
-        if (type(values[i]) == "object" && values[i].type == "remote")
-            values[i] = local_rule_set(values[i], manifest, previous_manifest, runtime_manifest, allow_download);
+    for (let i = 0; i < length(values); i++) {
+        if (type(values[i]) == "object" && values[i].type == "remote") {
+            let local = local_rule_set(values[i], manifest, previous_manifest, runtime_manifest, allow_download, required);
+            if (local == null)
+                return false;
+            values[i] = local;
+        }
+    }
     route.rule_set = values;
     config.route = route;
     if (!common.write_private_json_file(config_path, config))
@@ -658,8 +669,11 @@ function materialize_config(config_path, allow_download) {
     }
     if (!write_runtime_manifest(runtime_manifest))
         return false;
-    prune_runtime_cache(manifest, runtime_manifest);
-    if (persistent_manifest_written)
+    // Staging precedes validation/ACK. Keep files referenced by the old live
+    // config until a later background refresh can safely collect them.
+    if (!required)
+        prune_runtime_cache(manifest, runtime_manifest);
+    if (persistent_manifest_written && !required)
         prune_stale_cache(manifest);
     return true;
 }
@@ -734,6 +748,31 @@ function config_uses_empty_rule_set() {
     return false;
 }
 
+function prune_applied_config() {
+    let config = common.read_json_file(SING_BOX_CONFIG_PATH);
+    if (type(config) != "object")
+        return false;
+    let keep = {};
+    for (let entry in common.array_or_empty(common.object_or_empty(config.route).rule_set)) {
+        let path = as_string(common.object_or_empty(entry).path);
+        if (path != "") {
+            keep[path] = true;
+            keep[binary_validation_path(path)] = true;
+        }
+    }
+    // Called only after the live configuration and firewall have committed.
+    // Derive retention from that config, never from a rejected stage's manifest.
+    for (let dir in [ CACHE_DIR, RUNTIME_CACHE_DIR ]) {
+        for (let path in fs.glob(dir + "/*")) {
+            let name = substr(path, length(dir) + 1);
+            if ((match(name, /^[0-9a-f]{12}\.(srs|json)(\.validated)?$/) ||
+                match(name, /^empty-[0-9a-f]{12}\.json$/)) && !keep[path])
+                fs.unlink(path);
+        }
+    }
+    return true;
+}
+
 function refresh_if_due_and_reload(proxy_address) {
     let status = refresh_manifest(proxy_address, true);
     // At cold boot the generator may have used its empty local fallback before
@@ -751,9 +790,11 @@ function refresh_if_due_and_reload(proxy_address) {
 
 let mode = ARGV[0] || "";
 if (mode == "materialize-config")
-    exit(materialize_config(ARGV[1], as_string(ARGV[2]) != "cache-only") ? 0 : 1);
+    exit(materialize_config(ARGV[1], as_string(ARGV[2]) != "cache-only", as_string(ARGV[2]) == "required") ? 0 : 1);
 else if (mode == "refresh")
     exit(refresh_manifest(ARGV[1], false));
+else if (mode == "prune-applied")
+    exit(prune_applied_config() ? 0 : 1);
 else if (mode == "refresh-if-due")
     exit(refresh_manifest(ARGV[1], true));
 else if (mode == "refresh-and-reload")

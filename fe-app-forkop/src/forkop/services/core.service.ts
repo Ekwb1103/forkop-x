@@ -36,6 +36,15 @@ function componentDisplayName(component: string) {
 }
 
 function showLogNotification(notification: ForkopLogNotification) {
+  if (notification.kind === 'rule-set-unavailable') {
+    ui.addNotification(
+      _('List changes were not applied'),
+      E('div', {}, _('A required list could not be downloaded or validated. The previous working configuration is still active. Check the list source and apply the settings again.')),
+      'warning',
+      'fkp-rule-set-unavailable-notification',
+    );
+    return;
+  }
   if (notification.kind === 'discord-cloudflare-overlap') {
     ui.addNotification(
       _('Discord and Cloudflare lists overlap'),

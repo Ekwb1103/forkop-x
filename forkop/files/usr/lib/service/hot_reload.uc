@@ -29,7 +29,7 @@ function same_process(expected, actual) {
     return type(expected) == "object" && type(actual) == "object" &&
         int(expected.pid) > 0 && expected.pid == actual.pid && expected.start_ticks == actual.start_ticks;
 }
-function status(config_path) {
+function controller_request(config_path, path, method) {
     let root = read(config_path);
     let api = type(root) == "object" ? common.object_or_empty(common.object_or_empty(root.experimental).clash_api) : {};
     let address = str(api.external_controller);
@@ -44,12 +44,63 @@ function status(config_path) {
         "header = \"Authorization: Bearer " + escaped + "\"\n") == null) {
         unlink(temporary); return null;
     }
-    let result = capture([ "curl", "--noproxy", "*", "-fsS", "--max-time", "2", "--config", temporary,
-        "http://" + address + "/rust-x/applied-config" ]);
+    let result = capture([ "curl", "--noproxy", "*", "-fsS", "--max-time", method == "POST" ? "60" : "2", "--config", temporary,
+        "--request", method || "GET", "http://" + address + path ]);
     unlink(temporary);
-    let value = result.status == 0 ? parsed(result.output) : null;
+    return result.status == 0 ? (method == "DELETE" ? { ok: true } : parsed(result.output)) : null;
+}
+function status(config_path) {
+    let value = controller_request(config_path, "/rust-x/applied-config", "GET");
     return type(value) == "object" && value.schema == 1 && value.ready === true && value.hot_reload === true &&
         int(value.generation) > 0 && match(str(value.config_sha256), /^[a-f0-9]{64}$/) != null ? value : null;
+}
+function retired_tags(previous, current) {
+    let active = {};
+    for (let entry in common.array_or_empty(common.object_or_empty(current.route).rule_set))
+        active[str(entry.tag)] = true;
+    let removed = {};
+    for (let entry in common.array_or_empty(common.object_or_empty(previous.route).rule_set))
+        if (str(entry.tag) != "" && !active[str(entry.tag)]) removed[str(entry.tag)] = true;
+    return removed;
+}
+function affected_ids(connections, removed) {
+    let ids = [];
+    for (let connection in common.array_or_empty(connections)) {
+        let payload = str(connection.rulePayload);
+        // Match complete payload tokens, never substrings of another tag.
+        let tokens = split(payload, /[ \t\r\n,;]+/);
+        for (let token in tokens) {
+            let tag = substr(token, 0, 9) == "rule_set=" ? substr(token, 9) : token;
+            if (removed[tag] && match(str(connection.id), /^[A-Za-z0-9-]+$/)) {
+                push(ids, str(connection.id)); break;
+            }
+        }
+    }
+    return ids;
+}
+function close_retired(previous_path, current_path, explicit_tag) {
+    let current = read(current_path);
+    let previous = explicit_tag != "" ? {} : read(previous_path);
+    if (type(current) != "object" || type(previous) != "object") return 1;
+    let capability = explicit_tag == "" ? status(current_path) : null;
+    if (capability != null && capability.connection_revalidation === true) {
+        let checked = controller_request(current_path, "/rust-x/revalidate-connections", "POST");
+        if (type(checked) != "object" || checked.superseded === true || int(checked.skipped || 0) > 0) return 1;
+        print(int(checked.closed || 0), "\n"); return 0;
+    }
+    let removed = explicit_tag != "" ? {} : retired_tags(previous, current);
+    if (explicit_tag != "") removed[explicit_tag] = true;
+    let has_removed = false;
+    for (let tag in removed) has_removed = true;
+    if (!has_removed) { print("0\n"); return 0; }
+    let view = controller_request(current_path, "/connections", "GET");
+    if (type(view) != "object") return 1;
+    let count = 0;
+    for (let id in affected_ids(view.connections, removed)) {
+        if (controller_request(current_path, "/connections/" + id, "DELETE") == null) return 1;
+        count++;
+    }
+    print(count, "\n"); return 0;
 }
 function acknowledged(plan, current, actual, fingerprint) {
     return same_process(plan.process, actual) && type(current) == "object" &&
@@ -102,6 +153,12 @@ function apply(plan_path, restore_path) {
 }
 let mode = ARGV[0] || "";
 if (mode == "plan") exit(plan(ARGV[1] || ""));
+else if (mode == "close-retired") exit(close_retired(ARGV[1] || "", ARGV[2] || "", ""));
+else if (mode == "close-tag") exit(close_retired("", ARGV[1] || "", ARGV[2] || ""));
+else if (mode == "connections-fixture") {
+    let fixture = read(ARGV[1]);
+    print(sprintf("%J", affected_ids(fixture.connections, retired_tags(fixture.previous, fixture.current))), "\n");
+}
 else if (mode == "apply") exit(apply(ARGV[1] || "", ""));
 else if (mode == "restore") exit(apply(ARGV[1] || "", ARGV[2] || ""));
 else if (mode == "ack-fixture") {

@@ -2,6 +2,7 @@ const LOG_NOTIFICATION_STORAGE_KEY = 'forkop:shown-log-error-notifications:v1';
 const MAX_STORED_LOG_NOTIFICATIONS = 500;
 
 export type ForkopLogNotification =
+  | { kind: 'rule-set-unavailable'; line: string }
   | { kind: 'error'; line: string }
   | { kind: 'discord-cloudflare-overlap'; line: string }
   | { kind: 'start-recovery-pending'; line: string }
@@ -72,6 +73,9 @@ export function isErrorLogLine(line: string) {
 export function getForkopLogNotification(
   line: string,
 ): ForkopLogNotification | null {
+  if (line.includes('[rule-set-unavailable]')) {
+    return { kind: 'rule-set-unavailable', line };
+  }
   if (isErrorLogLine(line)) {
     return { kind: 'error', line };
   }
