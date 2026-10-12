@@ -748,6 +748,7 @@ function save_config_file(temp_file_path, config_path) {
 
 function discard_config_stage(stage_path) {
     stage_path = as_string(stage_path);
+    remove_file(stage_path + ".hot-plan");
     remove_file(stage_path);
     command_success_from_args([ "rm", "-rf", stage_path + ".section-cache" ]);
     return true;

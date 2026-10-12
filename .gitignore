@@ -134,3 +134,5 @@ ops/deployed-nginx/
 !/tests/subscription_runtime_readiness.sh
 !/tests/dns_failover_startup_grace.sh
 !/tests/service_memory.uc
+!/tests/rust_x_hot_reload.sh
+!/tests/list_cache_runtime_preservation.sh

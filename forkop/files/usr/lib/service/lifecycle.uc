@@ -16,6 +16,7 @@ function constant_value(name, fallback) {
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || constant_value("FORKOP_CONFIG_NAME", "forkop");
 const CONFIG_FILE = getenv("FORKOP_CONFIG_FILE") || "/etc/config/" + CONFIG_NAME;
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
+const HOT_RELOAD_UC = LIB_DIR + "/service/hot_reload.uc";
 const BIN_PATH = getenv("FORKOP_BIN") || constant_value("FORKOP_BIN", "/usr/bin/forkop");
 const SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || constant_value("FORKOP_SERVICE_INIT", "/etc/init.d/forkop");
 const SERVICE_NAME = getenv("FORKOP_SERVICE_NAME") || constant_value("FORKOP_SERVICE_NAME", "forkop");
@@ -1227,6 +1228,24 @@ function abort_guarded_transition(status, stage_path, backup_path, guard_active)
     return status == 0 ? 1 : status;
 }
 
+function abort_hot_transition(status, stage_path, backup_path) {
+    nft_candidate_finish(false);
+    // A queued HUP may finish late. Always request and acknowledge the old
+    // config after restoring it; a momentary old hash is not sufficient.
+    if (fs.stat(backup_path) != null && module_success(HOT_RELOAD_UC, [
+        "restore", stage_path + ".hot-plan", backup_path
+    ]) && module_success(STATE_UC, [ "single-ready-sing-box-runtime" ]) &&
+        module_success(NFT_UC, [ "remove-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ])) {
+        discard_singbox_config_stage(stage_path);
+        remove_file(backup_path);
+        module_success(PRIORITY_UC, [ "start-runtime" ]);
+        module_success(DNS_FAILOVER_UC, [ "start-runtime" ]);
+        log_message("Hot reload failed; previous core configuration and nft policy restored", "warn");
+        return abort_reload(status, false);
+    }
+    return abort_guarded_transition(status, stage_path, backup_path, true);
+}
+
 function abort_invalid_staged_config(stage_path) {
     nft_candidate_finish(false);
     discard_singbox_config_stage(stage_path);
@@ -1697,6 +1716,7 @@ function reload(reason) {
     let staged_singbox_config = "";
     let staged_singbox_backup = "";
     let transition_guard_active = false;
+    let hot_reload = false;
     let needs_singbox_transition = plan.needs_sing_box_reload == 1 &&
         !(plan.needs_list_update == 1 && plan.changed_list == 1);
     let sing_box_config_path = "";
@@ -1726,6 +1746,13 @@ function reload(reason) {
             discard_singbox_config_stage(staged_singbox_config);
             return abort_reload(status, false);
         }
+        let hot_plan = module_capture(HOT_RELOAD_UC, [ "plan", staged_singbox_config ]);
+        if (hot_plan.status != 0) {
+            discard_singbox_config_stage(staged_singbox_config);
+            log_message("Hot reload candidate rejected before changing the running core", "error");
+            return abort_reload(hot_plan.status, false);
+        }
+        hot_reload = trim(hot_plan.output) == "hot";
     }
 
     if (plan.needs_nft_rebuild == 1 && !(plan.changed_list == 1 && plan.needs_list_update == 1)) {
@@ -1789,27 +1816,38 @@ function reload(reason) {
         if (!module_success(NFT_UC, [ "install-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ]))
             return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, false);
         transition_guard_active = true;
-        if (module_status(STATE_UC, [
-            "stop-managed-sing-box-runtime",
-            as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15")
-        ]) != 0)
-            return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
-        // Do not run the eager full-config check while the old runtime is
-        // still resident. On 256 MiB routers their combined peak can trigger
-        // the OOM killer even though either process runs safely on its own.
-        if (!module_success(SINGBOX_UC, [ "validate-config-stage", staged_singbox_config ])) {
-            set_runtime_config_error("Forkop stopped: the generated sing-box configuration is invalid. Correct the settings and apply them again; see the system log for details.");
-            return abort_invalid_staged_config(staged_singbox_config);
+        if (hot_reload) {
+            log_message("Applying Rust X configuration with acknowledged hot reload", "info");
+            if (!module_success(SINGBOX_UC, [ "commit-config-stage", staged_singbox_config, staged_singbox_backup ]))
+                return abort_hot_transition(1, staged_singbox_config, staged_singbox_backup);
+            status = module_status(HOT_RELOAD_UC, [ "apply", staged_singbox_config + ".hot-plan" ]);
+            if (status != 0 || getenv("FORKOP_HOT_RELOAD_FAIL_PHASE") == "after-apply")
+                return abort_hot_transition(status || 1, staged_singbox_config, staged_singbox_backup);
+            clear_runtime_config_error();
         }
-        clear_runtime_config_error();
-        if (!module_success(SINGBOX_UC, [ "commit-config-stage", staged_singbox_config, staged_singbox_backup ]))
-            return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
-        status = module_status(STATE_UC, [
-            "start-managed-sing-box-runtime",
-            as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15")
-        ]);
-        if (status != 0)
-            return abort_guarded_transition(status, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+        else {
+            if (module_status(STATE_UC, [
+                "stop-managed-sing-box-runtime",
+                as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15")
+            ]) != 0)
+                return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+            // Do not run the eager full-config check while the old runtime is
+            // still resident. On 256 MiB routers their combined peak can trigger
+            // the OOM killer even though either process runs safely on its own.
+            if (!module_success(SINGBOX_UC, [ "validate-config-stage", staged_singbox_config ])) {
+                set_runtime_config_error("Forkop stopped: the generated sing-box configuration is invalid. Correct the settings and apply them again; see the system log for details.");
+                return abort_invalid_staged_config(staged_singbox_config);
+            }
+            clear_runtime_config_error();
+            if (!module_success(SINGBOX_UC, [ "commit-config-stage", staged_singbox_config, staged_singbox_backup ]))
+                return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+            status = module_status(STATE_UC, [
+                "start-managed-sing-box-runtime",
+                as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15")
+            ]);
+            if (status != 0)
+                return abort_guarded_transition(status, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+        }
         status = module_status(STATE_UC, [
             "wait-forkop-stable-start",
             RT_TABLE_NAME,
@@ -1820,13 +1858,14 @@ function reload(reason) {
         ]);
         if (status != 0) {
             log_message("Reload verification failed after sing-box was reloaded; restoring the previous coherent runtime", "fatal");
-            return abort_guarded_transition(status, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+            return hot_reload ? abort_hot_transition(status, staged_singbox_config, staged_singbox_backup) : abort_guarded_transition(status, staged_singbox_config, staged_singbox_backup, transition_guard_active);
         }
         if (nft_candidate_batch_file != "" && !nft_candidate_finish(true, true))
-            return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+            return hot_reload ? abort_hot_transition(1, staged_singbox_config, staged_singbox_backup) : abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
         if (nft_candidate_batch_file == "" && !module_success(NFT_UC, [ "remove-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ]))
-            return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
+            return hot_reload ? abort_hot_transition(1, staged_singbox_config, staged_singbox_backup) : abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
         transition_guard_active = false;
+        remove_file(staged_singbox_config + ".hot-plan");
         remove_file(staged_singbox_backup);
         runtime_changed = true;
         status = module_status(PRIORITY_UC, [ "start-runtime" ]);
@@ -1902,7 +1941,7 @@ function reload(reason) {
     // actually changed.
     if (plan.changed_list == 1) {
         if (plan.needs_list_update != 1) {
-            module_success(UPDATES_UC, [ "invalidate-list-cache" ]);
+            module_success(UPDATES_UC, [ "invalidate-list-cache", "preserve-runtime" ]);
             module_background(RULESET_CACHE_UC, [
                 "refresh-and-reload",
                 setting_bool("download_lists_via_proxy", false) ? SB_SERVICE_MIXED_INBOUND_ADDRESS + ":" + as_string(SB_SERVICE_MIXED_INBOUND_PORT) : ""

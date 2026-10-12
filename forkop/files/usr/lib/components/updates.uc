@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let common = require("core.common");
 let uci_core = require("core.uci");
 let connections = require("config.connections");
 let core_ip = require("core.ip");
@@ -912,8 +913,12 @@ function restore_runtime_list_generation() {
     return true;
 }
 
-function invalidate_persistent_list_cache() {
+function invalidate_persistent_list_cache(preserve_runtime) {
     command_success_from_args([ "rm", "-rf", PERSISTENT_LIST_CACHE_DIR ]);
+    // Reload has already generated and applied local lists. Invalidating a
+    // remote cache signature must not remove files referenced by that config.
+    if (preserve_runtime)
+        return true;
     for (let path in fs.glob(TMP_RULESET_FOLDER + "/*")) {
         let name = substr(path, length(TMP_RULESET_FOLDER) + 1);
         if (managed_list_ruleset_name(name))
@@ -4495,7 +4500,7 @@ else if (mode == "download-list-file")
 else if (mode == "apply-list-cache")
     exit(apply_persistent_list_cache() ? 0 : 1);
 else if (mode == "invalidate-list-cache")
-    exit(invalidate_persistent_list_cache() ? 0 : 1);
+    exit(invalidate_persistent_list_cache(ARGV[1] == "preserve-runtime") ? 0 : 1);
 else if (mode == "stop-list-update")
     stop_list_update();
 else if (mode == "list-update-due-status")
