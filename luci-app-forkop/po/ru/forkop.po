@@ -1115,6 +1115,15 @@ msgstr "Максимальное время ожидания разрешени�
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
+msgid "Core traffic; excludes traffic forwarded directly by the kernel."
+msgstr "Трафик ядра; не включает трафик, который ядро Linux перенаправляет напрямую."
+
+msgid "Core traffic since the last core restart."
+msgstr "Трафик ядра с момента последнего перезапуска ядра."
+
+msgid "Resident memory (RSS) of the core process."
+msgstr "Физическая память (RSS), занятая процессом ядра."
+
 msgid "Minimum latency difference in milliseconds that triggers switching to a faster server."
 msgstr "Минимальная разница задержки в миллисекундах, при которой произойдет переключение на более быстрый сервер."
 

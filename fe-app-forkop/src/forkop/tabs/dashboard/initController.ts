@@ -36,6 +36,10 @@ import { isActiveLuciTab } from '../../helpers/isActiveLuciTab';
 import { isTransientRpcError } from '../../helpers/isTransientRpcError';
 import { shouldShowLoadingForRestoredAction } from '../../helpers/restoredActionLoading';
 import { getServiceAvailability } from '../../helpers/serviceAvailability';
+import {
+  canUpdateDashboardLatenciesInline,
+  getDashboardLatencyClass,
+} from './latencyUpdate';
 
 const SECTIONS_REFRESH_INTERVAL_MS = 10000;
 const LATENCY_TEST_BUTTON_CLASS = 'dashboard-sections-grid-item-test-latency';
@@ -1676,6 +1680,9 @@ async function renderBandwidthWidget() {
     loading: traffic.loading,
     failed: traffic.failed,
     title: _('Traffic'),
+    description: _(
+      'Core traffic; excludes traffic forwarded directly by the kernel.',
+    ),
     items: [
       { key: _('Uplink'), value: `${prettyBytes(traffic.data.up)}/s` },
       { key: _('Downlink'), value: `${prettyBytes(traffic.data.down)}/s` },
@@ -1710,6 +1717,7 @@ async function renderTrafficTotalWidget() {
     loading: trafficTotalWidget.loading,
     failed: trafficTotalWidget.failed,
     title: _('Traffic Total'),
+    description: _('Core traffic since the last core restart.'),
     items: [
       {
         key: _('Uplink'),
@@ -1728,6 +1736,7 @@ async function renderTrafficTotalWidget() {
 async function renderSystemInfoWidget() {
   logger.debug('[DASHBOARD]', 'renderSystemInfoWidget');
   const systemInfoWidget = store.get().systemInfoWidget;
+  const rss = store.get().servicesInfoWidget.data.singboxMemoryBytes;
 
   const container = document.getElementById('dashboard-widget-system-info');
 
@@ -1749,7 +1758,7 @@ async function renderSystemInfoWidget() {
   const renderedWidget = renderWidget({
     loading: systemInfoWidget.loading,
     failed: systemInfoWidget.failed,
-    title: _('System info'),
+    title: getSingBoxName(store.get().diagnosticsSystemInfo),
     items: [
       {
         key: _('Active Connections'),
@@ -1757,7 +1766,11 @@ async function renderSystemInfoWidget() {
       },
       {
         key: _('Memory Usage'),
-        value: String(prettyBytes(systemInfoWidget.data.memory)),
+        value:
+          typeof rss === 'number' && Number.isFinite(rss) && rss > 0
+            ? prettyBytes(rss)
+            : '—',
+        attributes: { title: _('Resident memory (RSS) of the core process.') },
       },
     ],
   });
@@ -1825,6 +1838,40 @@ async function renderServicesInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 
+function updateDashboardLatenciesInline(widget: StoreType['sectionsWidget']) {
+  const container = document.getElementById('dashboard-sections-grid');
+  if (!container) return false;
+  const elements = new Map(
+    Array.from(
+      container.querySelectorAll<HTMLElement>('[data-latency-outbound]'),
+    ).map(
+      (element) =>
+        [
+          JSON.stringify([
+            element.dataset.latencySection,
+            element.dataset.latencyOutbound,
+          ]),
+          element,
+        ] as const,
+    ),
+  );
+  const updates: Array<[HTMLElement, number]> = [];
+  for (const section of widget.data) {
+    for (const outbound of section.outbounds) {
+      const element = elements.get(
+        JSON.stringify([section.sectionName, outbound.code]),
+      );
+      if (!element) return false;
+      updates.push([element, outbound.latency]);
+    }
+  }
+  for (const [element, latency] of updates) {
+    element.textContent = latency ? `${latency}ms` : 'N/A';
+    element.className = getDashboardLatencyClass(latency);
+  }
+  return true;
+}
+
 async function onStoreUpdate(
   next: StoreType,
   prev: StoreType,
@@ -1832,10 +1879,16 @@ async function onStoreUpdate(
 ) {
   if (diff.sectionsWidget) {
     const inlineUpdated =
-      canUpdateLatencyProgressInline(
+      (canUpdateLatencyProgressInline(
         prev.sectionsWidget,
         next.sectionsWidget,
-      ) && updateLatencyProgressInline(next.sectionsWidget);
+      ) &&
+        updateLatencyProgressInline(next.sectionsWidget)) ||
+      (canUpdateDashboardLatenciesInline(
+        prev.sectionsWidget,
+        next.sectionsWidget,
+      ) &&
+        updateDashboardLatenciesInline(next.sectionsWidget));
 
     if (!inlineUpdated) {
       renderSectionsWidget();
@@ -1857,6 +1910,7 @@ async function onStoreUpdate(
   if (diff.servicesInfoWidget) {
     syncDashboardServiceAvailability();
     renderServicesInfoWidget();
+    renderSystemInfoWidget();
   }
   if (diff.diagnosticsSystemInfo) void renderServicesInfoWidget();
 }

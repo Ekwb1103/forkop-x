@@ -32,10 +32,14 @@ export function renderRemoteSupport() {
   let timer: ReturnType<typeof setTimeout>;
   let connectionDialog: HTMLElement | null = null;
   const key = E('input', {
-    type: 'password',
+    type: 'text',
     placeholder: _('One-time Tailscale auth key'),
-    autocomplete: 'off',
-    style: 'width:100%;box-sizing:border-box',
+    autocomplete: 'one-time-code',
+    autocapitalize: 'off',
+    spellcheck: false,
+    'data-lpignore': 'true',
+    'data-1p-ignore': 'true',
+    style: 'width:100%;box-sizing:border-box;-webkit-text-security:disc',
   });
   const consent = E('input', { type: 'checkbox' });
   const information = E('div');

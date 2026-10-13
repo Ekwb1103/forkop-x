@@ -55,7 +55,7 @@ export class StoreService<T extends Record<string, any>> {
       return;
     }
 
-    const merged = { ...prev, ...next };
+    const merged = { ...prev, ...diff };
     this.value = merged;
     this.listeners.forEach((cb) => cb(this.value, prev, diff));
   }

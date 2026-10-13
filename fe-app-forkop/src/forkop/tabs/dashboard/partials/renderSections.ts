@@ -4,6 +4,7 @@ import { prettyBytes } from '../../../../helpers/prettyBytes';
 import { Forkop } from '../../../types';
 import { renderFlagEmojis } from './renderFlagEmojis';
 import { getOutboundFooterLabel } from './getOutboundFooterLabel';
+import { getDashboardLatencyClass } from '../latencyUpdate';
 
 interface IRenderSectionsProps {
   loading: boolean;
@@ -287,10 +288,16 @@ function renderDefaultState({
               member.selected
                 ? 'fkp_dashboard-page__priority-members__row--selected'
                 : '',
-            ].filter(Boolean).join(' '),
+            ]
+              .filter(Boolean)
+              .join(' '),
           },
           [
-            E('span', { class: 'fkp_dashboard-page__priority-members__order' }, String(index + 1)),
+            E(
+              'span',
+              { class: 'fkp_dashboard-page__priority-members__order' },
+              String(index + 1),
+            ),
             E(
               'span',
               { class: 'fkp_dashboard-page__priority-members__name' },
@@ -323,7 +330,11 @@ function renderDefaultState({
       },
       [
         E('summary', {}, `${_('Nodes')}: ${members.length}`),
-        E('div', { class: 'fkp_dashboard-page__priority-members__list' }, content),
+        E(
+          'div',
+          { class: 'fkp_dashboard-page__priority-members__list' },
+          content,
+        ),
       ],
     );
   }
@@ -343,22 +354,6 @@ function renderDefaultState({
   }
 
   function renderOutbound(outbound: Forkop.Outbound) {
-    function getLatencyClass() {
-      if (!outbound.latency) {
-        return 'fkp_dashboard-page__outbound-grid__item__latency--empty';
-      }
-
-      if (outbound.latency < 800) {
-        return 'fkp_dashboard-page__outbound-grid__item__latency--green';
-      }
-
-      if (outbound.latency < 1500) {
-        return 'fkp_dashboard-page__outbound-grid__item__latency--yellow';
-      }
-
-      return 'fkp_dashboard-page__outbound-grid__item__latency--red';
-    }
-
     const footerLabel = getOutboundFooterLabel(outbound);
     const priorityMembers = renderPriorityMembers(outbound);
     const selectorSwitching = Boolean(selectorSwitchingTag);
@@ -464,7 +459,11 @@ function renderDefaultState({
           ),
           E(
             'div',
-            { class: getLatencyClass() },
+            {
+              class: getDashboardLatencyClass(outbound.latency),
+              'data-latency-section': section.sectionName,
+              'data-latency-outbound': outbound.code,
+            },
             outbound.latency ? `${outbound.latency}ms` : 'N/A',
           ),
         ]),

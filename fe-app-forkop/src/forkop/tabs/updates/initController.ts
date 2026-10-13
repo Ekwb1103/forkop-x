@@ -496,7 +496,7 @@ async function applyCompletedComponentAction({
       showToast(result.message, 'success', 1200);
     }
 
-    if (notify) {
+    if (notify && result.changed) {
       reloadPageAfterForkopUpdate();
     }
     return;
