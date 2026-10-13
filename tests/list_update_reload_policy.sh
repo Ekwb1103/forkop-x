@@ -68,7 +68,7 @@ for local_key in '.action"' '.ports"' '.source_ip_cidr"' '.excluded_source_ip_ci
 done
 
 for source_key in community_lists remote_domain_lists remote_subnet_lists rule_set rule_set_with_subnets domain_ip_lists; do
-  grep -Fq ".$source_key" "$STATE_UC" ||
+  grep -Fq "$source_key:" "$STATE_UC" ||
     fail "list source signature does not track $source_key"
 done
 
@@ -93,14 +93,15 @@ grep -Fq 'write_file(LIST_UPDATE_RELOAD_FILE, "apply-failed\n")' "$UPDATES_UC" |
 grep -Fq 'if (!applied)' "$UPDATES_UC" &&
   grep -Fq 'write_file(LIST_UPDATE_RELOAD_FILE, "1\n")' "$UPDATES_UC" ||
   fail "failed source transactions must preserve rather than execute a deferred reload"
-grep -Fq 'plan.needs_sing_box_reload == 1 && plan.needs_list_update == 1' "$LIFECYCLE_UC" ||
-  fail "source changes must defer an intermediate sing-box reload"
+grep -Fq 'module_status_with_env(UPDATES_UC, [ "prepare-list-change" ]' "$LIFECYCLE_UC" ||
+  fail "source changes must prepare their composition in the owning reload"
 
 grep -Fq 'if (plan.changed_list == 1)' "$LIFECYCLE_UC" ||
   fail "rule-set refresh must be guarded by a changed source signature"
 
-if [ "$(grep -Fc '"refresh-and-reload"' "$LIFECYCLE_UC")" -ne 1 ]; then
-  fail "reload lifecycle must have exactly one conditional rule-set refresh"
+if grep -Fq '"refresh-and-reload"' "$LIFECYCLE_UC" ||
+   grep -Fq 'module_background(UPDATES_UC, [ "list-update" ])' "$LIFECYCLE_UC"; then
+  fail "configuration edits must not launch a second source refresh/reload"
 fi
 
 grep -Fq 'if (refresh_manifest(proxy_address, false) != 0)' "$ROOT_DIR/forkop/files/usr/lib/singbox/ruleset_cache.uc" ||
@@ -116,7 +117,7 @@ grep -Fq 'LIST_UPDATE_RUNTIME_STATE_FILE' "$UPDATES_UC" ||
   fail "a RAM-only successful update must suppress duplicate downloads during the same boot"
 grep -Fq 'runtime-list-cache-active' "$LIFECYCLE_UC" ||
   fail "service reload must preserve a newer RAM-only list generation"
-grep -Fq 'function prepare_list_downloads(sections, proxy_address)' "$UPDATES_UC" ||
+grep -Fq 'function prepare_list_downloads(sections, proxy_address, reuse_sources)' "$UPDATES_UC" ||
   fail "all remote list sources must pass preflight before active state changes"
 grep -Fq 'FORKOP_NFT_BATCH_FILE: list_nft_candidate_file' "$UPDATES_UC" ||
   fail "list preparation must write to an isolated nft candidate"

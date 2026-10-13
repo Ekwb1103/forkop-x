@@ -1573,12 +1573,17 @@ function append_list_update_signature_body(body, section) {
     // of list sources.  Local routing conditions (action, ports, interfaces,
     // source/excluded addresses and section order) are handled by the sing-box
     // and nft signatures and must not cause network list updates.
-    body = signature_add_value(body, "lists." + name + ".community_lists", connections.community_lists_value(section));
-    body = signature_add_value(body, "lists." + name + ".remote_domain_lists", option(section, "remote_domain_lists", ""));
-    body = signature_add_value(body, "lists." + name + ".remote_subnet_lists", option(section, "remote_subnet_lists", ""));
-    body = signature_add_value(body, "lists." + name + ".rule_set", connections.rule_sets_value(section));
-    body = signature_add_value(body, "lists." + name + ".rule_set_with_subnets", connections.rule_sets_with_subnets_value(section));
-    body = signature_add_value(body, "lists." + name + ".domain_ip_lists", option(section, "domain_ip_lists", ""));
+    let sources = {
+        community_lists: connections.community_lists_value(section),
+        remote_domain_lists: option(section, "remote_domain_lists", ""),
+        remote_subnet_lists: option(section, "remote_subnet_lists", ""),
+        rule_set: connections.rule_sets_value(section),
+        rule_set_with_subnets: connections.rule_sets_with_subnets_value(section),
+        domain_ip_lists: option(section, "domain_ip_lists", "")
+    };
+    for (let key in sort(keys(sources)))
+        if (sources[key] != "")
+            body = signature_add_value(body, "lists." + name + "." + key, sources[key]);
 
     return body;
 }
@@ -1601,24 +1606,46 @@ function list_update_signature_body(sections) {
     return body;
 }
 
-function cron_signature_body(settings, sections) {
-    let body = signature_add_value("", "settings.update_interval", settings_update_interval(settings));
-    body = signature_add_value(body, "settings.component_update_check_interval", settings_component_update_check_interval(settings));
-
+function has_list_update_sources_from_sections(sections) {
     for (let section in sections)
-        body = append_list_update_signature_body(body, object_or_empty(section));
+        if (rule_has_list_update_source(
+            bool_option(section, "enabled", true),
+            option(section, "action", ""),
+            connections.community_lists_value(section),
+            option(section, "remote_domain_lists", ""),
+            option(section, "remote_subnet_lists", ""),
+            connections.rule_sets_with_subnets_value(section),
+            option(section, "domain_ip_lists", "")
+        ))
+            return true;
 
+    return false;
+}
+
+function cron_signature_body(settings, sections) {
+    // Cron runs shared due-check workers. Source identities and section order
+    // do not change their schedules; only presence and intervals matter.
+    let body = signature_add_value("", "settings.update_interval",
+        has_list_update_sources_from_sections(sections) ? settings_update_interval(settings) : "");
+    body = signature_add_value(body, "settings.component_update_check_interval", settings_component_update_check_interval(settings));
+    let min_interval = 0;
+    let errors = [];
     for (let section in sections) {
         section = object_or_empty(section);
         if (!section_is_subscription_proxy(section))
             continue;
 
-        let name = section_name(section);
-        body = signature_add_value(body, "subscription." + name + ".subscription_urls", subscription_urls_signature(section));
-        body = signature_add_value(body, "subscription." + name + ".subscription_update_interval", section_subscription_update_interval(section));
+        let interval = section_subscription_update_interval(section);
+        if (interval == "")
+            continue;
+        let seconds = duration_to_seconds_value(interval);
+        if (seconds == null)
+            push(errors, section_name(section) + ":" + interval);
+        else if (min_interval == 0 || seconds < min_interval)
+            min_interval = seconds;
     }
-
-    return body;
+    body = signature_add_value(body, "subscription.interval_seconds", min_interval);
+    return signature_add_value(body, "subscription.errors", join("\n", sort(errors)));
 }
 
 function urltest_enabled_sections_value(sections) {
@@ -2018,22 +2045,6 @@ function has_remote_sing_box_ruleset_sources_from_sections(sections) {
             list_has_remote_references(connections.rule_sets_with_subnets_value(section)))
             return true;
     }
-
-    return false;
-}
-
-function has_list_update_sources_from_sections(sections) {
-    for (let section in sections)
-        if (rule_has_list_update_source(
-            bool_option(section, "enabled", true),
-            option(section, "action", ""),
-            connections.community_lists_value(section),
-            option(section, "remote_domain_lists", ""),
-            option(section, "remote_subnet_lists", ""),
-            connections.rule_sets_with_subnets_value(section),
-            option(section, "domain_ip_lists", "")
-        ))
-            return true;
 
     return false;
 }

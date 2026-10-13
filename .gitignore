@@ -20,6 +20,8 @@ ops/deployed-nginx/
 /tests/
 !/tests/
 /tests/*
+!/tests/list_change_cache.sh
+!/tests/ruleset_rollback_references.sh
 !/tests/latency_reload_serialization.sh
 !/tests/automatic_latency_pending.sh
 !/tests/worker_identity.sh

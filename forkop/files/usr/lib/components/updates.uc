@@ -533,6 +533,74 @@ function generation_identity(signature) {
     return "gen-" + as_string(stamp[0]) + "-" + as_string(stamp[1]) + "-" + owner_pid() + "-" + substr(as_string(signature), 0, 12);
 }
 
+function whitespace_items(value) {
+    let result = [];
+    if (type(value) == "array") {
+        for (let item in value) {
+            item = as_string(item);
+            if (item != "")
+                push(result, item);
+        }
+        return result;
+    }
+
+    for (let item in split(trim(as_string(value)), /[ \t\r\n]+/))
+        if (item != "")
+            push(result, item);
+    return result;
+}
+
+function list_option_values(section, key) {
+    return whitespace_items(object_or_empty(section)[key]);
+}
+
+function uci_sections(type_name) {
+    return uci_core.section_objects(CONFIG_NAME, as_string(type_name));
+}
+
+function uci_settings() {
+    return object_or_empty(uci_core.get_all(CONFIG_NAME, "settings"));
+}
+
+function list_preflight_add(entries, seen, url, format) {
+    url = as_string(url);
+    if (url == "" || seen[url])
+        return;
+    seen[url] = true;
+    push(entries, { url, format: as_string(format) });
+}
+
+function list_preflight_entries(sections) {
+    let entries = [];
+    let seen = {};
+    for (let section in sections) {
+        if (!bool_option(section, "enabled", true))
+            continue;
+        for (let service in connections.community_lists(section))
+            for (let url in array_or_empty(BUILTIN_SUBNET_URLS[as_string(service)]))
+                list_preflight_add(entries, seen, url, "plain");
+        for (let reference in list_option_values(section, "domain_ip_lists"))
+            if (match(reference, /^https?:\/\//) != null)
+                list_preflight_add(entries, seen, reference, "plain");
+        for (let url in list_option_values(section, "remote_domain_lists")) {
+            let extension = singbox_rulesets_module().file_extension(url);
+            if (extension != "json" && extension != "srs")
+                list_preflight_add(entries, seen, url, "plain");
+        }
+        for (let url in list_option_values(section, "remote_subnet_lists")) {
+            let extension = singbox_rulesets_module().file_extension(url);
+            list_preflight_add(entries, seen, url, extension == "json" || extension == "srs" ? extension : "plain");
+        }
+        for (let reference in connections.rule_sets_with_subnets(section)) {
+            if (match(reference, /^https?:\/\//) == null)
+                continue;
+            let extension = singbox_rulesets_module().file_extension(reference);
+            list_preflight_add(entries, seen, reference, extension == "json" || extension == "srs" ? extension : "srs");
+        }
+    }
+    return entries;
+}
+
 function generation_file_valid(root, entry) {
     entry = object_or_empty(entry);
     let name = as_string(entry.name);
@@ -576,8 +644,10 @@ function list_generation_validation(root, expected_signature) {
         return { valid: false, reason: "generation identity is invalid", key: "generation" };
     if (expected_signature == "" || as_string(manifest.signature) != expected_signature)
         return { valid: false, reason: "generation signature is stale for the current list configuration", key: "signature" };
-    if (type(manifest.files) != "array" || length(manifest.files) == 0)
+    if (type(manifest.files) != "array")
         return { valid: false, reason: "generation file list is invalid", key: "files" };
+    if (length(manifest.files) == 0 && length(list_preflight_entries(uci_sections("section"))) > 0)
+        return { valid: false, reason: "empty generation cannot satisfy required list sources", key: "empty-sources" };
     let names = {};
     let sources = 0;
     let rulesets = 0;
@@ -1104,35 +1174,6 @@ function remove_files(paths) {
 function runtime_pid_running(pid) {
     pid = as_string(pid);
     return match(pid, /^[0-9]+$/) != null && command_success_from_args([ "kill", "-0", pid ]);
-}
-
-function whitespace_items(value) {
-    let result = [];
-    if (type(value) == "array") {
-        for (let item in value) {
-            item = as_string(item);
-            if (item != "")
-                push(result, item);
-        }
-        return result;
-    }
-
-    for (let item in split(trim(as_string(value)), /[ \t\r\n]+/))
-        if (item != "")
-            push(result, item);
-    return result;
-}
-
-function list_option_values(section, key) {
-    return whitespace_items(object_or_empty(section)[key]);
-}
-
-function uci_sections(type_name) {
-    return uci_core.section_objects(CONFIG_NAME, as_string(type_name));
-}
-
-function uci_settings() {
-    return object_or_empty(uci_core.get_all(CONFIG_NAME, "settings"));
 }
 
 function module_command(args) {
@@ -1668,16 +1709,19 @@ function remove_cron_jobs(list_marker, subscription_marker, component_marker) {
 }
 
 function refresh_cron_from_sources(settings, sections, bin, list_marker, subscription_marker, component_marker) {
+    let existing = as_string(fs.readfile(CRONTAB_FILE) || "");
     let result = cron_refresh_apply_result(
         settings,
         sections,
-        as_string(fs.readfile(CRONTAB_FILE) || ""),
+        existing,
         bin,
         list_marker,
         subscription_marker,
         component_marker
     );
 
+    if (result.status == 0 && result.crontab == existing)
+        exit(0);
     if (!write_crontab_text(result.crontab))
         exit(1);
 
@@ -3039,46 +3083,56 @@ function download_to_file(url, filepath, proxy_address) {
     return download_to_file_network(url, filepath, proxy_address);
 }
 
-function list_preflight_add(entries, seen, url, format) {
-    url = as_string(url);
-    if (url == "" || seen[url])
-        return;
-    seen[url] = true;
-    push(entries, { url, format: as_string(format) });
-}
-
-function list_preflight_entries(sections) {
-    let entries = [];
-    let seen = {};
-    for (let section in sections) {
-        if (!bool_option(section, "enabled", true))
-            continue;
-        for (let service in connections.community_lists(section))
-            for (let url in array_or_empty(BUILTIN_SUBNET_URLS[as_string(service)]))
-                list_preflight_add(entries, seen, url, "plain");
-        for (let reference in list_option_values(section, "domain_ip_lists"))
-            if (match(reference, /^https?:\/\//) != null)
-                list_preflight_add(entries, seen, reference, "plain");
-        for (let url in list_option_values(section, "remote_domain_lists")) {
-            let extension = singbox_rulesets_module().file_extension(url);
-            if (extension != "json" && extension != "srs")
-                list_preflight_add(entries, seen, url, "plain");
-        }
-        for (let url in list_option_values(section, "remote_subnet_lists")) {
-            let extension = singbox_rulesets_module().file_extension(url);
-            list_preflight_add(entries, seen, url, extension == "json" || extension == "srs" ? extension : "plain");
-        }
-        for (let reference in connections.rule_sets_with_subnets(section)) {
-            if (match(reference, /^https?:\/\//) == null)
-                continue;
-            let extension = singbox_rulesets_module().file_extension(reference);
-            list_preflight_add(entries, seen, reference, extension == "json" || extension == "srs" ? extension : "srs");
-        }
+function dns_probe_passed(proxy_address) {
+    if (as_string(proxy_address) != "") {
+        log_message("DNS check skipped because list downloads use service proxy", "info");
+        return true;
     }
-    return entries;
+
+    let bootstrap_available = length(list_bootstrap_dns_servers()) > 0;
+    let attempt = 1;
+    while (attempt <= 10) {
+        let output = command_output_from_args([ "dig", "+short", "openwrt.org", "A", "+timeout=3", "+tries=1" ]);
+        for (let line in split(output, "\n")) {
+            if (match(as_string(line), /^[0-9]+\./) != null) {
+                log_message("DNS check passed", "info");
+                return true;
+            }
+        }
+
+        if (bootstrap_available) {
+            log_message("System DNS is unavailable; continuing list update with configured Bootstrap DNS fallback", "warn");
+            return true;
+        }
+
+        log_message("DNS is unavailable [" + attempt + "/10]", "info");
+        command_success_from_args([ "sleep", "3" ]);
+        attempt++;
+    }
+
+    log_message("DNS check failed after 10 attempts; skipping remote lists update until the next attempt", "error");
+    return false;
 }
 
-function prepare_list_downloads(sections, proxy_address) {
+function cached_list_change_sources() {
+    // Runtime data is authoritative during this boot. Never substitute older
+    // flash contents for a missing/corrupt source in a newer RAM generation.
+    let root = fs.stat(RUNTIME_LIST_GENERATION_DIR + "/manifest.json") != null
+        ? RUNTIME_LIST_GENERATION_DIR : PERSISTENT_LIST_CACHE_DIR;
+    let manifest = read_json_file(root + "/manifest.json");
+    let sources = {};
+    if (manifest == null || as_string(manifest.format) != PERSISTENT_LIST_CACHE_FORMAT ||
+        match(as_string(manifest.generation), /^gen-[A-Za-z0-9_.-]+$/) == null || type(manifest.files) != "array")
+        return sources;
+    for (let entry in manifest.files) {
+        entry = object_or_empty(entry);
+        if (as_string(entry.kind) == "source")
+            sources[as_string(entry.url)] = { root, entry };
+    }
+    return sources;
+}
+
+function prepare_list_downloads(sections, proxy_address, reuse_sources) {
     list_download_cache = {};
     list_download_metadata = [];
     list_download_sequence = 0;
@@ -3090,10 +3144,22 @@ function prepare_list_downloads(sections, proxy_address) {
         return false;
     }
 
+    let cached = reuse_sources ? cached_list_change_sources() : {};
+    let network_ready = !reuse_sources;
     for (let entry in list_preflight_entries(sections)) {
         list_download_sequence++;
         let path = list_download_staging_dir + "/source-" + as_string(list_download_sequence);
-        if (!download_to_file_network(entry.url, path, proxy_address) ||
+        let source = object_or_empty(cached[entry.url]);
+        let metadata = object_or_empty(source.entry);
+        let reused = as_string(metadata.source_format) == entry.format &&
+            generation_file_valid(as_string(source.root), metadata).valid &&
+            cache_copy_file(as_string(source.root) + "/" + as_string(metadata.name), path);
+        if (!reused && !network_ready) {
+            if (!dns_probe_passed(proxy_address))
+                return false;
+            network_ready = true;
+        }
+        if ((!reused && !download_to_file_network(entry.url, path, proxy_address)) ||
             !validate_staged_list_download(path, entry.format)) {
             log_message("Failed to preflight list source " + safe_remote_source_identity(entry.url) + "; keeping the active generation", "error");
             command_success_from_args([ "rm", "-rf", list_download_staging_dir ]);
@@ -3621,7 +3687,7 @@ function list_update_pid_end() {
 }
 
 function begin_list_ruleset_snapshot() {
-    list_ruleset_snapshot_dir = temp_path();
+    list_ruleset_snapshot_dir = as_string(getenv("FORKOP_LIST_CHANGE_ROLLBACK_DIR") || "") || temp_path();
     if (list_ruleset_snapshot_dir != "")
         remove_file(list_ruleset_snapshot_dir);
     if (list_ruleset_snapshot_dir == "" || !ensure_dir(list_ruleset_snapshot_dir)) {
@@ -3669,6 +3735,10 @@ function finish_list_ruleset_snapshot(commit) {
     }
 
     let sing_box_changed = false;
+    // A source edit is prepared inside lifecycle's transaction. Keep its
+    // existing snapshot until the core and nft policy have both committed,
+    // so a hot-reload rollback can still read the exact old list contents.
+    let retain = as_string(getenv("FORKOP_LIST_CHANGE_ROLLBACK_DIR") || "") == list_ruleset_snapshot_dir;
     let seen = {};
     for (let backup in fs.glob(list_ruleset_snapshot_dir + "/*")) {
         let name = substr(backup, length(list_ruleset_snapshot_dir) + 1);
@@ -3677,7 +3747,10 @@ function finish_list_ruleset_snapshot(commit) {
         if (file_md5(backup) != "" && file_md5(backup) == file_md5(current)) {
             // Preserve both bytes and metadata when a checked source produced
             // exactly the same materialized rule set.
-            fs.rename(backup, current);
+            if (retain)
+                cache_copy_file(backup, current);
+            else
+                fs.rename(backup, current);
         }
         else if (match(name, /-(lists|remote-domains)-ruleset\.json$/) != null)
             sing_box_changed = true;
@@ -3688,7 +3761,8 @@ function finish_list_ruleset_snapshot(commit) {
             sing_box_changed = true;
     }
 
-    command_success_from_args([ "rm", "-rf", list_ruleset_snapshot_dir ]);
+    if (!retain)
+        command_success_from_args([ "rm", "-rf", list_ruleset_snapshot_dir ]);
     list_ruleset_snapshot_dir = "";
     return sing_box_changed;
 }
@@ -3857,39 +3931,8 @@ function finish_list_update(status, applied, generation_changed) {
     exit(status == 0 ? 0 : 1);
 }
 
-function dns_probe_passed(proxy_address) {
-    if (as_string(proxy_address) != "") {
-        log_message("DNS check skipped because list downloads use service proxy", "info");
-        return true;
-    }
-
-    let bootstrap_available = length(list_bootstrap_dns_servers()) > 0;
-    let attempt = 1;
-    while (attempt <= 10) {
-        let output = command_output_from_args([ "dig", "+short", "openwrt.org", "A", "+timeout=3", "+tries=1" ]);
-        for (let line in split(output, "\n")) {
-            if (match(as_string(line), /^[0-9]+\./) != null) {
-                log_message("DNS check passed", "info");
-                return true;
-            }
-        }
-
-        if (bootstrap_available) {
-            log_message("System DNS is unavailable; continuing list update with configured Bootstrap DNS fallback", "warn");
-            return true;
-        }
-
-        log_message("DNS is unavailable [" + attempt + "/10]", "info");
-        command_success_from_args([ "sleep", "3" ]);
-        attempt++;
-    }
-
-    log_message("DNS check failed after 10 attempts; skipping remote lists update until the next attempt", "error");
-    return false;
-}
-
-function list_update() {
-    log_message("Starting lists update", "info");
+function list_update(reuse_sources) {
+    log_message(reuse_sources ? "Preparing changed list sources; reusing validated cache" : "Starting lists update", "info");
     if (!list_update_pid_begin()) {
         if (as_string(getenv("FORKOP_MANUAL_RESTART_LOCK_HELD") || "0") == "1") {
             log_message("Lists update is already running; manual restart preparation was not started", "warn");
@@ -3914,18 +3957,27 @@ function list_update() {
     if (list_update_signature_at_start == "")
         finish_list_update(1, false);
     let proxy_address = service_proxy_address(settings, "lists");
-    if (!dns_probe_passed(proxy_address)) {
+    if (!reuse_sources && !dns_probe_passed(proxy_address)) {
         finish_list_update(1, false);
     }
-    log_message("Downloading and processing lists", "info");
+    log_message(reuse_sources ? "Processing required lists; downloading only uncached sources" : "Downloading and processing lists", "info");
     let sections = uci_sections("section");
-    if (!prepare_list_downloads(sections, proxy_address))
+    if (!prepare_list_downloads(sections, proxy_address, reuse_sources))
         finish_list_update(1, false);
     begin_list_ruleset_snapshot();
+    if (list_ruleset_snapshot_dir == "")
+        finish_list_update(1, false);
     if (!begin_list_nft_candidate()) {
         log_message("Could not prepare the nftables candidate batch; aborting the list transaction", "error");
         finish_list_update(1, false);
     }
+    // Reconstruct the current composition, including removal of the last
+    // list or section. The snapshot restores the old files on preparation
+    // failure; unrelated old materializations must not enter the new manifest.
+    if (reuse_sources)
+        for (let path in fs.glob(TMP_RULESET_FOLDER + "/*"))
+            if (managed_list_ruleset_name(substr(path, length(TMP_RULESET_FOLDER) + 1)))
+                remove_file(path);
     reset_remote_plain_rulesets(sections);
     let ok = true;
 
@@ -3950,7 +4002,12 @@ function list_update() {
         ok = false;
     }
 
-    let completed_at = now_seconds();
+    // A configuration edit reuses cached bytes; it is not a periodic refresh
+    // and must not postpone the next scheduled check of those sources.
+    let completed_at = reuse_sources
+        ? int(trim(file_first_line_value(LIST_UPDATE_RUNTIME_STATE_FILE)) ||
+            trim(file_first_line_value(LIST_UPDATE_STATE_FILE)) || "0")
+        : now_seconds();
     let runtime_committed = ok && commit_runtime_list_generation(list_update_signature_at_start);
     if (!runtime_committed)
         ok = false;
@@ -4521,6 +4578,12 @@ else if (mode == "remove-cron-jobs")
     remove_cron_jobs(ARGV[1], ARGV[2], ARGV[3]);
 else if (mode == "list-update")
     list_update();
+else if (mode == "prepare-list-change")
+    list_update(true);
+else if (mode == "snapshot-list-files") {
+    begin_list_ruleset_snapshot();
+    exit(list_ruleset_snapshot_dir != "" ? 0 : 1);
+}
 else if (mode == "list-update-if-due")
     list_update_if_due();
 else if (mode == "list-update-after-start")

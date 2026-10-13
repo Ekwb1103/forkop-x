@@ -135,6 +135,7 @@ let subscription_runtime_no_refresh = getenv("FORKOP_SUBSCRIPTION_RUNTIME_NO_REF
 let subscription_deferred_sections = "";
 let nft_populate_enabled = NFT_POPULATE_ENABLED_DEFAULT;
 let nft_candidate_batch_file = "";
+let list_change_rollback_dir = "";
 let rule_condition_cache_enabled = 0;
 let startup_config_fingerprint = "";
 
@@ -1196,7 +1197,26 @@ function cleanup_failed_runtime() {
     return status;
 }
 
+function finish_list_change_files(restore) {
+    let path = list_change_rollback_dir;
+    if (path == "")
+        return true;
+    if (restore && fs.stat(path) != null) {
+        if (!command_success_from_args([ "rm", "-rf", TMP_RULESET_FOLDER ]) ||
+            !ensure_dir(TMP_RULESET_FOLDER) ||
+            !command_success_from_args([ "cp", "-R", "-p", path + "/.", TMP_RULESET_FOLDER ])) {
+            log_message("Could not restore the previous materialized lists; retaining their rollback snapshot", "error");
+            return false;
+        }
+    }
+    if (!command_success_from_args([ "rm", "-rf", path ]))
+        return false;
+    list_change_rollback_dir = "";
+    return true;
+}
+
 function abort_reload(status, runtime_changed) {
+    finish_list_change_files(true);
     status = int(status || 0);
     if (status == 0)
         status = 1;
@@ -1212,6 +1232,8 @@ function abort_reload(status, runtime_changed) {
 function abort_guarded_transition(status, stage_path, backup_path, guard_active) {
     nft_candidate_finish(false);
     discard_singbox_config_stage(stage_path);
+    if (!finish_list_change_files(true))
+        return status || 1;
 
     if (!guard_active)
         return abort_reload(status, false);
@@ -1230,6 +1252,8 @@ function abort_guarded_transition(status, stage_path, backup_path, guard_active)
 
 function abort_hot_transition(status, stage_path, backup_path) {
     nft_candidate_finish(false);
+    if (!finish_list_change_files(true))
+        return abort_guarded_transition(status, stage_path, backup_path, true);
     // A queued HUP may finish late. Always request and acknowledge the old
     // config after restoring it; a momentary old hash is not sufficient.
     if (fs.stat(backup_path) != null && module_success(HOT_RELOAD_UC, [
@@ -1249,6 +1273,7 @@ function abort_hot_transition(status, stage_path, backup_path) {
 function abort_invalid_staged_config(stage_path) {
     nft_candidate_finish(false);
     discard_singbox_config_stage(stage_path);
+    finish_list_change_files(true);
     // A configuration which sing-box itself rejects is a hard fail-closed
     // condition: do not silently retain a previous policy after the user has
     // applied new settings.
@@ -1719,6 +1744,40 @@ function reload(reason) {
     if (actions != "")
         log_message("Applying reload changes: " + actions, "info");
 
+    // Prepare the complete new composition under this reload's lock while
+    // the old runtime serves traffic. Reuse sources by URL, even across
+    // sections; fetch only missing data. The worker publishes no live nft
+    // policy and requests no second reload in prepare-only mode.
+    if (plan.changed_list == 1) {
+        list_change_rollback_dir = RELOAD_STATE_SNAPSHOT_FILE + ".lists";
+        status = module_status_with_env(UPDATES_UC, [ "prepare-list-change" ], {
+            FORKOP_LIST_UPDATE_PREPARE_ONLY: "1",
+            FORKOP_MANUAL_RESTART_LOCK_HELD: "1",
+            FORKOP_LIST_CHANGE_ROLLBACK_DIR: list_change_rollback_dir
+        });
+        if (status != 0)
+            return abort_reload(status, false);
+        if (!write_file(LIST_UPDATE_RELOAD_FILE, "apply-pending\n"))
+            return abort_reload(1, false);
+        reason = "list-content";
+        plan.changed_list = 0;
+        plan.needs_list_update = 0;
+        plan.needs_nft_rebuild = 1;
+        plan.needs_sing_box_reload = 1;
+    }
+
+    // A committed generation may be retried after an earlier apply failed.
+    // The restored live files still belong to the previous policy; preserve
+    // them again before apply-list-cache replaces them on this attempt.
+    if (reason == "list-content" && list_change_rollback_dir == "") {
+        list_change_rollback_dir = RELOAD_STATE_SNAPSHOT_FILE + ".lists";
+        status = module_status_with_env(UPDATES_UC, [ "snapshot-list-files" ], {
+            FORKOP_LIST_CHANGE_ROLLBACK_DIR: list_change_rollback_dir
+        });
+        if (status != 0)
+            return abort_reload(status, false);
+    }
+
     if (plan.needs_zapret_restart == 1)
         module_success(ZAPRET_UC, [ "stop-runtime" ]);
     if (plan.needs_zapret2_restart == 1)
@@ -1733,8 +1792,7 @@ function reload(reason) {
     let staged_singbox_backup = "";
     let transition_guard_active = false;
     let hot_reload = false;
-    let needs_singbox_transition = plan.needs_sing_box_reload == 1 &&
-        !(plan.needs_list_update == 1 && plan.changed_list == 1);
+    let needs_singbox_transition = plan.needs_sing_box_reload == 1;
     let sing_box_config_path = "";
     let sing_box_config_hash_before = "";
     let sing_box_pid_before = "";
@@ -1771,7 +1829,7 @@ function reload(reason) {
         hot_reload = trim(hot_plan.output) == "hot";
     }
 
-    if (plan.needs_nft_rebuild == 1 && !(plan.changed_list == 1 && plan.needs_list_update == 1)) {
+    if (plan.needs_nft_rebuild == 1) {
         log_message("Rebuilding nftables rules", "info");
         if (!nft_candidate_begin())
             return abort_reload(1, false);
@@ -1819,12 +1877,7 @@ function reload(reason) {
             runtime_changed = true;
     }
 
-    if (plan.needs_sing_box_reload == 1 && plan.needs_list_update == 1 && plan.changed_list == 1) {
-        // The list worker owns one final reload after every source has been
-        // processed. Avoid applying an intermediate config with stale files.
-        write_file(LIST_UPDATE_RELOAD_FILE, "1\n");
-    }
-    else if (needs_singbox_transition) {
+    if (needs_singbox_transition) {
         // The guard is installed atomically in the existing table after
         // mangle marking and before TPROXY. It is the only unavoidable
         // cross-component window: protected packets are dropped, never sent
@@ -1891,6 +1944,7 @@ function reload(reason) {
         remove_file(staged_singbox_config + ".hot-plan");
         remove_file(staged_singbox_backup);
         runtime_changed = true;
+        finish_list_change_files(false);
         status = module_status(PRIORITY_UC, [ "start-runtime" ]);
         if (status != 0) {
             log_message("Failed to start Priority runtime after sing-box reload", "fatal");
@@ -1952,29 +2006,9 @@ function reload(reason) {
     if (needs_singbox_transition)
         module_success(RULESET_CACHE_UC, [ "prune-applied" ]);
 
-    // Background workers may update UCI selector state or materialized list
-    // files immediately. Start them only after the reload snapshot and config
-    // fingerprint have been committed, otherwise Forkop mistakes its own
-    // runtime updates for a concurrent user edit and queues another reload.
-    if (plan.changed_list == 1 && plan.needs_list_update == 1)
-        write_file(RULESET_REFRESH_AFTER_LIST_FILE, "force\n");
-    if (plan.needs_list_update == 1 && plan.changed_list == 1)
-        module_background(UPDATES_UC, [ "list-update" ]);
-
-    // Refresh persistent remote rule sets only when their source signature
-    // changed. Local routing edits must stay entirely offline. The refresh
-    // worker compares content and requests one reload only when cache bytes
-    // actually changed.
-    if (plan.changed_list == 1) {
-        if (plan.needs_list_update != 1) {
-            module_success(UPDATES_UC, [ "invalidate-list-cache", "preserve-runtime" ]);
-            module_background(RULESET_CACHE_UC, [
-                "refresh-and-reload",
-                setting_bool("download_lists_via_proxy", false) ? SB_SERVICE_MIXED_INBOUND_ADDRESS + ":" + as_string(SB_SERVICE_MIXED_INBOUND_PORT) : ""
-            ]);
-        }
-    }
-
+    finish_list_change_files(false);
+    // Required remote rule sets were materialized with the staged config.
+    // Existing valid bytes stay offline; periodic workers own freshness.
     return 0;
 }
 
