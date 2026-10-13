@@ -54,6 +54,7 @@ function option(s,k,f){return s[k]||f;}
 function uci_settings(){return {config_path:"config"};}
 function current_proxy_outbounds_signature(p){return "unchanged";}
 function subscription_prepare_cache_request(a,b,c){return {ok:true,updated:1,failed:0};}
+function subscription_runtime_change_check(p){return {ok:true,changed:true};}
 function module_capture(args){return {status:0};}
 function validation_failure_message(v){return "validation failed";}
 function log_message(m,l){push(calls,"log:"+m);}

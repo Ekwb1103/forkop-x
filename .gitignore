@@ -134,6 +134,7 @@ ops/deployed-nginx/
 !/tests/tachyon_improvements.sh
 !/tests/ruleset_transport_nft.sh
 !/tests/subscription_runtime_readiness.sh
+!/tests/subscription_runtime_unchanged.sh
 !/tests/dns_failover_startup_grace.sh
 !/tests/service_memory.uc
 !/tests/rust_x_hot_reload.sh

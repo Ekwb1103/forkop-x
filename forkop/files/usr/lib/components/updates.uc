@@ -4168,6 +4168,44 @@ function subscription_restore_runtime(backup, config_path, timeout) {
     return true;
 }
 
+function subscription_config_value(value) {
+    if (type(value) == "array")
+        return map(value, item => subscription_config_value(item));
+    if (type(value) != "object")
+        return value;
+    let result = {};
+    for (let key in sort(keys(value)))
+        result[key] = subscription_config_value(value[key]);
+    return result;
+}
+
+function subscription_runtime_change_check(config_path) {
+    // Do not treat a stopped or foreign runtime as an already applied config.
+    if (!service_state_success([ "sing-box-current-owned-service-runtime" ]))
+        return { ok: true, changed: true };
+    let work = trim(command_output_from_args([ "mktemp", "-d", "/tmp/forkop-subscription-check.XXXXXX" ]));
+    if (work == "")
+        return { ok: false, changed: true };
+    if (!fs.chmod(work, 0700)) {
+        command_success_from_args([ "rm", "-rf", work ]);
+        return { ok: false, changed: true };
+    }
+    let stage = work + "/candidate.json";
+    let prepared = singbox_runtime_success([ "prepare-config-stage", "0", "1", "1", "", stage ]);
+    let current = read_json_file(config_path);
+    let candidate = prepared ? read_json_file(stage) : null;
+    let valid = type(current) == "object" && type(current.outbounds) == "array" &&
+        type(candidate) == "object" && type(candidate.outbounds) == "array";
+    // Compare the entire generated config, including selectors, urltests, DNS
+    // and routing. Equal proxy signatures alone cannot justify skipping reload.
+    let unchanged = valid && sprintf("%J", subscription_config_value(current)) ==
+        sprintf("%J", subscription_config_value(candidate));
+    let published = !unchanged || singbox_runtime_success([ "publish-section-cache", stage ]);
+    singbox_runtime_success([ "discard-config-stage", stage ]);
+    command_success_from_args([ "rm", "-rf", work ]);
+    return { ok: prepared && valid && published, changed: !unchanged };
+}
+
 function subscription_update_common_locked(force, target_section, target_source_index) {
     subscription_outbounds_changed = false;
     let sing_box_config_path = option(uci_settings(), "config_path", "");
@@ -4179,6 +4217,16 @@ function subscription_update_common_locked(force, target_section, target_source_
     let failed = prepared.failed;
     if (updated == 0)
         return true;
+
+    let change = subscription_runtime_change_check(sing_box_config_path);
+    if (!change.ok) {
+        log_message("Cannot compare the updated subscription configuration; preserving the running runtime", "error");
+        return false;
+    }
+    if (!change.changed) {
+        log_message("Subscription cache refreshed; generated runtime configuration is unchanged, reload skipped", "info");
+        return true;
+    }
 
     log_message("Reloading sing-box to apply updated subscriptions", "info");
     let validation = module_capture([ LIB_DIR + "/config/validator.uc", "validate-runtime" ]);
