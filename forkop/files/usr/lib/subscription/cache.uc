@@ -454,6 +454,12 @@ function user_agent_supported(user_agent, default_user_agent) {
     if (user_agent == default_user_agent)
         return true;
 
+    // Automatic profiles remain usable across core/package upgrades. Explicit
+    // user profiles still require an exact match in user_agent_matches_config.
+    if (match(user_agent, /^sing-box\/[A-Za-z0-9][A-Za-z0-9._+-]*$/) != null ||
+        match(user_agent, /^INCY\/[0-9][A-Za-z0-9._+-]*$/) != null)
+        return true;
+
     return auto_user_agents[user_agent] == true;
 }
 
@@ -749,33 +755,61 @@ function hwid_matches_config(configured_hwid, cached_hwid) {
     return cached_hwid == "" || cached_hwid == generate_hwid();
 }
 
+function source_cache_matches_profile(dir, source, url, user_agent, hwid, default_user_agent) {
+    return subscription_cache_is_usable(source_json_path(dir, source)) &&
+        read_text(source_url_path(dir, source)) == as_string(url) &&
+        user_agent_matches_config(user_agent, read_text(source_user_agent_path(dir, source)), default_user_agent) &&
+        hwid_matches_config(hwid, read_text(source_hwid_path(dir, source)));
+}
+
 function restore_persistent_subscription_cache(source_section, tmp_dir, persistent_dir, expected_url, expected_user_agent, expected_hwid, default_user_agent) {
     if (!cache_section_is_safe(source_section))
         return false;
 
     let runtime_json = source_json_path(tmp_dir, source_section);
-    if (subscription_cache_is_usable(runtime_json))
+    let runtime_current = source_cache_matches_profile(tmp_dir, source_section,
+        expected_url, expected_user_agent, expected_hwid, default_user_agent);
+    let runtime_metadata = tmp_dir + "/" + source_section + ".metadata.json";
+    if (runtime_current && file_nonempty(runtime_metadata))
         return subscription_parser().repair_cached_subscription_file(runtime_json);
 
-    let persistent_json = source_json_path(persistent_dir, source_section);
-    if (!subscription_cache_is_usable(persistent_json))
-        return false;
+    let candidate = "";
+    if (source_cache_matches_profile(persistent_dir, source_section,
+        expected_url, expected_user_agent, expected_hwid, default_user_agent))
+        candidate = source_section;
+    else {
+        // Index and section names are presentation, not source identity.
+        for (let path in fs.glob(persistent_dir + "/*.url") || []) {
+            let name = cache_name_from_file(path);
+            if (cache_section_is_safe(name) && source_cache_matches_profile(persistent_dir, name,
+                expected_url, expected_user_agent, expected_hwid, default_user_agent)) {
+                candidate = name;
+                break;
+            }
+        }
+    }
+    if (candidate == "")
+        return runtime_current && subscription_parser().repair_cached_subscription_file(runtime_json);
 
-    let cached_url = read_text(source_url_path(persistent_dir, source_section));
-    let cached_user_agent = read_text(source_user_agent_path(persistent_dir, source_section));
-    let cached_hwid = read_text(source_hwid_path(persistent_dir, source_section));
-    if (cached_url != as_string(expected_url))
-        return false;
-    if (!user_agent_matches_config(expected_user_agent, cached_user_agent, default_user_agent))
-        return false;
-    if (!hwid_matches_config(expected_hwid, cached_hwid))
-        return false;
+    let persistent_json = source_json_path(persistent_dir, candidate);
+    let cached_url = read_text(source_url_path(persistent_dir, candidate));
+    let cached_user_agent = read_text(source_user_agent_path(persistent_dir, candidate));
+    let cached_hwid = read_text(source_hwid_path(persistent_dir, candidate));
 
-    return subscription_parser().repair_cached_subscription_file(persistent_json) &&
+    let restored = runtime_current
+        ? subscription_parser().repair_cached_subscription_file(runtime_json)
+        : subscription_parser().repair_cached_subscription_file(persistent_json) &&
         copy_file(persistent_json, runtime_json) &&
         write_text(source_url_path(tmp_dir, source_section), cached_url) &&
         write_text(source_user_agent_path(tmp_dir, source_section), cached_user_agent) &&
         write_text(source_hwid_path(tmp_dir, source_section), cached_hwid);
+    if (!restored)
+        return false;
+    let metadata = persistent_dir + "/" + candidate + ".metadata.json";
+    if (file_nonempty(metadata))
+        return copy_file(metadata, runtime_metadata);
+    unlink_path(runtime_metadata);
+    return true;
 }
 
 function subscription_source_profile(section, entry) {
@@ -1366,6 +1400,24 @@ function persistent_metadata_path(source_section) {
     return FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR + "/" + as_string(source_section) + ".metadata.json";
 }
 
+function runtime_metadata_path(source_section) {
+    return TMP_SUBSCRIPTION_FOLDER + "/" + as_string(source_section) + ".metadata.json";
+}
+
+function cached_source_metadata_path(source_section) {
+    let runtime = runtime_metadata_path(source_section);
+    if (file_nonempty(runtime))
+        return runtime;
+    // Legacy runtime caches have no metadata sidecar. Never attach metadata
+    // from the previous occupant of a reordered source index.
+    for (let path_fn in [ source_url_path, source_user_agent_path, source_hwid_path ]) {
+        if (read_text(path_fn(TMP_SUBSCRIPTION_FOLDER, source_section)) !=
+            read_text(path_fn(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR, source_section)))
+            return "";
+    }
+    return persistent_metadata_path(source_section);
+}
+
 function remove_subscription_source_runtime_cache(source_section) {
     if (!cache_section_is_safe(source_section))
         return;
@@ -1374,6 +1426,7 @@ function remove_subscription_source_runtime_cache(source_section) {
     unlink_path(source_url_path(TMP_SUBSCRIPTION_FOLDER, source_section));
     unlink_path(source_user_agent_path(TMP_SUBSCRIPTION_FOLDER, source_section));
     unlink_path(source_hwid_path(TMP_SUBSCRIPTION_FOLDER, source_section));
+    unlink_path(runtime_metadata_path(source_section));
 }
 
 function persist_subscription_cache(source_section, subscription_json_path, subscription_url, effective_user_agent, effective_hwid, metadata_path) {
@@ -1411,11 +1464,18 @@ function persist_subscription_cache(source_section, subscription_json_path, subs
         unlink_path(persistent_metadata);
     }
 
+    if (file_nonempty(persistent_metadata)) {
+        if (!copy_file_if_changed(persistent_metadata, runtime_metadata_path(source_section)))
+            return false;
+    }
+    else
+        unlink_path(runtime_metadata_path(source_section));
+
     return true;
 }
 
 function append_persistent_source_metadata(array_path, source_index, source_section) {
-    let metadata_path = persistent_metadata_path(source_section);
+    let metadata_path = cached_source_metadata_path(source_section);
     if (!file_nonempty(metadata_path))
         return false;
 
@@ -1677,7 +1737,7 @@ function copy_persistent_metadata_output(source_section, metadata_output_path) {
     if (metadata_output_path == null || metadata_output_path == "")
         return;
 
-    let metadata_path = persistent_metadata_path(source_section);
+    let metadata_path = cached_source_metadata_path(source_section);
     if (file_nonempty(metadata_path) && object_has_extra_keys(metadata_path))
         copy_file(metadata_path, metadata_output_path) || unlink_path(metadata_output_path);
 }
@@ -2330,6 +2390,56 @@ function prepared_runtime_cache_should_skip(sections, section_cache_dir, phase, 
         !runtime_cache_missing(sections, section_cache_dir);
 }
 
+function recover_subscription_sources_for_sections(sections) {
+    // Restore every source before downloads or persistence can overwrite old
+    // indices. This also handles swaps spanning multiple sections.
+    for (let section in sections) {
+        if (!section_is_subscription_proxy(section))
+            continue;
+        let index_value = 0;
+        for (let entry in connections.subscription_urls(section)) {
+            index_value++;
+            let parsed = subscription_source_profile(section, entry);
+            if (type(parsed) == "object" && parsed.valid === true)
+                restore_persistent_subscription_cache(source_id(section_name(section), index_value),
+                    TMP_SUBSCRIPTION_FOLDER, FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR,
+                    parsed.url, parsed.user_agent, parsed.hwid, get_subscription_user_agent(""));
+        }
+    }
+}
+
+function persist_recovered_subscription_sources(sections) {
+    for (let section in sections) {
+        if (!section_is_subscription_proxy(section))
+            continue;
+        let index_value = 0;
+        for (let entry in connections.subscription_urls(section)) {
+            index_value++;
+            let source = source_id(section_name(section), index_value);
+            let parsed = subscription_source_profile(section, entry);
+            if (type(parsed) != "object" || parsed.valid !== true ||
+                !source_cache_matches_profile(TMP_SUBSCRIPTION_FOLDER, source, parsed.url,
+                    parsed.user_agent, parsed.hwid, get_subscription_user_agent("")))
+                continue;
+            let url = read_text(source_url_path(TMP_SUBSCRIPTION_FOLDER, source));
+            let ua = read_text(source_user_agent_path(TMP_SUBSCRIPTION_FOLDER, source));
+            let hwid = read_text(source_hwid_path(TMP_SUBSCRIPTION_FOLDER, source));
+            if (url == read_text(source_url_path(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR, source)) &&
+                ua == read_text(source_user_agent_path(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR, source)) &&
+                hwid == read_text(source_hwid_path(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR, source)) &&
+                files_equal(source_json_path(TMP_SUBSCRIPTION_FOLDER, source),
+                    source_json_path(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR, source)))
+                continue;
+            if (!persist_subscription_cache(source, source_json_path(TMP_SUBSCRIPTION_FOLDER, source),
+                url, ua, hwid, runtime_metadata_path(source))) {
+                log_message("Failed to persist relocated subscription cache for source '" + source + "'", "warn");
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 function prepare_subscription_caches(phase, already_prepared, no_refresh) {
     default_subscription_user_agent = null;
     phase = as_string(phase || "startup");
@@ -2351,9 +2461,12 @@ function prepare_subscription_caches(phase, already_prepared, no_refresh) {
         no_refresh: as_string(no_refresh) == "1"
     };
 
-    prune_stale_subscription_caches_for_sections(sections);
+    recover_subscription_sources_for_sections(sections);
     for (let section in sections)
         prepare_subscription_cache_section(state, section);
+    // Preserve old source names if migration failed; they remain recoverable.
+    if (persist_recovered_subscription_sources(sections))
+        prune_stale_subscription_caches_for_sections(sections);
 
     if (state.startup_blocked)
         return 1;
