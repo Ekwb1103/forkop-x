@@ -650,6 +650,20 @@ function start_service(reason, owner_pid) {
     return status;
 }
 
+function restart_service(owner_pid) {
+    if (!acquire_runtime_dir_lock_wait(RELOAD_LOCK_DIR, owner_pid_value(), START_RUNTIME_LOCK_WAIT_SECONDS))
+        return 1;
+    clear_start_retry(START_RETRY_FILE);
+    cancel_scheduled_start_retry(START_RETRY_PID_FILE);
+    let job_id = begin_external_service_action("restart", "initd", owner_pid);
+    let status = command_status_from_args([ BIN_PATH, "restart" ]);
+    release_runtime_dir_lock(RELOAD_LOCK_DIR);
+    finish_external_service_action("restart", job_id, status);
+    if (status == 0 && active_service_action_value() == "")
+        run_pending_reload_if_requested(PENDING_RELOAD_FILE, SERVICE_INIT);
+    return status;
+}
+
 function stop_plan(owner_pid, bin_ok) {
     let job_id = begin_external_service_action("stop", "initd", owner_pid);
     bin_ok = bin_ok == null ? file_executable(BIN_PATH) : bool_text(bin_ok);
@@ -878,6 +892,8 @@ else if (mode == "stop-finish")
     exit(stop_finish(ARGV[1], ARGV[2]));
 else if (mode == "stop-service")
     exit(stop_service(ARGV[1]));
+else if (mode == "restart-service")
+    exit(restart_service(ARGV[1]));
 else if (mode == "reload-begin")
     exit(reload_begin(ARGV[1], ARGV[2], null, null));
 else if (mode == "reload-begin-fixture") {

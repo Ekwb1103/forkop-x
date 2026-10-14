@@ -123,6 +123,7 @@ ops/deployed-nginx/
 !/tests/subscription_version_snapshot.sh
 !/tests/dns_reload_config.sh
 !/tests/dns_reload_vm.sh
+!/tests/dns_restart_vm.sh
 !/tests/installer_dhcp_detection.sh
 !/tests/xhttp_capabilities.sh
 !/tests/support_operator_migration.sh

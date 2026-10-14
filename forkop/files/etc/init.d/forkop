@@ -75,6 +75,16 @@ disable() {
     rm -f "$IPKG_INSTROOT"/etc/rc.d/K??"$name"
 }
 
+restart() {
+    # rc.common's default stop/start restores upstream DNS between phases.
+    # Retain the registered watchdog and use the single runtime transition.
+    if initd_ucode status-service >/dev/null 2>&1; then
+        initd_ucode restart-service "$$"
+    else
+        start
+    fi
+}
+
 stop_service() {
     initd_ucode stop-service "$$"
     local status="$?"

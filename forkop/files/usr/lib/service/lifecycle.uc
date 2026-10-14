@@ -2050,9 +2050,17 @@ function restart() {
     }
 
     let selector_state = capture_selector_state();
-    let status = stop_impl(false);
-    if (status != 0)
+    // Restart is one runtime transition, not an explicit DNS shutdown. Keep
+    // the existing dnsmasq transaction and local forwarding while the core
+    // is unavailable: a retry is preferable to caching real addresses that
+    // bypass FakeIP interception after startup. Failed transitions still
+    // restore the original resolver through cleanup_failed_runtime().
+    let status = stop_main(false);
+    if (status != 0) {
+        if (status != 2)
+            cleanup_failed_runtime();
         return status;
+    }
 
     status = start_impl();
     if (status != 0) {
