@@ -145,3 +145,4 @@ ops/deployed-nginx/
 !/tests/list_cache_runtime_preservation.sh
 !/tests/ruleset_required_reload.sh
 !/tests/retired_rule_connections.sh
+!/tests/luci_apply_holdoff.cjs

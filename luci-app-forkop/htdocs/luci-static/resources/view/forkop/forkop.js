@@ -24,6 +24,50 @@
 // Updates
 "require view.forkop.updates as updates";
 
+// Keep LuCI's apply/confirm/rollback protocol, but skip its network settling
+// delay when the complete set of staged changes belongs to Forkop alone.
+function configureForkopApplyHoldoff() {
+  const changes = ui.changes;
+  if (changes.forkopHoldoffConfigured) return;
+  changes.forkopHoldoffConfigured = true;
+
+  const originalApply = changes.apply;
+  const originalConfirm = changes.confirm;
+  let forkopOnly = false;
+
+  changes.apply = function () {
+    const context = this;
+    const args = arguments;
+    forkopOnly = false;
+    return uci
+      .changes()
+      .catch(() => null)
+      .then((pending) => {
+        const packages = Object.keys(pending || {});
+        forkopOnly =
+          packages.every((name) => Array.isArray(pending[name])) &&
+          packages.filter((name) => pending[name].length > 0).length === 1 &&
+          Array.isArray(pending?.[main.FORKOP_UCI_PACKAGE]) &&
+          pending[main.FORKOP_UCI_PACKAGE].length > 0;
+        return originalApply.apply(context, args);
+      });
+  };
+
+  changes.confirm = function () {
+    const skipHoldoff = forkopOnly;
+    forkopOnly = false;
+    const holdoff = L.env.apply_holdoff;
+    try {
+      // Native confirm schedules its first request synchronously. Restore the
+      // shared setting immediately, including when native confirm throws.
+      if (skipHoldoff) L.env.apply_holdoff = 0;
+      return originalConfirm.apply(this, arguments);
+    } finally {
+      L.env.apply_holdoff = holdoff;
+    }
+  };
+}
+
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
 
 function renderSectionAdd(sectionRef, extra_class) {
@@ -96,6 +140,7 @@ function configureGridSection(sectionRef, type, title, addTitle) {
 
 const EntryPoint = {
   async render() {
+    configureForkopApplyHoldoff();
     main.injectGlobalStyles();
     const uiCapabilities = {
       loaded: false,
@@ -204,11 +249,7 @@ const EntryPoint = {
         main.ForkopShellMethods.checkZapret2Runtime(),
         main.ForkopShellMethods.checkByedpiRuntime(),
       ]).then(
-        ([
-          zapretRuntimeResult,
-          zapret2RuntimeResult,
-          byedpiRuntimeResult,
-        ]) => {
+        ([zapretRuntimeResult, zapret2RuntimeResult, byedpiRuntimeResult]) => {
           const zapretRuntime =
             zapretRuntimeResult.status === "fulfilled"
               ? zapretRuntimeResult.value
@@ -280,11 +321,7 @@ const EntryPoint = {
 
       return uiCapabilitiesPromise;
     };
-    const forkopMap = new form.Map(
-      UCI_PACKAGE,
-      _("Forkop X Settings"),
-      null,
-    );
+    const forkopMap = new form.Map(UCI_PACKAGE, _("Forkop X Settings"), null);
     forkopMap.tabbed = true;
     const originalHandleSaveApply = forkopMap.handleSaveApply;
     forkopMap.handleSaveApply = function (ev, mode) {
