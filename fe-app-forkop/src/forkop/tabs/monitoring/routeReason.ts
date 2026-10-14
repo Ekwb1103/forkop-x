@@ -1,5 +1,26 @@
 import { matchedConditions, type MatchMetadata } from './matchedConditions';
 
+function deviceRouteReason(rule: string): string | undefined {
+  const conditions = rule.replace(/\s*=>\s*.*$/, '').trim();
+  // Only the generated unconditional source rule, optionally wrapped with
+  // device exclusions. Other logical/device filters must retain their meaning.
+  const atom =
+    'inbound=(?:\\[tproxy-in tproxy6-in\\]|tproxy-in|tproxy6-in) source_ip_cidr=(\\[[^\\]]+\\]|[\\da-fA-F:./]+)';
+  const plain = conditions.match(new RegExp(`^${atom}$`));
+  const logical = conditions.match(
+    new RegExp(
+      `^and\\(${atom} !\\(source_ip_cidr=(?:\\[[^\\]]+\\]|[\\da-fA-F:./]+)\\)\\)$`,
+    ),
+  );
+  const source = (plain || logical)?.[1];
+  if (!source || /\.\.\.|…/.test(source)) return;
+  return source
+    .replace(/^\[|\]$/g, '')
+    .split(/\s+/)
+    .map((value) => value.replace(value.includes(':') ? /\/128$/ : /\/32$/, ''))
+    .join(', ');
+}
+
 export function formatRouteReason(
   rule = '',
   payload = '',
@@ -21,6 +42,9 @@ export function formatRouteReason(
     )
   )
     return evidence;
+
+  const devices = deviceRouteReason(text);
+  if (devices) return `${translate('All traffic from device')} · ${devices}`;
 
   const tags = [...text.matchAll(/rule_set=(?:\[([^\]]*)\]|([^\s)]+))/g)]
     .flatMap((match) => (match[1] || match[2]).split(/[\s,]+/))
