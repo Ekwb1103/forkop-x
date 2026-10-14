@@ -1,0 +1,25 @@
+#!/bin/sh /etc/rc.common
+START=96
+USE_PROCD=1
+
+start_service() {
+    [ -f /etc/forkop-tailscale/enabled ] || return 0
+    ucode /usr/lib/forkop/tailscale/compat.uc check >/dev/null 2>&1 || return 1
+    [ "$(cat /etc/forkop/sing-box-variant 2>/dev/null)" = rust-x ] || return 1
+    native=/usr/lib/rust-x/sing-box
+    "$native" tailscale-native-capability >/dev/null 2>&1 || return 1
+    mkdir -p /var/run/forkop/ui-state
+    /usr/lib/forkop/tailscale/lan.sh cleanup
+    procd_open_instance
+    procd_set_param command "$native" tailscale-luci
+    procd_set_param stdout 0
+    procd_set_param stderr 0
+    procd_set_param respawn 3600 10 3
+    procd_close_instance
+}
+
+stop_service() {
+    /usr/lib/forkop/tailscale/lan.sh cleanup
+    rm -f /var/run/forkop/ui-state/tailscale-auth
+    printf '{"state":"disconnected"}\n' > /var/run/forkop/ui-state/tailscale-status.json
+}

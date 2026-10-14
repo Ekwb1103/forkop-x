@@ -500,6 +500,9 @@ function pid_is_sing_box(pid) {
     pid = as_string(pid);
     if (match(pid, /^[0-9]+$/) == null)
         return false;
+    let args = split(fs.readfile("/proc/" + pid + "/cmdline") || "", chr(0));
+    if (args[1] == "tailscale-luci")
+        return false;
 
     return sing_box_exe_path(as_string(fs.readlink("/proc/" + pid + "/exe")));
 }

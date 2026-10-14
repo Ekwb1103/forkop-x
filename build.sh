@@ -199,6 +199,7 @@ build_backend_root() {
 
   install -m 0755 "$ROOT_DIR/forkop/files/etc/init.d/forkop" "$output_root/etc/init.d/forkop"
   install -m 0755 "$ROOT_DIR/forkop/files/etc/init.d/forkop-support" "$output_root/etc/init.d/forkop-support"
+  install -m 0755 "$ROOT_DIR/forkop/files/etc/init.d/forkop-tailscale" "$output_root/etc/init.d/forkop-tailscale"
   install -m 0755 "$ROOT_DIR/forkop/files/etc/init.d/forkop-torrserver-direct" "$output_root/etc/init.d/forkop-torrserver-direct"
   install -m 0644 "$ROOT_DIR/forkop/files/etc/config/forkop" "$output_root/etc/config/forkop"
   install -m 0644 "$ROOT_DIR/forkop/files/etc/config/forkop" "$output_root/usr/share/forkop/defaults/forkop"
@@ -214,6 +215,8 @@ build_backend_root() {
   chmod 0755 \
     "$output_root/etc/init.d/forkop" \
     "$output_root/etc/init.d/forkop-support" \
+    "$output_root/etc/init.d/forkop-tailscale" \
+    "$output_root/usr/lib/forkop/tailscale/lan.sh" \
     "$output_root/usr/lib/forkop/support/ssh-gate.sh" \
     "$output_root/etc/init.d/forkop-torrserver-direct" \
     "$output_root/usr/bin/forkop" \

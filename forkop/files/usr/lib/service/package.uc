@@ -82,6 +82,8 @@ function sing_box_process_count() {
     let count = 0;
     for (let exe_path in fs.glob("/proc/[0-9]*/exe")) {
         let parts = split(as_string(exe_path), "/");
+        let args = split(fs.readfile("/proc/" + parts[2] + "/cmdline") || "", chr(0));
+        if (args[1] == "tailscale-luci") continue;
         if (length(parts) >= 4 &&
             sing_box_exe_path(fs.readlink(exe_path)))
             count++;
@@ -317,6 +319,8 @@ function prerm_cleanup(action) {
     }
     remember_upgrade_state(action);
     if (!PACKAGE_TEST_MODE) {
+        if (path_exists('/etc/init.d/forkop-tailscale'))
+            command_success_from_args([ '/etc/init.d/forkop-tailscale', 'stop' ]);
         if (path_exists('/etc/init.d/forkop-support'))
             command_success_from_args([ '/etc/init.d/forkop-support', 'stop' ]);
         if (!command_success_from_args([ INIT_PATH, "stop" ])) {
@@ -342,6 +346,8 @@ function postinst_restore() {
         return true;
 
     clear_component_update_check_cache();
+    if (!PACKAGE_TEST_MODE && path_exists('/etc/forkop-tailscale/enabled') && path_exists('/etc/init.d/forkop-tailscale'))
+        command_success_from_args([ '/etc/init.d/forkop-tailscale', 'start' ]);
     if (!restore_compressed_upgrade_backup()) {
         warn("Unable to restore compressed sing-box after package upgrade.\n");
         return false;

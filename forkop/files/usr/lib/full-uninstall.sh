@@ -89,6 +89,10 @@ run() {
 
     PHASE=stop
     state running
+    if [ -x "$ROOT/etc/init.d/forkop-tailscale" ]; then
+        "$ROOT/etc/init.d/forkop-tailscale" stop || true
+        "$ROOT/etc/init.d/forkop-tailscale" disable || true
+    fi
     if [ -x "$ROOT/etc/init.d/forkop-support" ]; then
         "$ROOT/etc/init.d/forkop-support" stop || true
         "$ROOT/etc/init.d/forkop-support" disable || true
@@ -150,7 +154,7 @@ run() {
     fi
     # Only known product paths are removed. Never recursively delete a path
     # supplied by a UCI option (it might point at /etc or other system data).
-    for directory in /etc/forkop /etc/sing-box /tmp/sing-box /usr/lib/forkop \
+    for directory in /etc/forkop /etc/forkop-tailscale /etc/sing-box /tmp/sing-box /usr/lib/forkop \
         /usr/share/forkop /www/luci-static/resources/view/forkop; do
         rm -rf "$ROOT$directory"
     done
@@ -160,7 +164,7 @@ run() {
         /etc/config/sing-box.apk-old /etc/config/sing-box-opkg /etc/config/sing-box.opkg-new \
         /etc/config/sing-box.opkg-old /etc/config/sing-box.opkg-dist \
         /usr/bin/forkop /usr/bin/sing-box /usr/lib/libcronet.so \
-        /etc/init.d/forkop /etc/init.d/sing-box /etc/init.d/forkop-torrserver-direct /etc/init.d/forkop-support \
+        /etc/init.d/forkop /etc/init.d/sing-box /etc/init.d/forkop-torrserver-direct /etc/init.d/forkop-support /etc/init.d/forkop-tailscale \
         /etc/uci-defaults/50_luci-forkop \
         /usr/share/luci/menu.d/luci-app-forkop.json /usr/share/rpcd/acl.d/luci-app-forkop.json; do
         rm -f "$ROOT$file"

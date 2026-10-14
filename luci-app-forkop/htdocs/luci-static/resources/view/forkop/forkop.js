@@ -5,6 +5,7 @@
 "require uci";
 "require ui";
 "require view.forkop.main as main";
+"require view.forkop.tailscale as tailscale";
 
 // Global settings
 "require view.forkop.settings as settings";
@@ -440,6 +441,12 @@ const EntryPoint = {
       return ["updates"];
     };
     updates.createUpdatesContent(updatesSection);
+
+    const tailscaleSection = forkopMap.section(form.TypedSection, "tailscale_native", "Tailscale");
+    tailscaleSection.anonymous = true;
+    tailscaleSection.addremove = false;
+    tailscaleSection.cfgsections = () => ["tailscale_native"];
+    tailscale.createTailscaleContent(tailscaleSection);
 
     await loadUiCapabilities().catch(() => null);
 

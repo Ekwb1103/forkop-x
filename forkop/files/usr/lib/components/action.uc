@@ -1481,6 +1481,8 @@ function stop_forkop_before_sing_box_change() {
     previous_sing_box_cache = configured_runtime_cache();
     sing_box_change_ready = false;
     forkop_stopped_for_sing_box_change = true;
+    if (file_exists('/etc/init.d/forkop-tailscale'))
+        command_success_from_args([ '/etc/init.d/forkop-tailscale', 'stop' ]);
 
     if (forkop_was_running && file_exists(SERVICE_INIT))
         run_logged("Stopping Forkop before sing-box package change", command_from_args([ "env", "FORKOP_INTERNAL_SERVICE_STOP=1", SERVICE_INIT, "stop" ]));
@@ -2100,11 +2102,15 @@ function write_sing_box_variant_state(marker, version) {
         updates_log("Failed to write sing-box variant marker", "warn");
     if (!sing_box_runtime_success("write-version-state", [ version ]))
         updates_log("Failed to write sing-box version state", "warn");
+    if (marker == 'rust-x' && file_exists('/etc/forkop-tailscale/enabled') && file_exists('/etc/init.d/forkop-tailscale'))
+        command_success_from_args([ '/etc/init.d/forkop-tailscale', 'start' ]);
 }
 
 function restore_sing_box_variant_state(previous_marker, previous_version_state) {
     sing_box_runtime_success("restore-variant-marker", [ previous_marker ]);
     sing_box_runtime_success("restore-version-state", [ previous_version_state ]);
+    if (previous_marker == 'rust-x' && file_exists('/etc/forkop-tailscale/enabled') && file_exists('/etc/init.d/forkop-tailscale'))
+        command_success_from_args([ '/etc/init.d/forkop-tailscale', 'start' ]);
 }
 
 function restore_sing_box_extended_package_variant() {
@@ -2961,6 +2967,8 @@ function upgrade_sing_box_processes() {
         if (name != "sing-box" && name != "sing-box (deleted)")
             continue;
         let pid = split(exe, "/")[2];
+        let args = split(fs.readfile("/proc/" + pid + "/cmdline") || "", chr(0));
+        if (args[1] == "tailscale-luci") continue;
         let ticks = upgrade_sing_box_ticks(pid);
         if (ticks == null)
             return null;
