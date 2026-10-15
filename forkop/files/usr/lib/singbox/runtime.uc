@@ -493,11 +493,45 @@ function prepare_service_disabled() {
     }
 }
 
+function ensure_service_nofile_limit() {
+    let path = "/etc/init.d/sing-box";
+    let data = fs.readfile(path);
+    if (data == null)
+        return false;
+
+    // Keep the package's service implementation (user, triggers and arguments).
+    // Apply the limit last, including when the package already sets a lower one.
+    let limit = "    procd_set_param limits nofile=\"1000000 1000000\"\n";
+    let close = /(^|\n)[ \t]*procd_close_instance[ \t]*(\n|$)/g;
+    let updated = replace(data, close, "\n" + limit + "    procd_close_instance\n");
+    if (updated == data)
+        return index(data, limit + "    procd_close_instance") >= 0;
+
+    // Avoid accumulating the same override on subsequent starts.
+    updated = replace(updated, limit + limit, limit);
+    if (updated == data)
+        return true;
+    let tmp = path + ".forkop." + owner_pid();
+    if (!write_file(tmp, updated) ||
+        !command_success_from_args([ "sh", "-n", tmp ]) ||
+        !command_success_from_args([ "chmod", "0755", tmp ]) ||
+        !fs.rename(tmp, path)) {
+        remove_file(tmp);
+        return false;
+    }
+    return true;
+}
+
 function configure_service() {
     let settings = uci_settings();
 
     if (sing_box_compressed_marker_set() && !install_managed_service_script()) {
         log_message("Failed to install managed sing-box service for compressed binary. Aborted.", "fatal");
+        exit(1);
+    }
+
+    if (!ensure_service_nofile_limit()) {
+        log_message("Failed to configure sing-box service file descriptor limit. Aborted.", "fatal");
         exit(1);
     }
 
