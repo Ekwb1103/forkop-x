@@ -12,6 +12,14 @@ function createTailscaleContent(section) {
     let busy = false, latest = {}, mounted = false;
     const key = E("input", { type: "text", autocomplete: "off", style: "width:100%;max-width:480px" });
     const state = E("strong", {}, "Проверка состояния…");
+    const indicator = E("span", { "aria-hidden": "true", style: "width:10px;height:10px;border-radius:50%;background:#94a3b8;flex:none" });
+    const status = E("span", { role: "status", "aria-live": "polite", style: "display:inline-flex;align-items:center;gap:9px;padding:6px 12px;border:1px solid currentColor;border-radius:999px;color:#94a3b8" }, [indicator, state]);
+    function setStatus(text, kind) {
+      const color = ({ connected: "#22c55e", disconnected: "#94a3b8", connecting: "#f59e0b", reconnecting: "#f59e0b", error: "#ef4444" })[kind] || "#94a3b8";
+      state.textContent = text;
+      status.style.color = color;
+      indicator.style.backgroundColor = color;
+    }
     const details = E("p");
     const logs = E("pre", { style: "max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px", "aria-live":"polite" }, "Событий пока нет.");
     const logPanel = E("details", { style:"margin-top:20px" }, [E("summary", { style:"cursor:pointer" }, "Логи соединения"), logs]);
@@ -27,7 +35,7 @@ function createTailscaleContent(section) {
       const entries = Array.isArray(data.events) ? data.events : [];
       const text = entries.length ? entries.map(entry => "[" + new Date(entry.time * 1000).toLocaleString("ru-RU") + "] " + entry.message).join("\n") : "Событий пока нет.";
       if (logs.textContent !== text) { logs.textContent = text; logs.scrollTop = logs.scrollHeight; }
-      state.textContent = data.available ? (labels[data.state] || "Состояние неизвестно") : data.version_supported === false ? "Требуется Forkop 2.3.4 или новее" : data.rust_selected === false ? "Доступно только при выбранном Rust X" : labels.unavailable;
+      setStatus(data.available ? (labels[data.state] || "Состояние неизвестно") : data.version_supported === false ? "Требуется Forkop 2.3.4 или новее" : data.rust_selected === false ? "Доступно только при выбранном Rust X" : labels.unavailable, data.available ? data.state : "unavailable");
       details.textContent = data.message || (data.ip ? "Tailscale IP: " + data.ip : "");
       connect.disabled = busy || !data.available || data.state === "connected" || data.state === "connecting";
       disconnect.disabled = busy || !data.available || data.state === "disconnected";
@@ -51,7 +59,7 @@ function createTailscaleContent(section) {
       else if (mounted) { poll.remove(refresh); return; }
       if (busy) return;
       try { render(await request("status")); }
-      catch (error) { state.textContent = "Не удалось получить состояние"; }
+      catch (error) { setStatus("Не удалось получить состояние", "error"); }
     }
     async function act(action, args = []) {
       if (busy) return;
@@ -80,7 +88,7 @@ function createTailscaleContent(section) {
       E("style", {}, "#cbi-forkop-tailscale_native > h3 { display: none; }"),
       E("h3", {}, "Удалённый доступ"),
       E("p", {}, "Введите ключ своей сети Tailscale."),
-      E("p", {}, [state]), details,
+      E("p", {}, [status]), details,
       E("label", {}, ["Ключ подключения", E("br"), key]),
       E("p", { style: "display:flex;gap:12px;flex-wrap:wrap;margin-top:16px" }, [connect, disconnect]),
       E("hr"), E("p", {}, [E("label", { title: "Разрешает подключаться к SSH роутера через Tailscale по порту 22." }, [ssh, " Разрешить SSH"])]), E("label", {}, [lan, " Разрешить доступ к локальной сети"]), lanStatus, admin,

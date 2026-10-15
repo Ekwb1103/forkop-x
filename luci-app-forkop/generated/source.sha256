@@ -5,5 +5,5 @@ a77950c97951bb2d2e7da880c1bd300bfdab0e48056da11a214006d5226c3b21  htdocs/luci-st
 715d6f41fd9cc4603f4a676dd3c46166e60b33e87b1514acaccc220df855fcd1  htdocs/luci-static/resources/view/forkop/monitoring.js
 8e1e249073d9dcac866daa44e1ffb02d84da23e4d5c52ecf0942a95bcab58834  htdocs/luci-static/resources/view/forkop/section.js
 533fa221741868a5359c0119194ff6ff181f254bb91e6650d802aea9bd0e4a26  htdocs/luci-static/resources/view/forkop/settings.js
-00683f66d326170eead0a91c10ef49f8df3a00dfeec98c955ff7b79b7cab79f3  htdocs/luci-static/resources/view/forkop/tailscale.js
+6118a7df40f70de4ecc5d72413e7b4df11d94e7844205efb12742a16145fd834  htdocs/luci-static/resources/view/forkop/tailscale.js
 8ae43432f6ca9113ae27e456e7e7d54f35fd9f1b823d9e2b39b0e0d809dc9507  htdocs/luci-static/resources/view/forkop/updates.js
