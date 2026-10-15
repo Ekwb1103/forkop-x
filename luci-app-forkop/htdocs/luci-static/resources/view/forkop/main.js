@@ -121,6 +121,7 @@
 
 .fkp_dashboard-page__outbound-section__title-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 8px 10px;
@@ -128,6 +129,7 @@
 }
 
 .fkp_dashboard-page__outbound-section__title-section__title {
+    flex: 1 1 12ch;
     color: var(--text-color-high);
     font-weight: 700;
     min-width: 0;
@@ -136,10 +138,13 @@
 
 .fkp_dashboard-page__outbound-section__title-section__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: 6px;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .fkp_dashboard-page .btn.fkp_dashboard-page__outbound-section__subscription-update {
@@ -290,6 +295,33 @@
 }
 
 @media (max-width: 700px) {
+    .fkp_dashboard-page__outbound-section__title-section {
+        align-items: stretch;
+    }
+
+    .fkp_dashboard-page__outbound-section__title-section__title {
+        flex-basis: 100%;
+    }
+
+    .fkp_dashboard-page__outbound-section__title-section__actions {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+
+    .fkp_dashboard-page__outbound-section__title-section__actions .btn {
+        flex: 1 1 160px;
+        min-width: 0;
+        max-width: 100%;
+        height: auto;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        box-sizing: border-box;
+    }
+
+    .fkp_dashboard-page__subscription-meta {
+        min-width: 0;
+    }
+
     .fkp_dashboard-page__subscription-meta__main {
         align-items: flex-start;
         flex-wrap: wrap;
@@ -298,10 +330,16 @@
     .fkp_dashboard-page__subscription-meta__heading,
     .fkp_dashboard-page__subscription-meta__title {
         order: 1;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     .fkp_dashboard-page__subscription-meta__actions {
         order: 2;
+        flex-wrap: wrap;
+        max-width: 100%;
     }
 
     .fkp_dashboard-page__subscription-meta__facts {
@@ -310,7 +348,7 @@
     }
 
     .fkp_dashboard-page__subscription-meta__title {
-        max-width: calc(100% - 92px);
+        max-width: 100%;
     }
 }
 
@@ -818,18 +856,19 @@ ${styles3}
 
 .fkp_diagnostic-page {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     grid-column-gap: 10px;
     align-items: start;
 }
 
 @media (max-width: 800px) {
     .fkp_diagnostic-page {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
 .fkp_diagnostic-page__right-bar {
+    min-width: 0;
     display: grid;
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
@@ -858,7 +897,10 @@ ${styles3}
     grid-column-gap: 10px;
 }
 
-.fkp_diagnostic-page__right-bar__wiki__texts {}
+.fkp_diagnostic-page__right-bar__wiki__texts {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 .fkp_diagnostic-page__right-bar__actions {
     border: 2px var(--background-color-low, lightgray) solid;
@@ -893,8 +935,9 @@ ${styles3}
 
 .fkp_diagnostic-page__right-bar__system-info__row {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     grid-column-gap: 5px;
+    overflow-wrap: anywhere;
 }
 
 .fkp_diagnostic-page__right-bar__system-info__row__tag {
@@ -920,6 +963,7 @@ ${styles3}
 }
 
 .fkp_diagnostic-page__left-bar {
+    min-width: 0;
     display: grid;
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
@@ -942,7 +986,7 @@ ${styles3}
     border-radius: 4px;
 
     display: grid;
-    grid-template-columns: 24px 1fr;
+    grid-template-columns: 24px minmax(0, 1fr);
     grid-column-gap: 10px;
     align-items: center;
     padding: 10px;
@@ -971,7 +1015,10 @@ ${styles3}
 
 .fkp_diagnostic_alert__icon {}
 
-.fkp_diagnostic_alert__content {}
+.fkp_diagnostic_alert__content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 .fkp_diagnostic_alert__title {
     display: block;
@@ -985,8 +1032,9 @@ ${styles3}
 
 .fkp_diagnostic_alert__summary__item {
     display: grid;
-    grid-template-columns: 16px auto 1fr;
+    grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr);
     grid-column-gap: 10px;
+    overflow-wrap: anywhere;
 }
 
 .fkp_diagnostic_alert__summary__item--error {

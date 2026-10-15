@@ -122,6 +122,7 @@ export const styles = `
 
 .fkp_dashboard-page__outbound-section__title-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 8px 10px;
@@ -129,6 +130,7 @@ export const styles = `
 }
 
 .fkp_dashboard-page__outbound-section__title-section__title {
+    flex: 1 1 12ch;
     color: var(--text-color-high);
     font-weight: 700;
     min-width: 0;
@@ -137,10 +139,13 @@ export const styles = `
 
 .fkp_dashboard-page__outbound-section__title-section__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: 6px;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .fkp_dashboard-page .btn.fkp_dashboard-page__outbound-section__subscription-update {
@@ -291,6 +296,33 @@ export const styles = `
 }
 
 @media (max-width: 700px) {
+    .fkp_dashboard-page__outbound-section__title-section {
+        align-items: stretch;
+    }
+
+    .fkp_dashboard-page__outbound-section__title-section__title {
+        flex-basis: 100%;
+    }
+
+    .fkp_dashboard-page__outbound-section__title-section__actions {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+
+    .fkp_dashboard-page__outbound-section__title-section__actions .btn {
+        flex: 1 1 160px;
+        min-width: 0;
+        max-width: 100%;
+        height: auto;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        box-sizing: border-box;
+    }
+
+    .fkp_dashboard-page__subscription-meta {
+        min-width: 0;
+    }
+
     .fkp_dashboard-page__subscription-meta__main {
         align-items: flex-start;
         flex-wrap: wrap;
@@ -299,10 +331,16 @@ export const styles = `
     .fkp_dashboard-page__subscription-meta__heading,
     .fkp_dashboard-page__subscription-meta__title {
         order: 1;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     .fkp_dashboard-page__subscription-meta__actions {
         order: 2;
+        flex-wrap: wrap;
+        max-width: 100%;
     }
 
     .fkp_dashboard-page__subscription-meta__facts {
@@ -311,7 +349,7 @@ export const styles = `
     }
 
     .fkp_dashboard-page__subscription-meta__title {
-        max-width: calc(100% - 92px);
+        max-width: 100%;
     }
 }
 

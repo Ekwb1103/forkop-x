@@ -13,18 +13,19 @@ export const styles = `
 
 .fkp_diagnostic-page {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     grid-column-gap: 10px;
     align-items: start;
 }
 
 @media (max-width: 800px) {
     .fkp_diagnostic-page {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
 .fkp_diagnostic-page__right-bar {
+    min-width: 0;
     display: grid;
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
@@ -53,7 +54,10 @@ export const styles = `
     grid-column-gap: 10px;
 }
 
-.fkp_diagnostic-page__right-bar__wiki__texts {}
+.fkp_diagnostic-page__right-bar__wiki__texts {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 .fkp_diagnostic-page__right-bar__actions {
     border: 2px var(--background-color-low, lightgray) solid;
@@ -88,8 +92,9 @@ export const styles = `
 
 .fkp_diagnostic-page__right-bar__system-info__row {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     grid-column-gap: 5px;
+    overflow-wrap: anywhere;
 }
 
 .fkp_diagnostic-page__right-bar__system-info__row__tag {
@@ -115,6 +120,7 @@ export const styles = `
 }
 
 .fkp_diagnostic-page__left-bar {
+    min-width: 0;
     display: grid;
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
@@ -137,7 +143,7 @@ export const styles = `
     border-radius: 4px;
 
     display: grid;
-    grid-template-columns: 24px 1fr;
+    grid-template-columns: 24px minmax(0, 1fr);
     grid-column-gap: 10px;
     align-items: center;
     padding: 10px;
@@ -166,7 +172,10 @@ export const styles = `
 
 .fkp_diagnostic_alert__icon {}
 
-.fkp_diagnostic_alert__content {}
+.fkp_diagnostic_alert__content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 .fkp_diagnostic_alert__title {
     display: block;
@@ -180,8 +189,9 @@ export const styles = `
 
 .fkp_diagnostic_alert__summary__item {
     display: grid;
-    grid-template-columns: 16px auto 1fr;
+    grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr);
     grid-column-gap: 10px;
+    overflow-wrap: anywhere;
 }
 
 .fkp_diagnostic_alert__summary__item--error {
