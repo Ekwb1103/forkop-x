@@ -442,15 +442,22 @@ const EntryPoint = {
     };
     updates.createUpdatesContent(updatesSection);
 
-    const tailscaleSection = forkopMap.section(form.TypedSection, "tailscale_native", "Tailscale");
+    const tailscaleSection = forkopMap.section(
+      form.TypedSection,
+      "tailscale_native",
+      "Tailscale",
+    );
     tailscaleSection.anonymous = true;
     tailscaleSection.addremove = false;
     tailscaleSection.cfgsections = () => ["tailscale_native"];
     tailscale.createTailscaleContent(tailscaleSection);
 
-    await loadUiCapabilities().catch(() => null);
-
     const rendered = await forkopMap.render();
+    // Capability probes must not hold LuCI's entire view behind Loading view.
+    // Start after rendering; rule editors share this request when opened.
+    window.setTimeout(() => {
+      void loadUiCapabilities().catch(() => null);
+    }, 0);
     main.coreService({
       waitForLogWatcherStart: loadUiCapabilities,
       logWatcherStartDelayMs: 5000,

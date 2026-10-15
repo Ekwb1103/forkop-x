@@ -6836,9 +6836,17 @@ function createSectionContent(section) {
     return getRuleConfiguredAction(section_id);
   };
   o.load = function (section_id) {
+    populateActionOptionValues(this);
+    return this.cfgvalue(section_id);
+  };
+  const renderActionWidget = o.renderWidget;
+  o.renderWidget = function () {
+    const args = arguments;
+    // modalonly options are loaded with the map, but their widgets are only
+    // needed in the editor. Wait here so the initial grid never waits on RPC.
     return ensureActionProvidersAvailabilityLoaded().then(() => {
       populateActionOptionValues(this);
-      return this.cfgvalue(section_id);
+      return renderActionWidget.apply(this, args);
     });
   };
 

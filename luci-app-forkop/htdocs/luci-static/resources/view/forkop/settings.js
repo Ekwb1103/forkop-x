@@ -81,6 +81,31 @@ function configureDownloadSectionOption(option, sectionOption, capabilities) {
     refreshDownloadSectionChoices(this, capabilities);
     return this.cfgvalue(section_id);
   };
+  const renderDownloadWidget = option.renderWidget;
+  option.renderWidget = function (section_id) {
+    const node = renderDownloadWidget.apply(this, arguments);
+    let choiceSignature = JSON.stringify([this.keylist, this.vallist]);
+    // Refresh on opening, including after a background capability probe.
+    // Reuse the widget so pending form edits are preserved.
+    const refreshChoices = () => {
+      const widget = this.getUIElement(section_id);
+      if (!widget || typeof widget.clearChoices !== "function") return;
+      refreshDownloadSectionChoices(this, capabilities);
+      const nextSignature = JSON.stringify([this.keylist, this.vallist]);
+      if (nextSignature === choiceSignature) return;
+      choiceSignature = nextSignature;
+      const labels = {};
+      this.keylist.forEach((key, index) => {
+        labels[key] = this.vallist[index];
+      });
+      widget.choices = labels;
+      widget.clearChoices();
+      widget.addChoices(this.keylist, labels);
+    };
+    node.addEventListener("mousedown", refreshChoices, true);
+    node.addEventListener("focusin", refreshChoices, true);
+    return node;
+  };
   option.write = function (section_id, value) {
     const normalized = value ? `${value}`.trim() : "";
 
@@ -118,7 +143,12 @@ function optionListValues(option, section_id) {
     .filter(Boolean);
 }
 
-function configureDnsList(option, choices, defaultValue, validator = main.validateDNS) {
+function configureDnsList(
+  option,
+  choices,
+  defaultValue,
+  validator = main.validateDNS,
+) {
   Object.entries(choices).forEach(([key, label]) => {
     option.value(key, _(label));
   });

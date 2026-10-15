@@ -931,11 +931,15 @@ function apk_package_installed(package_name) {
 }
 
 function installed_sing_box_package_name() {
-    for (let package_name in [ "rust-x", "sing-box-x", "sing-box-extended", "sing-box-tiny", "sing-box" ])
-        if (apk_package_installed(package_name))
-            return package_name;
+    let installed = command_success_from_args([ "sh", "-c", "command -v apk" ]) ?
+        command_output_from_args([ "apk", "list", "--installed", "--manifest" ]) : "";
+    for (let package_name in [ "rust-x", "sing-box-x", "sing-box-extended", "sing-box-tiny", "sing-box" ]) {
+        for (let line in split(installed, "\n"))
+            if (split(trim(as_string(line)), /[ \t]+/)[0] == package_name)
+                return package_name;
+    }
 
-    let installed = command_success_from_args([ "sh", "-c", "command -v opkg" ]) ?
+    installed = command_success_from_args([ "sh", "-c", "command -v opkg" ]) ?
         command_output_from_args([ "opkg", "list-installed" ]) : "";
     for (let package_name in [ "rust-x", "sing-box-x", "sing-box-extended", "sing-box-tiny", "sing-box" ]) {
         for (let line in split(installed, "\n"))
