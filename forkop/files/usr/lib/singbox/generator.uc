@@ -2678,6 +2678,25 @@ function add_domain_array(rule, key, values) {
 function push_dns_matcher_rule(config, rule) {
     // FakeIP synthesizes addresses only. Other record types must reach a resolver.
     if (rule.server == runtime_constants.FAKEIP_DNS_SERVER_TAG) {
+        if (bool_option(runtime_settings(), "whatsapp_real_dns", false)) {
+            // Preserve section ordering, source exclusions and explicit DNS actions.
+            // Skip only FakeIP synthesis; unmatched queries use dns.final.
+            let matchers = {};
+            for (let key, value in rule)
+                if (key != "action" && key != "server" && key != "rewrite_ttl")
+                    matchers[key] = value;
+            rule = {
+                type: "logical",
+                mode: "and",
+                rules: [ matchers, {
+                    domain_suffix: [ "whatsapp.com", "whatsapp.net", "whatsapp.biz", "wa.me" ],
+                    invert: true
+                } ],
+                action: rule.action,
+                server: rule.server,
+                rewrite_ttl: rule.rewrite_ttl
+            };
+        }
         if (rule.type == "logical")
             push(rule.rules, { query_type: [ "A", "AAAA" ] });
         else
@@ -3137,6 +3156,10 @@ function add_combined_route_for_section(config, section) {
         let subnet_tag = section_name + "-community-subnets-lists-ruleset";
         let subnet_path = runtime_ruleset_folder + "/" + subnet_tag + ".json";
         let subnets = read_json_file(subnet_path);
+        if (bool_option(runtime_settings(), "whatsapp_real_dns", false) &&
+            index(connections.community_lists(section), "meta") >= 0 &&
+            (type(subnets) != "object" || type(subnets.rules) != "array" || length(subnets.rules) == 0))
+            runtime_generate_unsupported("WhatsApp real DNS requires downloaded Meta subnet rules for '" + section_name + "'");
         if (type(subnets) == "object" && type(subnets.rules) == "array") {
             if (length(subnets.rules) == 0 && index(connections.community_lists(section), "discord") >= 0)
                 runtime_generate_unsupported("Discord subnet ruleset for '" + section_name + "' is empty; download the lists before starting");
@@ -3408,6 +3431,8 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
         mwan3_active: cli_bool(mwan3_active),
         source_aware_dns: length(source_aware_dns) > 0
     });
+    if (bool_option(settings, "whatsapp_real_dns", false))
+        config.dns.reverse_mapping = true;
     let version_parts = match(as_string(sing_box_version), /^v?([0-9]+)\.([0-9]+)\./);
     runtime_supports_dns_response_matching = version_parts != null &&
         (int(version_parts[1]) > 1 || (int(version_parts[1]) == 1 && int(version_parts[2]) >= 14));

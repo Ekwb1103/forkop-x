@@ -540,6 +540,15 @@ function createSettingsContent(section, capabilities) {
 
   o = section.option(
     form.Flag,
+    "whatsapp_real_dns",
+    _("Use real IP addresses for WhatsApp"),
+    _("Requires downloaded Meta subnet lists in an enabled routing section without source or port filters. Keeps existing routes and explicit DNS rules. Devices must use the router DNS. Custom DNS rules may override this setting."),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.option(
+    form.Flag,
     "list_update_enabled",
     _("Enable list updates"),
     _("Enable automatic updates for remote lists and rule sets"),

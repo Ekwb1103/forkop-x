@@ -21,4 +21,10 @@ describe('log error messages', () => {
   it('leaves unknown errors untouched', () => {
     expect(getLogErrorMessage('Unknown backend error')).toBeNull();
   });
+  it('explains both WhatsApp prerequisite failures before generic validation errors', () => {
+    expect(getLogErrorMessage('WhatsApp real DNS requires the Meta community list in an enabled routing section without source or port filters.'))
+      .toContain('Restore Meta or turn off real IPs');
+    expect(getLogErrorMessage("Generated sing-box configuration is invalid: WhatsApp real DNS requires downloaded Meta subnet rules for 'vpn'"))
+      .toContain('Download the Meta lists');
+  });
 });

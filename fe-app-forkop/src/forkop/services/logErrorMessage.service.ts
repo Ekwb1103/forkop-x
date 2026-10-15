@@ -1,5 +1,11 @@
 // Translate known Forkop messages; preserve the original log for diagnostics.
 export function getLogErrorMessage(line: string): string | null {
+  if (line.includes('WhatsApp real DNS requires downloaded Meta subnet rules')) {
+    return _('Meta subnet lists for WhatsApp are missing. Download the Meta lists and apply again, or turn off real IPs for WhatsApp.');
+  }
+  if (line.includes('WhatsApp real DNS requires the Meta community list')) {
+    return _('WhatsApp real IPs require an enabled routing section with Meta and no device or port filters. Restore Meta or turn off real IPs for WhatsApp before saving. Otherwise Forkop cannot start after a reboot.');
+  }
   const space = line.match(
     /Not enough (flash space|temporary memory) for (Forkop update and rollback|sing-box): (?:conservative installation reserve needs|need) (\d+) KiB free, have (\d+) KiB/,
   );

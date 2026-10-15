@@ -7,6 +7,7 @@
 "require uci";
 "require view.forkop.local_devices as localDevices";
 "require view.forkop.main as main";
+"require view.forkop.whatsapp as whatsapp";
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
 const ACTION_PROVIDERS_AVAILABILITY_EVENT =
@@ -7771,11 +7772,18 @@ function configureSectionSection(sectionRef, options = {}) {
 
   const handleRemove = sectionRef.handleRemove;
   sectionRef.handleRemove = function (section_id) {
+    whatsapp.assertConfiguration(section_id);
     cleanupRemovedChildItems(section_id, "subscription_url", []);
     cleanupRemovedChildItems(section_id, "section_interface", []);
     cleanupRemovedChildItems(section_id, "urltest", []);
     cleanupRemovedChildItems(section_id, "priority_group", []);
     return handleRemove.apply(this, arguments);
+  };
+
+  const handleModalSave = sectionRef.handleModalSave;
+  sectionRef.handleModalSave = function (modalMap) {
+    whatsapp.configureMap(modalMap);
+    return handleModalSave.apply(this, arguments);
   };
 
   sectionRef.load = function () {

@@ -925,6 +925,20 @@ function dns_setting_values(settings, key) {
 }
 
 function validate_dns_settings(settings, sections, context) {
+    if (bool_option(settings, "whatsapp_real_dns", false)) {
+        let has_meta = false;
+        for (let section in sections) {
+            if (!section_enabled(section) || option(section, "action", "") == "dns" ||
+                !contains(connections.community_lists(section), "meta"))
+                continue;
+            if (length(list_option(section, "source_ip_cidr")) == 0 &&
+                option(section, "source_ip_cidr_text", "") == "" &&
+                length(list_option(section, "ports")) == 0 && option(section, "ports_text", "") == "")
+                has_meta = true;
+        }
+        if (!has_meta)
+            fail_validation("WhatsApp real DNS requires the Meta community list in an enabled routing section without source or port filters. Download its subnet lists before enabling this setting. Aborted.");
+    }
     let dns_type = option(settings, "dns_type", "udp");
     if (!contains([ "udp", "dot", "doh" ], dns_type))
         fail_validation("Unsupported DNS protocol type '" + dns_type + "'. Use udp, dot, or doh. Aborted.");

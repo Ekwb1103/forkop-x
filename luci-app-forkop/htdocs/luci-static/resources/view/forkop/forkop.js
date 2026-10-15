@@ -9,6 +9,7 @@
 
 // Global settings
 "require view.forkop.settings as settings";
+"require view.forkop.whatsapp as whatsapp";
 
 // Sections
 "require view.forkop.section as section";
@@ -323,6 +324,7 @@ const EntryPoint = {
       return uiCapabilitiesPromise;
     };
     const forkopMap = new form.Map(UCI_PACKAGE, _("Forkop X Settings"), null);
+    whatsapp.configureMap(forkopMap);
     forkopMap.tabbed = true;
     const originalHandleSaveApply = forkopMap.handleSaveApply;
     forkopMap.handleSaveApply = function (ev, mode) {
