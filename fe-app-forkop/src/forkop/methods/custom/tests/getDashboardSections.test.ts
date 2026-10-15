@@ -535,6 +535,7 @@ describe('getDashboardSections', () => {
       type: 'Priority',
       selected: true,
     });
+    expect(section.latencyTestCodes).toEqual(['main-2-out', 'main-1-out']);
     expect(priority?.priorityInfo).toMatchObject({
       selectedCode: 'main-2-out',
       selectedName: 'Second cached',
@@ -570,6 +571,59 @@ describe('getDashboardSections', () => {
       },
     ]);
   });
+
+  it.each([false, true])(
+    'tests all Priority members with standalone proxy present: %s',
+    async (mixed) => {
+      mocks.getConfigSections.mockResolvedValue([
+        proxySection({ urltests: [], urltest_settings: undefined }),
+        priorityGroup('pg_main'),
+      ]);
+      mocks.getClashApiProxies.mockResolvedValue({
+        success: true,
+        data: {
+          proxies: {
+            ...clashProxies,
+            'main-out': proxy('Selector', {
+              all: mixed
+                ? ['main-priority-pg_main-out', 'main-3-out']
+                : ['main-priority-pg_main-out'],
+              now: 'main-priority-pg_main-out',
+            }),
+            'main-priority-pg_main-out': proxy('Selector', {
+              all: ['main-1-out', 'main-2-out'],
+              now: 'main-1-out',
+            }),
+          },
+        },
+      });
+      mocks.fsRead.mockResolvedValue(
+        JSON.stringify({
+          priorityGroups: {
+            'main-priority-pg_main-out': {
+              levels: [
+                { id: 'first', outbounds: ['main-1-out', 'main-2-out'] },
+                { id: 'second', outbounds: ['main-2-out', 'missing-out'] },
+              ],
+            },
+          },
+        }),
+      );
+      const {
+        data: [section],
+      } = await getDashboardSections();
+      expect(section.latencyTestCodes).toEqual(
+        mixed
+          ? ['main-1-out', 'main-2-out', 'main-3-out']
+          : ['main-1-out', 'main-2-out'],
+      );
+      expect(section.outbounds.map((item) => item.code)).toEqual(
+        mixed
+          ? ['main-priority-pg_main-out', 'main-3-out']
+          : ['main-priority-pg_main-out'],
+      );
+    },
+  );
 
   it('keeps an empty Priority group visible when sing-box skipped the selector', async () => {
     mocks.getConfigSections.mockResolvedValue([

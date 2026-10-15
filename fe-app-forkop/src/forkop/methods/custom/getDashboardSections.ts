@@ -1260,14 +1260,18 @@ function buildProxyGroupOutbounds(
     ],
     sortByLatency: shouldSortByLatency(section),
   });
-  const latencyTestCodes = sortedOutbounds
-    .filter(
-      (outbound) =>
-        outbound.runtimeAvailable !== false &&
-        !isSelectorOutbound(outbound) &&
-        !outbound.priorityInfo,
-    )
-    .map((outbound) => outbound.code);
+  const latencyTestCodes = uniqueCodes(
+    sortedOutbounds.flatMap((outbound) => {
+      if (outbound.runtimeAvailable === false) return [];
+      if (outbound.priorityInfo) {
+        // Probe members directly: a selector delay only measures its current node.
+        return outbound.priorityInfo.outbounds
+          .filter((member) => proxyByCode.has(member.code))
+          .map((member) => member.code);
+      }
+      return isSelectorOutbound(outbound) ? [] : [outbound.code];
+    }),
+  );
 
   return {
     selector,
