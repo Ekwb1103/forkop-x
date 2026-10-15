@@ -17,6 +17,7 @@ function createTailscaleContent(section) {
     const logPanel = E("details", { style:"margin-top:20px" }, [E("summary", { style:"cursor:pointer" }, "Логи соединения"), logs]);
     const connect = E("button", { type: "button", class: "cbi-button cbi-button-apply" }, "Подключить");
     const disconnect = E("button", { type: "button", class: "cbi-button" }, "Отключить");
+    const ssh = E("input", { type: "checkbox" });
     const lan = E("input", { type: "checkbox" });
     const lanStatus = E("p");
     const admin = E("a", { href: "https://login.tailscale.com/admin/machines", target: "_blank", rel: "noopener noreferrer", style: "display:none" }, "Открыть панель Tailscale");
@@ -31,10 +32,13 @@ function createTailscaleContent(section) {
       connect.disabled = busy || !data.available || data.state === "connected" || data.state === "connecting";
       disconnect.disabled = busy || !data.available || data.state === "disconnected";
       key.disabled = busy || !data.available || data.state === "connected";
+      ssh.disabled = busy || !data.ssh_available;
+      ssh.title = data.ssh_available ? "" : "Требуется Rust X 0.0.17 или новее";
+      ssh.checked = Boolean(data.ssh_enabled);
       lan.disabled = busy || !data.available;
       lan.checked = Boolean(data.lan_enabled);
       const routes = (data.lan_routes || []).join(", ");
-      lanStatus.textContent = !data.lan_enabled ? "Доступ только к LuCI. Устройства в локальной сети недоступны." : data.state !== "connected" ? "Локальная сеть: " + routes + ". Ожидаем подключения." : !data.lan_ready ? "Не удалось настроить доступ к локальной сети." : data.routes_approved ? "Доступ к локальной сети включён: " + routes : "Сеть " + routes + " ожидает одобрения. В панели Tailscale откройте этот роутер → Edit route settings и разрешите маршрут.";
+      lanStatus.textContent = !data.lan_enabled ? "Устройства в локальной сети недоступны." : data.state !== "connected" ? "Локальная сеть: " + routes + ". Ожидаем подключения." : !data.lan_ready ? "Не удалось настроить доступ к локальной сети." : data.routes_approved ? "Доступ к локальной сети включён: " + routes : "Сеть " + routes + " ожидает одобрения. В панели Tailscale откройте этот роутер → Edit route settings и разрешите маршрут.";
       admin.style.display = data.lan_enabled && data.state === "connected" && !data.routes_approved ? "inline-block" : "none";
     }
     async function request(action, args = []) {
@@ -70,6 +74,7 @@ function createTailscaleContent(section) {
     }
     connect.addEventListener("click", () => act("connect"));
     disconnect.addEventListener("click", () => act("disconnect"));
+    ssh.addEventListener("change", () => act("ssh", [ssh.checked ? "1" : "0"]));
     lan.addEventListener("change", () => act("lan", [lan.checked ? "1" : "0"]));
     const root = E("div", { class: "cbi-section" }, [
       E("style", {}, "#cbi-forkop-tailscale_native > h3 { display: none; }"),
@@ -78,7 +83,7 @@ function createTailscaleContent(section) {
       E("p", {}, [state]), details,
       E("label", {}, ["Ключ подключения", E("br"), key]),
       E("p", { style: "display:flex;gap:12px;flex-wrap:wrap;margin-top:16px" }, [connect, disconnect]),
-      E("hr"), E("label", {}, [lan, " Разрешить доступ к локальной сети"]), lanStatus, admin,
+      E("hr"), E("p", {}, [E("label", { title: "Разрешает подключаться к SSH роутера через Tailscale по порту 22." }, [ssh, " Разрешить SSH"])]), E("label", {}, [lan, " Разрешить доступ к локальной сети"]), lanStatus, admin,
       logPanel,
     ]);
     poll.add(refresh, 3); refresh();

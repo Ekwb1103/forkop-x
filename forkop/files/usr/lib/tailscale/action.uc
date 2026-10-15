@@ -8,6 +8,7 @@ const STATE = '/etc/forkop-tailscale';
 let rust_selected = trim(fs.readfile('/etc/forkop/sing-box-variant') || '') == 'rust-x';
 let version_supported = system('ucode /usr/lib/forkop/tailscale/compat.uc check >/dev/null 2>&1') == 0;
 let available = version_supported && rust_selected && system('/usr/lib/rust-x/sing-box tailscale-native-capability >/dev/null 2>&1') == 0;
+let ssh_available = available && system('/usr/lib/rust-x/sing-box tailscale-ssh-capability >/dev/null 2>&1') == 0;
 let action = ARGV[0];
 const EVENTS = DIR + '/tailscale-events.json';
 function connection_events(data) {
@@ -45,6 +46,8 @@ function result(data) {
     data.version_supported = version_supported;
     data.minimum_forkop = '2.3.4';
     data.saved_identity = fs.stat(STATE + '/tailscale.state') != null;
+    data.ssh_available = ssh_available;
+    data.ssh_enabled = fs.stat(STATE + '/ssh-enabled') != null;
     data.lan_enabled = fs.stat(STATE + '/lan.json') != null;
     if (data.lan_enabled) {
         try { data.lan_routes = json(fs.readfile(STATE + '/lan.json')).routes; } catch (e) {}
@@ -82,6 +85,17 @@ if (action == 'connect') {
     fs.unlink(DIR + '/tailscale-auth-input');
     system(INIT + ' stop >/dev/null 2>&1');
     system(INIT + ' disable >/dev/null 2>&1');
+} else if (action == 'ssh') {
+    if (!ssh_available || (ARGV[1] != '0' && ARGV[1] != '1')) exit(1);
+    fs.mkdir(STATE, 0700); fs.chmod(STATE, 0700);
+    if (ARGV[1] == '1') {
+        fs.writefile(STATE + '/ssh-enabled', '1'); fs.chmod(STATE + '/ssh-enabled', 0600);
+    } else { fs.unlink(STATE + '/ssh-enabled'); }
+    if (fs.stat(STATE + '/enabled')) {
+        system(INIT + ' stop >/dev/null 2>&1');
+        fs.writefile(STATUS, '{"state":"connecting"}');
+        system(INIT + ' start >/dev/null 2>&1');
+    }
 } else if (action == 'lan') {
     if (ARGV[1] != '0' && ARGV[1] != '1') { exit(1); }
     fs.mkdir(STATE, 0700); fs.chmod(STATE, 0700);

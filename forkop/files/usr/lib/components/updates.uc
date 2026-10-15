@@ -2292,7 +2292,9 @@ function cache_component_update_check_result(value, notify_update) {
     if (arg_bool(notify_update) && cached.status == "outdated" &&
         (as_string(previous.status) != "outdated" ||
             as_string(previous.latest_version) != cached.latest_version)) {
-        log_message("[component-update] " + component + " " + cached.latest_version, "info");
+        let notification_component = component;
+        if (component == "sing_box" && trim(fs.readfile(SB_VARIANT_STATE_FILE) || "") == "rust-x") notification_component = "rust_x";
+        log_message("[component-update] " + notification_component + " " + cached.latest_version, "info");
     }
 
     return true;

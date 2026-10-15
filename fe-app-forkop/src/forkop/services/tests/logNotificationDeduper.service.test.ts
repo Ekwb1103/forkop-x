@@ -111,3 +111,7 @@ it('classifies a rejected list apply as a warning notification', () => {
   const line = '[error] [rule-set-unavailable] Settings were not applied';
   expect(getForkopLogNotification(line)).toEqual({ kind: 'rule-set-unavailable', line });
 });
+
+it('recognizes Rust X update identity separately from sing-box', () => {
+  expect(getForkopLogNotification('forkop: [info] [component-update] rust_x 0.0.17')).toMatchObject({kind: 'component-update', component: 'rust_x', version: '0.0.17'});
+});
