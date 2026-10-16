@@ -530,12 +530,21 @@ function createSettingsContent(section, capabilities) {
   o = section.option(
     form.Flag,
     "disable_quic",
-    _("Disable QUIC"),
+    _("Disable QUIC globally"),
     _(
-      "Disable the QUIC protocol to improve compatibility or fix issues with video streaming",
+      "Block QUIC in intercepted traffic and UDP/443 in direct Internet traffic from client interfaces. Local services and port forwards are excluded. Overrides the VPN-only setting while enabled.",
     ),
   );
   o.default = "1";
+  o.rmempty = false;
+
+  o = section.option(
+    form.Flag,
+    "disable_quic_vpn",
+    _("Disable QUIC for VPN traffic"),
+    _("Block QUIC only when a routing rule sends traffic through a proxy or VPN. Earlier DIRECT rules and source exclusions are preserved. This setting remains selected when global blocking is toggled."),
+  );
+  o.default = "0";
   o.rmempty = false;
 
   o = section.option(

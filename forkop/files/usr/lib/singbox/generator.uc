@@ -3120,6 +3120,9 @@ function add_fully_routed_ips_rules(config, section) {
     if (target.outbound)
         route_rule.outbound = target.outbound;
     route_rule.source_ip_cidr = single_or_array(source_ip_cidr);
+    let quic_rule = runtime_route.quic_rule(runtime_settings(), section, route_rule);
+    if (quic_rule != null)
+        push(config.route.rules, exclude_sources_from_route_rule(quic_rule, section));
     push(config.route.rules, exclude_sources_from_route_rule(route_rule, section));
 }
 
@@ -3129,6 +3132,9 @@ function push_section_route_rule(config, section, route_rule) {
         warn(resolve.warning, "\n");
     else if (type(resolve) == "object" && resolve.rule)
         push(config.route.rules, exclude_sources_from_route_rule(resolve.rule, section));
+    let quic_rule = runtime_route.quic_rule(runtime_settings(), section, route_rule);
+    if (quic_rule != null)
+        push(config.route.rules, exclude_sources_from_route_rule(quic_rule, section));
     push(config.route.rules, exclude_sources_from_route_rule(route_rule, section));
 }
 

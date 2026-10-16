@@ -147,3 +147,5 @@ ops/deployed-nginx/
 !/tests/ruleset_required_reload.sh
 !/tests/retired_rule_connections.sh
 !/tests/luci_apply_holdoff.cjs
+!/tests/quic_modes.sh
+!/tests/fakeip_variant_preservation.sh

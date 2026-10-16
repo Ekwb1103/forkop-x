@@ -2277,10 +2277,10 @@ msgid "WhatsApp DNS settings need attention"
 msgstr "Проверьте настройки DNS для WhatsApp"
 
 msgid "WhatsApp real IPs require an enabled routing section with Meta and no device or port filters. Restore Meta or turn off real IPs for WhatsApp before saving. Otherwise Forkop cannot start after a reboot."
-msgstr "Для реальных IP WhatsApp нужна включённая секция маршрутизации со списком Meta без фильтров устройств и портов. Верните Meta или выключите реальные IP для WhatsApp перед сохранением. Иначе Forkop не сможет запуститься после перезагрузки."
+msgstr "Для работы опции «Отключить fake-ip для Whatsapp» нужна хотя бы одна включённая секция маршрутизации со списком Meta без фильтров устройств и портов. Верните Meta в такую секцию или выключите опцию перед сохранением."
 
 msgid "Meta subnet lists for WhatsApp are missing. Download the Meta lists and apply again, or turn off real IPs for WhatsApp."
-msgstr "Отсутствуют списки подсетей Meta для WhatsApp. Загрузите списки Meta и примените настройки повторно либо выключите реальные IP для WhatsApp."
+msgstr "Для работы опции «Отключить fake-ip для Whatsapp» нужны загруженные подсети Meta. Загрузите списки Meta и примените настройки повторно либо выключите опцию."
 
 msgid "Use real IP addresses for WhatsApp"
 msgstr "Использовать реальные IP для WhatsApp"

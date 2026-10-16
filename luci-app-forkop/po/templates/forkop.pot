@@ -644,6 +644,18 @@ msgstr ""
 msgid "Disable QUIC"
 msgstr ""
 
+msgid "Disable QUIC globally"
+msgstr ""
+
+msgid "Disable QUIC for VPN traffic"
+msgstr ""
+
+msgid "Block QUIC in intercepted traffic and UDP/443 in direct Internet traffic from client interfaces. Local services and port forwards are excluded. Overrides the VPN-only setting while enabled."
+msgstr ""
+
+msgid "Block QUIC only when a routing rule sends traffic through a proxy or VPN. Earlier DIRECT rules and source exclusions are preserved. This setting remains selected when global blocking is toggled."
+msgstr ""
+
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/settings.js:504
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""

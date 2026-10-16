@@ -5,11 +5,7 @@ let constants = require("core.constants");
 let uci_core = require("core.uci");
 let netstat = require("core.netstat");
 let github_http = require("core.github_http");
-let cache_identity = require("singbox.cache_identity");
 let storage_cleanup = require("components.storage_cleanup");
-let previous_sing_box_cache = "";
-let candidate_sing_box_cache = "";
-let sing_box_change_ready = false;
 
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || constants.FORKOP_CONFIG_NAME || "forkop";
@@ -358,9 +354,8 @@ function restart_forkop_after_failed_sing_box_change() {
 }
 
 function action_success(component, action, message, current_version, latest_version, changed, status, release_url) {
-    if (component == "sing_box" && sing_box_change_ready &&
-        !cache_identity.cleanup_previous(previous_sing_box_cache, configured_runtime_cache(), true))
-        updates_log("Could not remove previous sing-box cache database: " + previous_sing_box_cache, "warn");
+    // Family-specific FakeIP stores belong to that core, including after a
+    // successful switch. Keep them available for a later return or rollback.
     updates_response(true, component, action, message, current_version, latest_version, changed || 0, status || "", release_url || "");
     cleanup_action();
     exit(0);
@@ -369,10 +364,6 @@ function action_success(component, action, message, current_version, latest_vers
 function action_fail(component, action, message, current_version, latest_version, status, release_url) {
     updates_log(message, "error");
     restart_forkop_after_failed_sing_box_change();
-    if (component == "sing_box" && sing_box_change_ready && !preserve_update_recovery_files &&
-        configured_runtime_cache() == previous_sing_box_cache &&
-        !cache_identity.cleanup_previous(candidate_sing_box_cache, previous_sing_box_cache, true))
-        updates_log("Could not remove failed candidate cache database: " + candidate_sing_box_cache, "warn");
     updates_response(false, component, action, message, current_version || "", latest_version || "", 0, status || "", release_url || "");
     cleanup_action();
     exit(1);
@@ -1478,8 +1469,6 @@ function stop_forkop_before_sing_box_change() {
     // discard the exact rollback package. Mark before the first mutation.
     if (tmp_dir != "" && !write_file(tmp_dir + "/.forkop-recovery", "transition\n"))
         action_fail("sing_box", "install", "Cannot protect rollback files before component change");
-    previous_sing_box_cache = configured_runtime_cache();
-    sing_box_change_ready = false;
     forkop_stopped_for_sing_box_change = true;
     if (file_exists('/etc/init.d/forkop-tailscale'))
         command_success_from_args([ '/etc/init.d/forkop-tailscale', 'stop' ]);
@@ -1494,7 +1483,6 @@ function stop_forkop_before_sing_box_change() {
 }
 
 wait_forkop_running_after_sing_box_change = function() {
-    sing_box_change_ready = false;
     if (!forkop_was_running)
         return true;
     if (!file_exists(BIN_PATH))
@@ -1505,7 +1493,6 @@ wait_forkop_running_after_sing_box_change = function() {
         if (forkop_status_running_with_timeout()) {
             command_success_from_args([ "sleep", "8" ]);
             if (forkop_status_running_with_timeout()) {
-                sing_box_change_ready = true;
                 return true;
             }
         }
@@ -2096,8 +2083,6 @@ function sing_box_runtime_success(mode, args) {
 }
 
 function write_sing_box_variant_state(marker, version) {
-    if (forkop_stopped_for_sing_box_change && candidate_sing_box_cache == "")
-        candidate_sing_box_cache = cache_identity.path(as_string(uci_core.get("forkop.settings.cache_path") || "/tmp/sing-box/cache.db"), version);
     if (!sing_box_runtime_success("write-variant-marker", [ marker ]))
         updates_log("Failed to write sing-box variant marker", "warn");
     if (!sing_box_runtime_success("write-version-state", [ version ]))

@@ -1,7 +1,6 @@
 // Use separate physical stores: cache_id alone cannot isolate database formats.
 // Preserve old stores for rollback; never delete user-configured cache files.
 let common = require("core.common");
-let fs = require("fs");
 
 function family(version) {
     version = lc(common.as_string(version));
@@ -24,20 +23,4 @@ function path(base, version) {
     return name == "upstream" ? base : base + ".forkop-" + name;
 }
 
-function cleanup_previous(previous, active, ready) {
-    previous = common.as_string(previous);
-    active = common.as_string(active);
-    if (!ready || previous == active || previous == "" || active == "" ||
-        substr(previous, 0, 1) != "/" || substr(active, 0, 1) != "/")
-        return true;
-    // Only the exact previously configured database. Never follow a symlink,
-    // delete directories, sidecars or glob adjacent operator files.
-    let info = fs.lstat(previous);
-    if (info == null)
-        return true;
-    if (info.type != "file")
-        return false;
-    return fs.unlink(previous);
-}
-
-return { family, path, cleanup_previous };
+return { family, path };

@@ -2,6 +2,7 @@
 
 let common = require("core.common");
 let connections = require("config.connections");
+let core_ip = require("core.ip");
 let runtime_constants = require("singbox.constants");
 
 let option = common.option;
@@ -18,7 +19,12 @@ function bool_value(value) {
 function config(settings, runtime) {
     let output_network_interface = option(settings, "output_network_interface", "");
     let mwan3_active = type(runtime) == "object" && bool_value(runtime.mwan3_active);
+    let tproxy_inbounds = [ runtime_constants.TPROXY_INBOUND_TAG ];
+    if (core_ip.ipv6_tproxy_enabled())
+        push(tproxy_inbounds, runtime_constants.TPROXY_INBOUND6_TAG);
     let sniff_inbounds = [ runtime_constants.TPROXY_INBOUND_TAG, runtime_constants.DNS_INBOUND_TAG ];
+    if (core_ip.ipv6_tproxy_enabled())
+        push(sniff_inbounds, runtime_constants.TPROXY_INBOUND6_TAG);
     if (type(runtime) == "object" && bool_value(runtime.source_aware_dns))
         push(sniff_inbounds, runtime_constants.SOURCE_DNS_INBOUND_TAG);
     if (type(runtime) == "object" && type(runtime.dns_health_inbounds) == "array")
@@ -50,7 +56,7 @@ function config(settings, runtime) {
     if (output_network_interface != "")
         result.default_interface = output_network_interface;
     if (bool_option(settings, "disable_quic", true))
-        push(result.rules, { action: "reject", inbound: runtime_constants.TPROXY_INBOUND_TAG, protocol: "quic" });
+        push(result.rules, { action: "reject", inbound: tproxy_inbounds, protocol: "quic" });
 
     return result;
 }
@@ -65,6 +71,24 @@ function target(section, outbound_tag_name) {
     if (action == "block")
         return { action: "reject" };
     return { unsupported: "unsupported action " + action };
+}
+
+// Place immediately before the matching route, so earlier DIRECT rules and
+// section ordering keep their meaning. Never broaden a section's matchers.
+function quic_rule(settings, section, route_rule) {
+    if (bool_option(settings, "disable_quic", true) ||
+        !bool_option(settings, "disable_quic_vpn", false) ||
+        !connections.is_connections_action(option(section, "action", "")) ||
+        route_rule.action != "route")
+        return null;
+    let matchers = {};
+    for (let key, value in route_rule)
+        if (key != "action" && key != "outbound")
+            matchers[key] = value;
+    return {
+        type: "logical", mode: "and", action: "reject",
+        rules: [ matchers, { protocol: "quic" } ]
+    };
 }
 
 function has_resolve_matchers(rule) {
@@ -101,6 +125,7 @@ function resolve_rule_for_section(section, route_rule) {
 return {
     config,
     target,
+    quic_rule,
     has_resolve_matchers,
     resolve_rule_for_section
 };
