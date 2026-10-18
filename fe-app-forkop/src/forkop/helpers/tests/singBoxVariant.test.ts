@@ -14,7 +14,7 @@ describe('sing-box X identity', () => {
       formatCoreLabel('Процесс sing-box запущен', {
         sing_box_version: '1.14.2-rust-x.0.0.5',
       }),
-    ).toBe('Процесс Rust X запущен');
+    ).toBe('Процесс Xrust запущен');
     expect(
       formatCoreLabel('Sing-box checks', {
         sing_box_version: '1.14.2-x-1.0.3',
@@ -24,7 +24,7 @@ describe('sing-box X identity', () => {
       formatCoreLabel('Sing-box checks', { sing_box_version: '1.14.2' }),
     ).toBe('Sing-box checks');
   });
-  it('displays Rust X independently of its compatibility baseline and Go X', () => {
+  it('displays Xrust independently of its compatibility baseline and Go X', () => {
     const state = {
       sing_box_version: '1.14.2-rust-x.0.0.2',
       sing_box_tiny: 1,
@@ -32,7 +32,7 @@ describe('sing-box X identity', () => {
       sing_box_compressed: 1,
       sing_box_tailscale: 1,
     };
-    expect(getSingBoxName(state)).toBe('Rust X');
+    expect(getSingBoxName(state)).toBe('Xrust');
     expect(formatSingBoxVersion(state)).toBe('0.0.2');
     expect(getRustXVersion('1.14.2-x-1.0.2')).toBeUndefined();
     expect(getSingBoxXVersion(state.sing_box_version)).toBeUndefined();

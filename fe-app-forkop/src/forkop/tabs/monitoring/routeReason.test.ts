@@ -35,7 +35,7 @@ describe('route reason', () => {
       ).not.toContain('All traffic from device');
     }
   });
-  it('preserves Rust X logical conditions without guessing a matching child', () => {
+  it('preserves Xrust logical conditions without guessing a matching child', () => {
     const conditions =
       'and(inbound=tproxy-in or(domain_suffix=example.org domain_keyword=other))';
     expect(

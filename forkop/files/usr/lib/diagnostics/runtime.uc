@@ -1028,7 +1028,7 @@ function neutralize_zapret_defaults() {
 
 function sing_box_process_is_running() {
     // procd owns the service PID; verify its executable instead of argv[0].
-    // Rust X's wrapper execs /usr/lib/rust-x/sing-box and may rename threads.
+    // Xrust's wrapper execs /usr/lib/rust-x/sing-box and may rename threads.
     return module_success(SERVICE_STATE_UC, [ "sing-box-service-running" ]);
 }
 

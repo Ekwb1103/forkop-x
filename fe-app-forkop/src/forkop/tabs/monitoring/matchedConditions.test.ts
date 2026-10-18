@@ -3,7 +3,7 @@ import { matchedConditions } from './matchedConditions';
 import { formatRouteReason } from './routeReason';
 
 describe('connection matched conditions', () => {
-  it('does not reconstruct Rust X logical or inverted matches', () => {
+  it('does not reconstruct Xrust logical or inverted matches', () => {
     for (const mode of ['and', 'or', '!and', '!or']) {
       expect(
         matchedConditions(

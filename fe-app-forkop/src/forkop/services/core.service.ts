@@ -27,7 +27,7 @@ function componentDisplayName(component: string) {
   const names: Record<string, string> = {
     forkop: 'Forkop X',
     sing_box: 'sing-box',
-    rust_x: 'Rust X',
+    rust_x: 'Xrust',
     zapret: 'Zapret',
     zapret2: 'Zapret2',
     byedpi: 'ByeDPI',

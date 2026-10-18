@@ -2267,11 +2267,11 @@ msgstr "Не удалось автоматически восстановить 
 msgid "Technical details"
 msgstr "Технические детали"
 
-msgid "Rust X (experimental)"
-msgstr "Rust X (экспериментальный)"
+msgid "Xrust (experimental)"
+msgstr "Xrust (экспериментальный)"
 
-msgid "Rust X configuration compatibility confirmed"
-msgstr "Совместимость конфигурации Rust X подтверждена"
+msgid "Xrust configuration compatibility confirmed"
+msgstr "Совместимость конфигурации Xrust подтверждена"
 
 msgid "WhatsApp DNS settings need attention"
 msgstr "Проверьте настройки DNS для WhatsApp"

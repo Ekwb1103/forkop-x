@@ -67,7 +67,7 @@ export async function runSingBoxCheck() {
       {
         state: data.sing_box_version_ok ? 'success' : 'error',
         key: getRustXVersion(store.get().diagnosticsSystemInfo.sing_box_version)
-          ? _('Rust X configuration compatibility confirmed')
+          ? _('Xrust configuration compatibility confirmed')
           : _('Sing-box version is compatible (newer than 1.12.4)'),
         value: '',
       },

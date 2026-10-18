@@ -877,7 +877,7 @@ function getComponentCards(): ComponentCard[] {
   if (!rustX) {
     singBoxActions.push({
       key: 'singBoxInstallRustX',
-      text: _('Rust X (experimental)'),
+      text: _('Xrust (experimental)'),
       icon: renderDownloadIcon24,
       component: 'sing_box',
       action: 'install_rust_x',

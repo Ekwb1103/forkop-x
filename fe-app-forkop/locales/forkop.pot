@@ -3169,7 +3169,7 @@ msgstr ""
 msgid "Technical details"
 msgstr ""
 
-msgid "Rust X configuration compatibility confirmed"
+msgid "Xrust configuration compatibility confirmed"
 msgstr ""
 
 msgid "WhatsApp DNS settings need attention"

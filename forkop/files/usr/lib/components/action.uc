@@ -499,7 +499,7 @@ function ipk_unpacked_bytes(path) {
 function staged_package_field(path, field) {
     let control_archive = "(tar -xzOf " + shell_quote(path) + " control.tar.gz 2>/dev/null || " +
         "tar -xzOf " + shell_quote(path) + " ./control.tar.gz 2>/dev/null)";
-    // Both ./control (OpenWrt SDK) and control (Rust X) are valid IPK members.
+    // Both ./control (OpenWrt SDK) and control (Xrust) are valid IPK members.
     let command = is_apk() ? command_from_args([ "apk", "--allow-untrusted", "adbdump", path ]) :
         "(" + control_archive + " | tar -xzOf - ./control 2>/dev/null || " +
         control_archive + " | tar -xzOf - control 2>/dev/null)";
@@ -2264,7 +2264,7 @@ function fail_package_sing_box_install(action, tiny, reason, current_version, la
         rollback_file
     );
 
-    let prefix = target_package == "rust-x" ? "Rust X" : target_package == "sing-box-x" ? "Sing-box X" : tiny ? "sing-box-tiny" : "Stable sing-box";
+    let prefix = target_package == "rust-x" ? "Xrust" : target_package == "sing-box-x" ? "Sing-box X" : tiny ? "sing-box-tiny" : "Stable sing-box";
     if (restored)
         restored = restart_forkop_after_successful_change() && wait_forkop_running_after_sing_box_change();
     if (!restored)
@@ -2540,7 +2540,7 @@ function install_package_sing_box(action, tiny, x, rust) {
     x = x || rust;
     let package_name = rust ? "rust-x" : x ? "sing-box-x" : tiny ? "sing-box-tiny" : "sing-box";
     let target_variant = rust ? "rust-x" : x ? "x" : tiny ? "tiny" : "stable";
-    let label = rust ? "Rust X" : x ? "sing-box X" : tiny ? "tiny sing-box" : "stable sing-box";
+    let label = rust ? "Xrust" : x ? "sing-box X" : tiny ? "tiny sing-box" : "stable sing-box";
     let package_version = installed_package_version(package_name);
     let binary_version = sing_box_runtime_output("version", []);
     let current_version = package_version;

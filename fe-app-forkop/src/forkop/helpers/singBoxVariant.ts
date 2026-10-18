@@ -19,7 +19,7 @@ export function getRustXVersion(version?: string) {
 }
 
 export function getSingBoxName(value: SingBoxVariantFields) {
-  if (getRustXVersion(value.sing_box_version)) return 'Rust X';
+  if (getRustXVersion(value.sing_box_version)) return 'Xrust';
   return getSingBoxXVersion(value.sing_box_version) ? 'Sing-Box X' : 'Sing-box';
 }
 

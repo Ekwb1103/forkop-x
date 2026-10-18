@@ -29,19 +29,19 @@ function createTailscaleContent(section) {
     const lan = E("input", { type: "checkbox" });
     const lanStatus = E("p");
     const admin = E("a", { href: "https://login.tailscale.com/admin/machines", target: "_blank", rel: "noopener noreferrer", style: "display:none" }, "Открыть панель Tailscale");
-    const labels = { disconnected: "Отключено", connecting: "Подключение…", reconnecting: "Восстановление соединения…", connected: "Подключено", error: "Ошибка подключения", unavailable: "Обновите Rust X для нативного Tailscale" };
+    const labels = { disconnected: "Отключено", connecting: "Подключение…", reconnecting: "Восстановление соединения…", connected: "Подключено", error: "Ошибка подключения", unavailable: "Обновите Xrust для нативного Tailscale" };
     function render(data) {
       latest = data;
       const entries = Array.isArray(data.events) ? data.events : [];
       const text = entries.length ? entries.map(entry => "[" + new Date(entry.time * 1000).toLocaleString("ru-RU") + "] " + entry.message).join("\n") : "Событий пока нет.";
       if (logs.textContent !== text) { logs.textContent = text; logs.scrollTop = logs.scrollHeight; }
-      setStatus(data.available ? (labels[data.state] || "Состояние неизвестно") : data.version_supported === false ? "Требуется Forkop 2.3.4 или новее" : data.rust_selected === false ? "Доступно только при выбранном Rust X" : labels.unavailable, data.available ? data.state : "unavailable");
+      setStatus(data.available ? (labels[data.state] || "Состояние неизвестно") : data.version_supported === false ? "Требуется Forkop 2.3.4 или новее" : data.rust_selected === false ? "Доступно только при выбранном Xrust" : labels.unavailable, data.available ? data.state : "unavailable");
       details.textContent = data.message || (data.ip ? "Tailscale IP: " + data.ip : "");
       connect.disabled = busy || !data.available || data.state === "connected" || data.state === "connecting";
       disconnect.disabled = busy || !data.available || data.state === "disconnected";
       key.disabled = busy || !data.available || data.state === "connected";
       ssh.disabled = busy || !data.ssh_available;
-      ssh.title = data.ssh_available ? "" : "Требуется Rust X 0.0.17 или новее";
+      ssh.title = data.ssh_available ? "" : "Требуется Xrust 0.0.17 или новее";
       ssh.checked = Boolean(data.ssh_enabled);
       lan.disabled = busy || !data.available;
       lan.checked = Boolean(data.lan_enabled);

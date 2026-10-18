@@ -1886,7 +1886,7 @@ function reload(reason) {
             return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, false);
         transition_guard_active = true;
         if (hot_reload) {
-            log_message("Applying Rust X configuration with acknowledged hot reload", "info");
+            log_message("Applying Xrust configuration with acknowledged hot reload", "info");
             if (!module_success(SINGBOX_UC, [ "commit-config-stage", staged_singbox_config, staged_singbox_backup ]))
                 return abort_hot_transition(1, staged_singbox_config, staged_singbox_backup);
             status = module_status(HOT_RELOAD_UC, [ "apply", staged_singbox_config + ".hot-plan" ]);

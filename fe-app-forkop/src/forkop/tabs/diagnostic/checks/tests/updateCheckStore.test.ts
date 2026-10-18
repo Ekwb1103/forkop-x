@@ -7,7 +7,7 @@ import { DIAGNOSTICS_CHECKS } from '../contstants';
 
 describe('diagnostic core labels', () => {
   it.each([
-    ['1.14.2-rust-x.0.0.5', 'Rust X'],
+    ['1.14.2-rust-x.0.0.5', 'Xrust'],
     ['1.14.2-x-1.0.3', 'Sing-Box X'],
     ['1.14.2', 'Sing-box'],
   ])('renders %s without changing diagnostic results', (version, name) => {

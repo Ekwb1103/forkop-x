@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build, sign, publish and verify Forkop X and/or Rust X in one command.
+"""Build, sign, publish and verify Forkop X and/or Xrust in one command.
 
 Run on the operator computer with gh authentication and mirror SSH access.
 Private signing and SSH keys never enter GitHub Actions.
@@ -111,7 +111,7 @@ def wait_mirror(url, expected, timeout):
 class Release:
     def __init__(self, args, project, version):
         self.args, self.project, self.version = args, project, version
-        self.repo = 'Screamshow/' + ('forkop-x' if project == 'forkop' else 'rust-x')
+        self.repo = 'Screamshow/' + ('forkop-x' if project == 'forkop' else 'xrust')
         self.tag = version if project == 'forkop' else 'rust-x-v' + version
         self.directory = (args.output / project / self.tag).resolve()
         self.ssh = ['ssh', '-i', str(args.ssh_key), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', HOST]
@@ -138,10 +138,10 @@ class Release:
             cargo = base64.b64decode(content['content']).decode()
             workspace = cargo.split('[workspace.package]', 1)[1].split('\n[', 1)[0]
             if not re.search(r'^version = "' + re.escape(self.version) + r'"$', workspace, re.MULTILINE):
-                raise ValueError('Prepare and push the Rust X workspace version/notes before releasing')
+                raise ValueError('Prepare and push the Xrust workspace version/notes before releasing')
             tagged = subprocess.run(['gh', 'api', f'repos/{self.repo}/git/ref/tags/{self.tag}'], capture_output=True, text=True)
             if tagged.returncode == 0 and gh('api', f'repos/{self.repo}/commits/{self.tag}')['sha'] != self.source:
-                raise ValueError('Existing Rust X tag points to a different commit')
+                raise ValueError('Existing Xrust tag points to a different commit')
         if self.project == 'forkop' and not self.existing:
             tagged = subprocess.run(['gh', 'api', f'repos/{self.repo}/git/ref/tags/{self.tag}'], capture_output=True, text=True)
             if tagged.returncode == 0 and gh('api', f'repos/{self.repo}/commits/{self.tag}')['sha'] != self.source:
@@ -272,7 +272,7 @@ class Release:
         if self.project == 'rust-x':
             previous = public_json(BASE + '/forkop/rust-x/latest.json')
             if version_key(previous['version']) > version_key(self.version):
-                raise ValueError('Refusing to downgrade the Rust X mirror pointer')
+                raise ValueError('Refusing to downgrade the Xrust mirror pointer')
             remote = f'/srv/mirror/build/rust-x-publish/{self.tag}-{self.source[:12]}'
             self.remote(f'umask 077; mkdir -p {remote}')
             manifest = json.loads((self.directory / 'openwrt-manifest.json').read_text())
@@ -283,14 +283,14 @@ class Release:
             latest = wait_mirror(url, self.version, self.args.timeout)
             archived = public_json(BASE + f'/forkop/rust-x/releases/{self.version}/manifest.json')
             if latest != archived or latest['binary_source_commit'] != self.source:
-                raise ValueError('Rust X mirror manifest mismatch')
+                raise ValueError('Xrust mirror manifest mismatch')
             local = {a['file']: a for a in manifest['assets']}
             for asset in latest['assets']:
                 if asset['sha256'] != local[asset['file']]['sha256'] or asset['size'] != local[asset['file']]['size']:
-                    raise ValueError('Rust X mirror differs from signed release')
+                    raise ValueError('Xrust mirror differs from signed release')
                 data = fetch(asset['url'])
                 if len(data) != asset['size'] or hashlib.sha256(data).hexdigest() != asset['sha256']:
-                    raise ValueError('Rust X mirror package mismatch')
+                    raise ValueError('Xrust mirror package mismatch')
         else:
             canary = '-canary.' in self.version
             service = 'forkop-canary-mirror.service' if canary else 'forkop-mirror.service'
@@ -350,7 +350,7 @@ def main():
                 parser.error(f'Invalid {project} version')
             releases.append(Release(args, project, version))
     if args.rust and not (ROOT / 'artifacts/tachyon-core/scripts/finalize_release.py').is_file():
-        parser.error('Rust X main checkout required at artifacts/tachyon-core')
+        parser.error('Xrust main checkout required at artifacts/tachyon-core')
     for release in releases:
         release.preflight()
     for release in releases:

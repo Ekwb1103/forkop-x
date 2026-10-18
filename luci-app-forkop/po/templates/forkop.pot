@@ -3181,7 +3181,7 @@ msgstr ""
 msgid "Technical details"
 msgstr ""
 
-msgid "Rust X configuration compatibility confirmed"
+msgid "Xrust configuration compatibility confirmed"
 msgstr ""
 
 msgid "Use real IP addresses for WhatsApp"
