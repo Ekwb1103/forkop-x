@@ -4,7 +4,7 @@ let common = require("core.common");
 let uci = require("core.uci");
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
-const STATE_UC = LIB_DIR + "/service/state.uc";
+const STATE_UC = getenv("FORKOP_STATE_UC") || LIB_DIR + "/service/state.uc";
 const BINARY = getenv("FORKOP_SING_BOX_BIN") || "/usr/bin/sing-box";
 
 function str(value) { return value == null ? "" : "" + value; }

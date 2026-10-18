@@ -2320,3 +2320,36 @@ msgstr "Для работы опции «Отключить fake-ip для Whats
 
 msgid "Meta subnet lists for WhatsApp are missing. Download the Meta lists and apply again, or turn off real IPs for WhatsApp."
 msgstr "Для работы опции «Отключить fake-ip для Whatsapp» нужны загруженные подсети Meta. Загрузите списки Meta и примените настройки повторно либо выключите опцию."
+
+msgid "Could not prepare the updated configuration."
+msgstr "Не удалось подготовить обновлённую конфигурацию."
+
+msgid "The updated configuration was rejected."
+msgstr "Обновлённая конфигурация отклонена."
+
+msgid "Could not save the previous configuration."
+msgstr "Не удалось сохранить предыдущую конфигурацию."
+
+msgid "The core did not confirm the updated configuration."
+msgstr "Ядро не подтвердило применение обновлённой конфигурации."
+
+msgid "The previous working configuration could not be restored."
+msgstr "Не удалось восстановить предыдущую рабочую конфигурацию."
+
+msgid "Could not restart the auxiliary services."
+msgstr "Не удалось перезапустить вспомогательные службы."
+
+msgid "The updated configuration could not be applied."
+msgstr "Не удалось применить обновлённую конфигурацию."
+
+msgid "The previous working configuration is still active."
+msgstr "Продолжает работать предыдущая конфигурация."
+
+msgid "The updated core configuration is active, but auxiliary services reported an error."
+msgstr "Обновлённая конфигурация ядра работает, но возникла ошибка вспомогательных служб."
+
+msgid "Subscription update: recovery failed"
+msgstr "Обновление подписки: ошибка восстановления"
+
+msgid "Section: %s"
+msgstr "Раздел: %s"

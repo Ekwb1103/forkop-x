@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let common = require("core.common");
 let constants = require("core.constants");
 let uci_core = require("core.uci");
 
@@ -479,6 +480,25 @@ function restore_selector_state(snapshot) {
 
     for (let pair in pairs)
         module_success(DIAGNOSTICS_UC, [ "clash-api", "set_group_proxy", pair.group, pair.proxy, "" ]);
+}
+
+function save_selector_state(path) {
+    let payload = clash_api_json("get_proxies");
+    if (type(payload) != "object" || type(payload.proxies) != "object")
+        return 1;
+    return common.write_private_file(path, sprintf("%J", selector_state_from_proxies_payload(payload))) != null ? 0 : 1;
+}
+
+function restore_saved_selector_state(path) {
+    let snapshot = read_json_file(path);
+    let payload = clash_api_json("get_proxies");
+    if (type(snapshot) != "object" || type(payload) != "object" || type(payload.proxies) != "object")
+        return 1;
+    let ok = true;
+    for (let pair in selector_restore_pairs(snapshot, payload))
+        if (!module_success(DIAGNOSTICS_UC, [ "clash-api", "set_group_proxy", pair.group, pair.proxy, "" ]))
+            ok = false;
+    return ok ? 0 : 1;
 }
 
 function module_background(module_path, args) {
@@ -2252,6 +2272,10 @@ else if (mode == "selector-state-from-proxies-fixture") {
     write_json(selector_state_from_proxies_payload(read_json_file(ARGV[1])));
     status = 0;
 }
+else if (mode == "save-selector-state")
+    status = save_selector_state(ARGV[1]);
+else if (mode == "restore-selector-state")
+    status = restore_saved_selector_state(ARGV[1]);
 else if (mode == "selector-restore-pairs-fixture") {
     write_json(selector_restore_pairs(read_json_file(ARGV[1]), read_json_file(ARGV[2])));
     status = 0;

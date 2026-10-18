@@ -58,6 +58,8 @@ const RELOAD_LOCK_DIR = getenv("FORKOP_RELOAD_LOCK_DIR") || "/var/run/forkop.rel
 const SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || "/etc/init.d/forkop";
 const PRIORITY_UC = getenv("FORKOP_PRIORITY_UC") || LIB_DIR + "/singbox/priority.uc";
 const DNS_FAILOVER_UC = getenv("FORKOP_DNS_FAILOVER_UC") || LIB_DIR + "/singbox/dns_failover.uc";
+const SUBSCRIPTION_APPLY_ERROR_FILE = getenv("FORKOP_SUBSCRIPTION_APPLY_ERROR_FILE") || RUNTIME_STATE_DIR + "/subscription-apply-error.json";
+let subscription_failure_detail = null;
 const DIAGNOSTICS_UC = getenv("FORKOP_DIAGNOSTICS_UC") || LIB_DIR + "/diagnostics/runtime.uc";
 const RULESET_CACHE_UC = getenv("FORKOP_RULESET_CACHE_UC") || LIB_DIR + "/singbox/ruleset_cache.uc";
 const COMPONENT_JOB_DIR = getenv("UPDATES_JOB_DIR") || getenv("FORKOP_UI_COMPONENT_ACTION_DIR") || "/var/run/forkop/component-actions";
@@ -4210,6 +4212,98 @@ function subscription_prepare_cache_request(force, target_section, target_source
     return { ok: true, updated, failed, unchanged, superseded };
 }
 
+function subscription_apply_failure(reason, state) {
+    subscription_failure_detail = { reason, state };
+    log_message("[subscription-apply-failed] " + state + ": " + reason, "error");
+    return false;
+}
+
+function subscription_record_result(ok, section) {
+    if (ok) {
+        fs.unlink(SUBSCRIPTION_APPLY_ERROR_FILE);
+        return;
+    }
+    ensure_dir(RUNTIME_STATE_DIR);
+    let value = subscription_failure_detail || { reason: "apply_failed", state: "unknown" };
+    value.section = as_string(section);
+    let temporary = SUBSCRIPTION_APPLY_ERROR_FILE + ".tmp";
+    if (common.write_private_json_file(temporary, value) == null || !fs.rename(temporary, SUBSCRIPTION_APPLY_ERROR_FILE)) {
+        fs.unlink(temporary);
+        log_message("Unable to store the subscription apply alert", "error");
+    }
+}
+
+function subscription_hot_transition(config_path) {
+    let work = trim(command_output_from_args([ "mktemp", "-d", "/tmp/forkop-subscription-hot.XXXXXX" ]));
+    if (work == "" || !fs.chmod(work, 0700)) {
+        if (work != "") command_success_from_args([ "rm", "-rf", work ]);
+        return { handled: true, ok: subscription_apply_failure("stage_failed", "previous") };
+    }
+    let stage = work + "/candidate.json", backup = work + "/previous.json";
+    let hot_module = LIB_DIR + "/service/hot_reload.uc";
+    let prepared = singbox_runtime_success([ "prepare-config-stage", "0", "1", "1", "", stage ]);
+    let plan = prepared ? module_capture([ hot_module, "plan", stage ]) : { status: 1 };
+    if (plan.status != 0 || trim(plan.output) != "hot") {
+        singbox_runtime_success([ "discard-config-stage", stage ]);
+        command_success_from_args([ "rm", "-rf", work ]);
+        return plan.status == 0 && trim(plan.output) == "cold"
+            ? { handled: false }
+            : { handled: true, ok: subscription_apply_failure(prepared ? "plan_failed" : "stage_failed", "previous") };
+    }
+    let had_cache = fs.stat(SECTION_CACHE_DIR) != null;
+    if ((had_cache && !command_success_from_args([ "cp", "-R", "-p", SECTION_CACHE_DIR, backup + ".section-cache" ])) ||
+        !command_success_from_args([ "cp", "-p", config_path, backup ]) ||
+        !module_success([ LIB_DIR + "/service/lifecycle.uc", "save-selector-state", backup + ".selectors" ])) {
+        singbox_runtime_success([ "discard-config-stage", stage ]);
+        command_success_from_args([ "rm", "-rf", work ]);
+        return { handled: true, ok: subscription_apply_failure("backup_failed", "previous") };
+    }
+    module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
+    module_success([ PRIORITY_UC, "stop-runtime" ]);
+    let committed = singbox_runtime_success([ "commit-config-stage", stage, backup ]);
+    let applied = committed && module_success([ hot_module, "apply", stage + ".hot-plan" ]);
+    let reason = "hot_apply_failed";
+    if (applied) {
+        let workers = module_success([ PRIORITY_UC, "start-runtime" ]);
+        workers = module_success([ DNS_FAILOVER_UC, "start-runtime" ]) && workers;
+        if (!workers) {
+            reason = "workers_failed";
+            applied = false;
+            module_success([ PRIORITY_UC, "stop-runtime" ]);
+            module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
+        }
+    }
+    if (!applied) {
+        let restored = module_success([ hot_module, "restore", stage + ".hot-plan", backup ]);
+        let cache_restored = restored && (had_cache
+            ? singbox_runtime_success([ "publish-section-cache", backup ])
+            : command_success_from_args([ "rm", "-rf", SECTION_CACHE_DIR ]));
+        cache_restored = cache_restored && module_success([ LIB_DIR + "/service/lifecycle.uc", "restore-selector-state", backup + ".selectors" ]);
+        if (restored) {
+            module_success([ PRIORITY_UC, "start-runtime" ]);
+            module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+        }
+        if (restored && cache_restored) {
+            singbox_runtime_success([ "discard-config-stage", stage ]);
+            command_success_from_args([ "rm", "-rf", work ]);
+        }
+        else log_message("Subscription rollback files retained at " + work, "error");
+        return { handled: true, ok: subscription_apply_failure(cache_restored ? reason : "rollback_failed", cache_restored ? "previous" : "recovery_failed") };
+    }
+    singbox_runtime_success([ "discard-config-stage", stage ]);
+    command_success_from_args([ "rm", "-rf", work ]);
+    log_message("Subscriptions applied with acknowledged Xrust hot reload; core process preserved", "info");
+    return { handled: true, ok: true };
+}
+
+function subscription_restore_selectors(backup) {
+    let snapshot = backup + ".selectors";
+    if (fs.stat(snapshot) == null)
+        return;
+    if (!module_success([ LIB_DIR + "/service/lifecycle.uc", "restore-selector-state", snapshot ]))
+        log_message("Could not restore all manual selector choices after subscription runtime transition", "warn");
+}
+
 function subscription_restore_runtime(backup, config_path, timeout) {
     let restore = backup + ".restore";
     let restored = service_state_success([ "stop-managed-sing-box-runtime", timeout ]) &&
@@ -4220,10 +4314,13 @@ function subscription_restore_runtime(backup, config_path, timeout) {
             as_string(getenv("FORKOP_SING_BOX_READY_TIMEOUT") || "90") ]);
     if (!restored) {
         log_message("Failed to recover the previous subscription runtime; backup retained at " + backup, "error");
+        subscription_apply_failure("rollback_failed", "recovery_failed");
         return false;
     }
+    subscription_restore_selectors(backup);
     module_success([ PRIORITY_UC, "start-runtime" ]);
     module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+    subscription_apply_failure("apply_failed", "previous");
     return true;
 }
 
@@ -4266,6 +4363,7 @@ function subscription_runtime_change_check(config_path) {
 }
 
 function subscription_update_common_locked(force, target_section, target_source_index) {
+    subscription_failure_detail = null;
     subscription_outbounds_changed = false;
     let sing_box_config_path = option(uci_settings(), "config_path", "");
     let proxy_signature_before = current_proxy_outbounds_signature(sing_box_config_path);
@@ -4274,7 +4372,7 @@ function subscription_update_common_locked(force, target_section, target_source_
         return false;
     let updated = prepared.updated;
     let failed = prepared.failed;
-    if (updated == 0)
+    if (updated == 0 && fs.stat(SUBSCRIPTION_APPLY_ERROR_FILE) == null)
         return true;
 
     let change = subscription_runtime_change_check(sing_box_config_path);
@@ -4287,66 +4385,80 @@ function subscription_update_common_locked(force, target_section, target_source_
         return true;
     }
 
-    log_message("Reloading sing-box to apply updated subscriptions", "info");
-    let validation = module_capture([ LIB_DIR + "/config/validator.uc", "validate-runtime" ]);
-    if (validation.status != 0) {
-        log_message("Forkop configuration is invalid: " + validation_failure_message(validation), "fatal");
+    let hot = subscription_hot_transition(sing_box_config_path);
+    if (hot.handled && !hot.ok)
         return false;
-    }
+    if (!hot.handled) {
+        log_message("Reloading sing-box to apply updated subscriptions", "info");
+        let validation = module_capture([ LIB_DIR + "/config/validator.uc", "validate-runtime" ]);
+        if (validation.status != 0) {
+            log_message("Forkop configuration is invalid: " + validation_failure_message(validation), "fatal");
+            return false;
+        }
 
-    if (!singbox_runtime_success([ "configure-service" ]))
-        return false;
-    let backup_dir = trim(command_output_from_args([ "mktemp", "-d", "/tmp/forkop-subscription-runtime.XXXXXX" ]));
-    let backup = backup_dir + "/previous.json";
-    let previous = fs.readfile(sing_box_config_path);
-    if (backup_dir == "" || !fs.chmod(backup_dir, 0700) || previous == null ||
-        common.write_private_file(backup, previous) == null) {
-        if (backup_dir != "")
+        if (!singbox_runtime_success([ "configure-service" ]))
+            return false;
+        let backup_dir = trim(command_output_from_args([ "mktemp", "-d", "/tmp/forkop-subscription-runtime.XXXXXX" ]));
+        let backup = backup_dir + "/previous.json";
+        let previous = fs.readfile(sing_box_config_path);
+        if (backup_dir == "" || !fs.chmod(backup_dir, 0700) || previous == null ||
+            common.write_private_file(backup, previous) == null) {
+            if (backup_dir != "")
+                command_success_from_args([ "rm", "-rf", backup_dir ]);
+            log_message("Cannot stage the previous subscription runtime", "error");
+            return false;
+        }
+        // A subscription in one section restarts every selector, including manual
+        // groups in other sections. Snapshot while the old API is still available.
+        if (service_state_success([ "sing-box-current-owned-service-runtime" ]) &&
+            !module_success([ LIB_DIR + "/service/lifecycle.uc", "save-selector-state", backup + ".selectors" ])) {
             command_success_from_args([ "rm", "-rf", backup_dir ]);
-        log_message("Cannot stage the previous subscription runtime", "error");
-        return false;
-    }
-    module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
-    module_success([ PRIORITY_UC, "stop-runtime" ]);
-    let transition_timeout = as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15");
-    if (!service_state_success([ "stop-managed-sing-box-runtime", transition_timeout ])) {
+            log_message("Cannot save manual selector choices; preserving the running subscription runtime", "error");
+            return false;
+        }
+        module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
+        module_success([ PRIORITY_UC, "stop-runtime" ]);
+        let transition_timeout = as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15");
+        if (!service_state_success([ "stop-managed-sing-box-runtime", transition_timeout ])) {
+            command_success_from_args([ "rm", "-rf", backup_dir ]);
+            module_success([ PRIORITY_UC, "start-runtime" ]);
+            module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+            log_message("Refusing subscription runtime update: the previous sing-box runtime did not stop safely", "error");
+            return false;
+        }
+        if (!singbox_runtime_success([ "init-config", "0", "1", "1" ])) {
+            if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
+                command_success_from_args([ "rm", "-rf", backup_dir ]);
+            log_message("Failed to rebuild sing-box after subscription update", "error");
+            return false;
+        }
+        if (!service_state_success([
+            "start-managed-sing-box-runtime",
+            transition_timeout
+        ])) {
+            if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
+                command_success_from_args([ "rm", "-rf", backup_dir ]);
+            return false;
+        }
+        if (!service_state_success([
+            "wait-managed-sing-box-config-listeners", sing_box_config_path,
+            as_string(getenv("FORKOP_SING_BOX_READY_TIMEOUT") || "90")
+        ])) {
+            log_message("Updated subscription runtime did not open its configured listeners", "error");
+            if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
+                command_success_from_args([ "rm", "-rf", backup_dir ]);
+            return false;
+        }
+        subscription_restore_selectors(backup);
         command_success_from_args([ "rm", "-rf", backup_dir ]);
-        module_success([ PRIORITY_UC, "start-runtime" ]);
-        module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
-        log_message("Refusing subscription runtime update: the previous sing-box runtime did not stop safely", "error");
-        return false;
-    }
-    if (!singbox_runtime_success([ "init-config", "0", "1", "1" ])) {
-        if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
-            command_success_from_args([ "rm", "-rf", backup_dir ]);
-        log_message("Failed to rebuild sing-box after subscription update", "error");
-        return false;
-    }
-    if (!service_state_success([
-        "start-managed-sing-box-runtime",
-        transition_timeout
-    ])) {
-        if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
-            command_success_from_args([ "rm", "-rf", backup_dir ]);
-        return false;
-    }
-    if (!service_state_success([
-        "wait-managed-sing-box-config-listeners", sing_box_config_path,
-        as_string(getenv("FORKOP_SING_BOX_READY_TIMEOUT") || "90")
-    ])) {
-        log_message("Updated subscription runtime did not open its configured listeners", "error");
-        if (subscription_restore_runtime(backup, sing_box_config_path, transition_timeout))
-            command_success_from_args([ "rm", "-rf", backup_dir ]);
-        return false;
-    }
-    command_success_from_args([ "rm", "-rf", backup_dir ]);
-    if (!module_success([ PRIORITY_UC, "start-runtime" ])) {
-        log_message("Failed to restart Priority runtime after subscription update", "error");
-        return false;
-    }
-    if (!module_success([ DNS_FAILOVER_UC, "start-runtime" ])) {
-        log_message("Failed to restart DNS failover runtime after subscription update", "error");
-        return false;
+        if (!module_success([ PRIORITY_UC, "start-runtime" ])) {
+            log_message("Failed to restart Priority runtime after subscription update", "error");
+            return false;
+        }
+        if (!module_success([ DNS_FAILOVER_UC, "start-runtime" ])) {
+            log_message("Failed to restart DNS failover runtime after subscription update", "error");
+            return false;
+        }
     }
     if (!write_current_reload_state_clean())
         return false;
@@ -4391,6 +4503,7 @@ function subscription_update_common(force, target_section, target_source_index) 
     }
 
     let ok = subscription_update_common_locked(force, target_section, target_source_index);
+    subscription_record_result(ok, target_section);
     release_runtime_lock(RELOAD_LOCK_DIR);
     release_runtime_lock(SUBSCRIPTION_UPDATE_LOCK_DIR);
     run_pending_reload_if_requested();

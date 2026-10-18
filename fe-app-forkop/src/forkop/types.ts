@@ -483,6 +483,11 @@ export namespace Forkop {
   }
 
   export interface UiState {
+    subscription_error?: {
+      state: 'previous' | 'recovery_failed' | 'applied' | 'unknown';
+      reason: string;
+      section: string;
+    } | null;
     service: {
       forkop: GetStatus;
       sing_box: GetSingBoxStatus;

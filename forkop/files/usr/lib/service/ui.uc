@@ -15,6 +15,7 @@ const STATE_DIR = getenv("FORKOP_UI_STATE_DIR") || "/var/run/forkop/ui-state";
 const PENDING_RELOAD_FILE = getenv("FORKOP_PENDING_RELOAD_FILE") || "/var/run/forkop/reload.pending";
 const PACKAGE_UPGRADE_QUIESCE_FILE = getenv("FORKOP_PACKAGE_UPGRADE_QUIESCE_FILE") || "/var/run/forkop/package-upgrade.quiesce";
 const RUNTIME_CONFIG_ERROR_FILE = getenv("FORKOP_RUNTIME_CONFIG_ERROR_FILE") || "/var/run/forkop/config-error";
+const SUBSCRIPTION_APPLY_ERROR_FILE = getenv("FORKOP_SUBSCRIPTION_APPLY_ERROR_FILE") || "/var/run/forkop/subscription-apply-error.json";
 const SERVICE_ACTION_DIR = getenv("FORKOP_UI_SERVICE_ACTION_DIR") || STATE_DIR + "/service-actions";
 const SERVICE_ACTION_LOCK_DIR = getenv("FORKOP_UI_SERVICE_ACTION_LOCK_DIR") || STATE_DIR + "/service-actions.lock";
 const LATENCY_ACTION_DIR = getenv("FORKOP_UI_LATENCY_ACTION_DIR") || STATE_DIR + "/latency-actions";
@@ -1201,6 +1202,7 @@ function current_ui_state_json() {
             }
         },
         config_error,
+        subscription_error: read_json_file(SUBSCRIPTION_APPLY_ERROR_FILE),
         capabilities,
         actions: action_state_from_dirs()
     });

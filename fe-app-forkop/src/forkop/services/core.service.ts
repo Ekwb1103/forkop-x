@@ -13,7 +13,9 @@ import { ForkopShellMethods } from '../methods';
 import {
   registerRuntimeStateResumeRefresh,
   startRuntimeUiStatePolling,
+  subscribeRuntimeUiState,
 } from './runtimeUiState.service';
+import { subscriptionApplyAlert } from './subscriptionApplyAlert.service';
 
 type CoreServiceOptions = {
   waitForLogWatcherStart?: () => Promise<unknown>;
@@ -114,6 +116,19 @@ function showLogNotification(notification: ForkopLogNotification) {
 }
 
 export function coreService(options: CoreServiceOptions = {}) {
+  let lastSubscriptionError = '';
+  subscribeRuntimeUiState((state) => {
+    const key = state.subscription_error ? JSON.stringify(state.subscription_error) : '';
+    if (key === lastSubscriptionError) return;
+    lastSubscriptionError = key;
+    if (typeof document !== 'undefined') {
+      document.querySelector('.fkp-subscription-apply-error')?.remove();
+    }
+    const alert = subscriptionApplyAlert(state.subscription_error);
+    if (alert) {
+      ui.addNotification(alert.title, E('div', {}, alert.message), 'error', 'fkp-subscription-apply-error');
+    }
+  });
   TabServiceInstance.onChange((activeId, tabs) => {
     logger.info('[TAB]', activeId);
     store.set({

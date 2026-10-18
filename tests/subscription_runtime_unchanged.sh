@@ -7,6 +7,7 @@ trap 'rm -rf "$WORK"' EXIT
 cat <<'UC'
 let current, candidate, running, prepare_ok, publish_ok, calls;
 let subscription_outbounds_changed=false;
+let subscription_failure_detail=null;
 function trim(v){return replace(v,/^[ \t\r\n]+|[ \t\r\n]+$/g,"");}
 function service_state_success(args){push(calls,join(" ",args));if(args[0]=="sing-box-current-owned-service-runtime")return running;die("unexpected service mutation\n");}
 function command_output_from_args(args){return "probe";}
