@@ -68,6 +68,11 @@ let fs = require("fs");
 
 function config(version) { return json(fs.readfile(getenv("DNS114_WORK_DIR") + "/config-" + version + ".json")); }
 function rules(value) { return value.dns.rules || []; }
+for (let version in ["1.12.25", "1.13.18", "1.14.0", "1.14.1"]) {
+    let https = filter(rules(config(version)), function(rule) { return rule.query_type == "HTTPS"; });
+    if (length(https) != 1 || https[0].action != "predefined" || https[0].rcode != "NOERROR")
+        die("HTTPS suppression must return NODATA: " + version + "\n");
+}
 function contains(value, needle) {
     if (type(value) == "array") {
         for (let item in value) if (item == needle) return true;

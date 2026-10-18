@@ -651,6 +651,36 @@ function normalize_utls_fingerprint(value) {
     return allowed[value] ? value : "chrome";
 }
 
+function add_certificate_pins(tls, value) {
+    if (value == null || value == "" || (type(value) == "array" && length(value) == 0))
+        return;
+    let pins = [];
+    let seen = {};
+    for (let item in type(value) == "array" ? value : split(as_string(value), ",")) {
+        item = trim(as_string(item));
+        let hex = lc(replace(item, /:/g, ""));
+        let pin = "";
+        if (match(hex, /^[0-9a-f]{64}$/)) {
+            let bytes = "";
+            for (let i = 0; i < 64; i += 2)
+                bytes += chr(index("0123456789abcdef", substr(hex, i, 1)) * 16 +
+                    index("0123456789abcdef", substr(hex, i + 1, 1)));
+            pin = b64enc(bytes);
+        }
+        else if (match(item, /^[A-Za-z0-9+\/]{43}=$/) && length(b64dec(item)) == 32)
+            pin = item;
+        if (pin == "")
+            die("Invalid TLS certificate SHA-256 pin\n");
+        if (!seen[pin]) {
+            push(pins, pin);
+            seen[pin] = true;
+        }
+    }
+    if (length(pins) == 0)
+        die("Empty TLS certificate SHA-256 pin list\n");
+    tls.certificate_sha256 = pins;
+}
+
 function add_tls(url, security, default_tls) {
     let query = object_or_empty(url.query);
     let sni = query.sni || query.peer || "";
@@ -677,6 +707,7 @@ function add_tls(url, security, default_tls) {
         return [null, true];
 
     let tls = { enabled: true };
+    add_certificate_pins(tls, query.pcs);
     if (sni != "")
         tls.server_name = sni;
     if (is_true(insecure))
@@ -2176,6 +2207,7 @@ function xray_tls_from_stream(stream, network) {
         return null;
 
     let tls = { enabled: true };
+    add_certificate_pins(tls, settings.pinnedPeerCertSha256);
     let server_name = xray_first_string([settings.serverName, settings.server_name, settings.sni]);
     let alpn = tls_alpn_for_transport(xray_alpn(settings.alpn), network);
     if (server_name != "")
@@ -2795,6 +2827,12 @@ function repair_cached_outbounds(outbounds) {
             !exists(outbound.tls.reality, "support_x25519mlkem768") &&
             exists(parsed.tls.reality, "support_x25519mlkem768"))
             outbound.tls.reality.support_x25519mlkem768 = parsed.tls.reality.support_x25519mlkem768;
+        if (type(parsed.tls) == "object" && parsed.tls.certificate_sha256 != null) {
+            if (type(outbound.tls) != "object")
+                outbound.tls = { enabled: true };
+            if (outbound.tls.certificate_sha256 == null)
+                outbound.tls.certificate_sha256 = parsed.tls.certificate_sha256;
+        }
     }
     return outbounds;
 }
@@ -3129,6 +3167,7 @@ function parse_subscription_source_entry_tsv(entry) {
 function module_exports() {
     return {
         parse_subscription_source_entry,
+        add_certificate_pins,
         validate_subscription,
         normalize_content_validated,
         normalized_skipped_message,

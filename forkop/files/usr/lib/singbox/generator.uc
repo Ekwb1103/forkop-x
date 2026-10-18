@@ -25,6 +25,7 @@ let fixture_uci_data = null;
 let runtime_settings_cache = null;
 let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
+let runtime_supports_certificate_pins = false;
 let runtime_supports_dns_response_matching = false;
 
 let as_string = common.as_string;
@@ -455,7 +456,7 @@ function base_config(settings, service_address, runtime_context) {
     for (let rule in dns_config.rules)
         push(dns_rules, rule);
     for (let rule in [
-        { action: "reject", query_type: "HTTPS" },
+        { action: "predefined", query_type: "HTTPS", rcode: "NOERROR" },
         { action: "reject", domain_suffix: "use-application-dns.net" },
         {
             action: "route",
@@ -543,7 +544,15 @@ function outbound_uses_xhttp(outbound) {
         lc(as_string(outbound.transport.type || "")) == "xhttp";
 }
 
+function outbound_uses_certificate_pins(outbound) {
+    let tls = object_or_empty(object_or_empty(outbound).tls);
+    let value = tls.certificate_sha256;
+    return type(value) == "array" ? length(value) > 0 : as_string(value) != "";
+}
+
 function ensure_explicit_outbound_supported(outbound, source, name) {
+    if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound))
+        runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' requires TLS certificate SHA-256 pinning; use Xrust or a core with verified certificate_sha256 support");
     if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound))
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses XHTTP transport, but installed sing-box does not advertise XHTTP support");
 }
@@ -594,6 +603,10 @@ function compatible_subscription_outbounds(outbounds, section_name) {
     for (let outbound in array_or_empty(outbounds)) {
         if (!supported_subscription_outbound(outbound))
             continue;
+        if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound)) {
+            warn_skipped_subscription_outbound(section_name, outbound, "TLS certificate SHA-256 pinning requires Xrust; pin retained in subscription cache");
+            continue;
+        }
         if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound)) {
             warn_skipped_subscription_outbound(section_name, outbound, "installed sing-box does not advertise XHTTP support");
             continue;
@@ -1791,6 +1804,7 @@ function apply_link_tls(outbound, scheme, query) {
     }
 
     let tls = { enabled: true };
+    subscription_parser.add_certificate_pins(tls, query.pcs);
     if (as_string(query.sni || "") != "")
         tls.server_name = as_string(query.sni);
     if (bool_query(query.allowInsecure || query.insecure || ""))
@@ -3418,6 +3432,9 @@ function section_by_name(sections, name) {
 }
 
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
+    // Verified for Xrust; Go X 1.0.4 and Extended 2.7.2 do not support this
+    // whole-certificate pin. Never substitute an SPKI pin or remove the pin.
+    runtime_supports_certificate_pins = match(as_string(sing_box_version), /-(rust-x|tachyon)\./) != null;
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);

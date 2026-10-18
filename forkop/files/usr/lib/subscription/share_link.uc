@@ -144,6 +144,10 @@ function add_tls_query(params, outbound, trojan_default_tls) {
     }
 
     add_query(params, "sni", tls.server_name);
+    let pins = type(tls.certificate_sha256) == "array" ? tls.certificate_sha256 :
+        (tls.certificate_sha256 != null ? [tls.certificate_sha256] : []);
+    if (length(pins) > 0)
+        add_query(params, "pcs", join(",", pins));
     if (tls.insecure === true)
         add_query(params, "allowInsecure", "1");
     if (type(tls.utls) == "object" && tls.utls.enabled !== false)

@@ -44,6 +44,9 @@ ops/deployed-nginx/
 !/tests/release_update_vm.sh
 !/tests/list_update_final_reload.sh
 !/tests/sing_box_dns114.sh
+!/tests/subscription_certificate_pins.sh
+!/tests/subscription_certificate_pins.uc
+!/tests/subscription_pin_compatibility.uc
 !/tests/whatsapp_real_dns_vm.sh
 !/tests/log_hygiene.sh
 !/tests/urltest_groups.sh
