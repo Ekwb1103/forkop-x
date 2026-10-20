@@ -713,7 +713,7 @@ function nft_create_priority_sets(table, sets) {
 function nft_priority_verdict_args(priority_action, mark) {
     if (priority_action == "bypass")
         return [ "counter", "accept" ];
-    return [ "meta", "mark", "set", mark, "counter", "accept" ];
+    return [ "meta", "l4proto", "{ tcp, udp }", "meta", "mark", "set", mark, "counter", "accept" ];
 }
 
 function append_array(target, additions) {
@@ -921,18 +921,6 @@ function nft_create_runtime_base(table, localv4_set, common_set, port_set, ip_po
         !nft_add_rule(table, "mangle", [ "jump", "priority_rules" ]) ||
         // The common classifiers all select the same mark. Stop after the
         // first match; later hooks (including TPROXY) still run normally.
-        !nft_add_rule(table, "mangle", [ "ip", "daddr", "@" + as_string(common_set), "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip", "daddr", "@" + as_string(common_set), "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip6", "daddr", "@" + as_string(common6_set), "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip6", "daddr", "@" + as_string(common6_set), "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip", "daddr", ".", "tcp", "dport", "@" + as_string(ip_port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip", "daddr", ".", "udp", "dport", "@" + as_string(ip_port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip6", "daddr", ".", "tcp", "dport", "@" + as_string(ip_port6_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip6", "daddr", ".", "udp", "dport", "@" + as_string(ip_port6_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip", "daddr", "!=", "@" + as_string(localv4_set), "tcp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip", "daddr", "!=", "@" + as_string(localv4_set), "udp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip6", "daddr", "!=", "@" + as_string(localv6_set), "tcp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
-        !nft_add_rule(table, "mangle", [ "ip6", "daddr", "!=", "@" + as_string(localv6_set), "udp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
         !nft_add_rule(table, "mangle", [ "ip", "daddr", fakeip_range, "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
         !nft_add_rule(table, "mangle", [ "ip", "daddr", fakeip_range, "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
         !nft_add_rule(table, "mangle", [ "ip6", "daddr", fakeip6_range, "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) ||
@@ -1004,16 +992,6 @@ function nft_create_runtime_output_rules(table, localv4_set, common_set, port_se
     fakeip6_range = default_arg(fakeip6_range, "fc00::/18");
 
     return (
-        nft_add_rule(table, "mangle_output", [ "ip", "daddr", "@" + as_string(common_set), "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip", "daddr", "@" + as_string(common_set), "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip6", "daddr", "@" + as_string(common6_set), "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip6", "daddr", "@" + as_string(common6_set), "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip", "daddr", ".", "tcp", "dport", "@" + as_string(ip_port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip", "daddr", ".", "udp", "dport", "@" + as_string(ip_port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip6", "daddr", ".", "tcp", "dport", "@" + as_string(ip_port6_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", [ "ip6", "daddr", ".", "udp", "dport", "@" + as_string(ip_port6_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
-        nft_add_rule(table, "mangle_output", append_array(IPV6_TPROXY_ENABLED ? [] : [ "meta", "nfproto", "ipv4" ], [ "tcp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ])) &&
-        nft_add_rule(table, "mangle_output", append_array(IPV6_TPROXY_ENABLED ? [] : [ "meta", "nfproto", "ipv4" ], [ "udp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter", "return" ])) &&
         nft_add_rule(table, "mangle_output", [ "ip", "daddr", fakeip_range, "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
         nft_add_rule(table, "mangle_output", [ "ip", "daddr", fakeip_range, "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&
         nft_add_rule(table, "mangle_output", [ "ip6", "daddr", fakeip6_range, "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter", "return" ]) &&

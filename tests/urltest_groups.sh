@@ -309,18 +309,18 @@ generate_config "$WORK_DIR/xray-fixture.json" "$WORK_DIR/xray-config-again.json"
 FORKOP_URLTEST_START_SEED=seed-1 generate_config "$WORK_DIR/xray-fixture.json" "$WORK_DIR/xray-config-other-start.json"
 ucode -e '
 let fs = require("fs");
-let first = json(fs.readfile(ARGV[0]));
-let second = json(fs.readfile(ARGV[1]));
-let third = json(fs.readfile(ARGV[2]));
+let first = json(fs.readfile(ARGV[0] + ".section-cache/proxy.json"));
+let second = json(fs.readfile(ARGV[1] + ".section-cache/proxy.json"));
+let third = json(fs.readfile(ARGV[2] + ".section-cache/proxy.json"));
 let a = null, b = null, c = null;
-for (let outbound in first.outbounds || [])
-    if (outbound.type == "urltest" && outbound.tolerance == 175)
+for (let _, outbound in first.urltestGroups || {})
+    if (outbound.tolerance == 175)
         a = outbound.outbounds;
-for (let outbound in second.outbounds || [])
-    if (outbound.type == "urltest" && outbound.tolerance == 175)
+for (let _, outbound in second.urltestGroups || {})
+    if (outbound.tolerance == 175)
         b = outbound.outbounds;
-for (let outbound in third.outbounds || [])
-    if (outbound.type == "urltest" && outbound.tolerance == 175)
+for (let _, outbound in third.urltestGroups || {})
+    if (outbound.tolerance == 175)
         c = outbound.outbounds;
 if (a == null || b == null || sprintf("%J", a) != sprintf("%J", b))
     die("provider URLTest startup order changed with the same seed\n");
@@ -409,13 +409,14 @@ function contains(values, needle) {
 }
 for (let outbound in config.outbounds || []) {
     if (outbound.type == "urltest" && outbound.tag == "Latvia group")
-        imported = outbound;
+        die("unused imported Xray URLTest must not be loaded\n");
     if (outbound.type == "urltest" && outbound.tag == "proxy-urltest-out")
         builtin = outbound;
 }
 for (let outbound in reveal_config.outbounds || [])
     if (outbound.type == "selector" && outbound.tag == "proxy-out")
         reveal_selector = outbound;
+imported = object_or_empty(cache.urltestGroups)["Latvia group"];
 if (!imported || imported.url != "https://www.gstatic.com/generate_204" || imported.interval != "120s")
     die("generated xray imported URLTest did not preserve subscription params\n");
 if (imported.tolerance != 175 || imported.idle_timeout != "30m" || imported.interrupt_exist_connections !== true)
@@ -445,12 +446,12 @@ if (length(candidates) != length(builtin.outbounds || []))
 for (let child in builtin.outbounds || [])
     if (!contains(candidates, child))
         die("section cache URLTest candidates are missing a matched xray leaf outbound\n");
-if (!reveal_selector || !contains(reveal_selector.outbounds, "Latvia group") ||
+if (!reveal_selector || contains(reveal_selector.outbounds, "Latvia group") ||
     !contains(reveal_selector.outbounds, "proxy-urltest-out"))
-    die("selector must keep the imported Xray URLTest group and built-in URLTest\n");
+    die("selector must expose configured URLTest without the unused imported group\n");
 for (let child in [ "lv-🇱🇻 Riga A", "lv-🇱🇻 Riga B" ])
-    if (contains(reveal_selector.outbounds, child))
-        die("xray URLTest child must remain hidden even if a legacy setting disables hiding\n");
+    if (!contains(reveal_selector.outbounds, child))
+        die("filtered Xray child must remain selectable in its section\n");
 ' "$xray_config" "$xray_config.section-cache/proxy.json" "$xray_reveal_urltest_config" || fail "xray generated URLTest behavior"
 
 xray_metadata="$WORK_DIR/xray-ui-outbound-metadata.json"
@@ -615,7 +616,9 @@ let config = json(fs.readfile(ARGV[0]));
 let cache = json(fs.readfile(ARGV[1]));
 let names = object_or_empty(object_or_empty(cache.outboundMetadata).names);
 let groups = object_or_empty(cache.urltestGroups);
-let imported = outbound_by_tag(config, "Provider Native Group");
+if (outbound_by_tag(config, "Provider Native Group"))
+    die("unused prefixed imported group must not be loaded\n");
+let imported = object_or_empty(cache.urltestGroups)["Provider Native Group"];
 let native = outbound_by_tag(config, "Provider Native A");
 let detour = outbound_by_tag(config, "Provider Detour Only");
 let uses_detour = outbound_by_tag(config, "Provider Uses Detour");
@@ -713,7 +716,7 @@ let reveal_urltest_selector = null;
 let reveal_detour_selector = null;
 for (let outbound in config.outbounds || []) {
     if (outbound.type == "urltest" && outbound.tag == "Native Group")
-        imported = outbound;
+        die("unused imported native URLTest must not be loaded\n");
     if (outbound.type == "urltest" && outbound.tag == "proxy-urltest-out")
         builtin = outbound;
     if (outbound.type == "selector" && outbound.tag == "proxy-out")
@@ -731,22 +734,22 @@ function contains(values, needle) {
             return true;
     return false;
 }
+imported = object_or_empty(cache.urltestGroups)["Native Group"];
 if (!imported || imported.url != "https://native.example/ping" || imported.interval != "1m" || imported.tolerance != 80)
     die("generated native URLTest did not preserve subscription params\n");
 if (!builtin || length(builtin.outbounds || []) != 1 || builtin.outbounds[0] != "Native A")
     die("built-in URLTest regex filter should expand Native Group to Native A only\n");
-for (let tag in selector.outbounds || [])
-    if (tag == "Native A")
-        die("native URLTest child must not be visible in selector by default\n");
+if (!contains(selector.outbounds, "Native A"))
+    die("filtered native child must remain selectable\n");
 for (let tag in selector.outbounds || [])
     if (tag == "Detour Only")
         die("detour-only outbound must not be visible in selector\n");
-if (contains(reveal_urltest_selector ? reveal_urltest_selector.outbounds : [], "Native A"))
-    die("native URLTest child must remain hidden even if a legacy setting disables hiding\n");
+if (!contains(reveal_urltest_selector ? reveal_urltest_selector.outbounds : [], "Native A"))
+    die("filtered native child must remain selectable with legacy settings\n");
 if (contains(reveal_urltest_selector ? reveal_urltest_selector.outbounds : [], "Detour Only"))
     die("detour outbound should stay hidden when only URLTest hiding is disabled\n");
-if (contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Native A"))
-    die("native URLTest child should stay hidden when only detour hiding is disabled\n");
+if (!contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Native A"))
+    die("filtered native child must remain selectable with legacy detour settings\n");
 if (contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Detour Only"))
     die("detour outbound must remain hidden even if a legacy setting disables hiding\n");
 if (length(object_or_empty(cache.urltestGroups)["Native Group"].outbounds || []) != 1)

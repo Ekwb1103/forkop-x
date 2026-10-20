@@ -118,7 +118,7 @@ let monitoringControllerInitialized = false;
 let serviceStateUnsubscribe: (() => void) | null = null;
 let renderTimer: ReturnType<typeof setInterval> | null = null;
 let connectionsPollTimer: ReturnType<typeof setInterval> | null = null;
-let connectionsSocketUrl = '';
+let connectionsSocketUnsubscribe: (() => void) | null = null;
 let connectionsUpdatesId = 0;
 let renderSkippedForSelection = false;
 let pendingConnectionsPayload: ClashConnectionsPayload | null = null;
@@ -1409,9 +1409,10 @@ async function connectToConnectionsSocket(updatesId: number) {
     return;
   }
 
-  connectionsSocketUrl = `${getClashWsUrl()}/connections?token=${clashApiSecret}`;
+  const connectionsSocketUrl = `${getClashWsUrl()}/connections?token=${clashApiSecret}`;
+  connectionsSocketUnsubscribe?.();
 
-  socket.subscribe(
+  connectionsSocketUnsubscribe = socket.subscribe(
     connectionsSocketUrl,
     (msg) => {
       if (
@@ -1466,10 +1467,8 @@ function stopConnectionsUpdates() {
     connectionsPollTimer = null;
   }
 
-  if (connectionsSocketUrl) {
-    socket.disconnect(connectionsSocketUrl);
-    connectionsSocketUrl = '';
-  }
+  connectionsSocketUnsubscribe?.();
+  connectionsSocketUnsubscribe = null;
 }
 
 function setServiceAvailability(next: ServiceAvailability) {

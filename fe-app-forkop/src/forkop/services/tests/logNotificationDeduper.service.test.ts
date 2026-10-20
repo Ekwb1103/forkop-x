@@ -105,13 +105,56 @@ describe('LogNotificationDeduper', () => {
       ),
     ).toBe('routing-warning:discord-cloudflare-overlap');
   });
+
+  it.each([true, false])(
+    'bounds live notification keys with storage=%s',
+    (withStorage) => {
+      const storage = withStorage ? new MemoryStorage() : null;
+      const deduper = new LogNotificationDeduper(storage);
+      for (let i = 0; i <= 500; i++) {
+        expect(deduper.shouldNotify(`forkop: [error] failure ${i}`)).toBe(true);
+      }
+      expect(deduper.shouldNotify('forkop: [error] failure 500')).toBe(false);
+      expect(deduper.shouldNotify('forkop: [error] failure 0')).toBe(true);
+      expect(deduper.shouldNotify('forkop: [error] failure 1')).toBe(true);
+      if (storage) {
+        expect(JSON.parse(storage.getItem(storage.key(0)!)!)).toHaveLength(500);
+        const restored = new LogNotificationDeduper(storage);
+        expect(restored.shouldNotify('forkop: [error] failure 500')).toBe(
+          false,
+        );
+      }
+    },
+  );
+
+  it('caps oversized legacy storage when loading a session', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      'forkop:shown-log-error-notifications:v1',
+      JSON.stringify(
+        Array.from({ length: 600 }, (_, i) => `forkop: [error] failure ${i}`),
+      ),
+    );
+    const deduper = new LogNotificationDeduper(storage);
+    expect(deduper.shouldNotify('forkop: [error] failure 599')).toBe(false);
+    expect(deduper.shouldNotify('forkop: [error] failure 0')).toBe(true);
+  });
 });
 
 it('classifies a rejected list apply as a warning notification', () => {
   const line = '[error] [rule-set-unavailable] Settings were not applied';
-  expect(getForkopLogNotification(line)).toEqual({ kind: 'rule-set-unavailable', line });
+  expect(getForkopLogNotification(line)).toEqual({
+    kind: 'rule-set-unavailable',
+    line,
+  });
 });
 
 it('recognizes Xrust update identity separately from sing-box', () => {
-  expect(getForkopLogNotification('forkop: [info] [component-update] rust_x 0.0.17')).toMatchObject({kind: 'component-update', component: 'rust_x', version: '0.0.17'});
+  expect(
+    getForkopLogNotification('forkop: [info] [component-update] rust_x 0.0.17'),
+  ).toMatchObject({
+    kind: 'component-update',
+    component: 'rust_x',
+    version: '0.0.17',
+  });
 });

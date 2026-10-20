@@ -51,6 +51,7 @@ ops/deployed-nginx/
 !/tests/log_hygiene.sh
 !/tests/urltest_groups.sh
 !/tests/urltest_empty_groups.sh
+!/tests/filtered_outbound_runtime.sh
 !/tests/shell_inventory.sh
 !/tests/build_version.sh
 !/tests/manual_restart_contract.sh
@@ -152,3 +153,5 @@ ops/deployed-nginx/
 !/tests/luci_apply_holdoff.cjs
 !/tests/quic_modes.sh
 !/tests/fakeip_variant_preservation.sh
+!/tests/installer_core_processes.sh
+!/docs/releases/2.3.9.md

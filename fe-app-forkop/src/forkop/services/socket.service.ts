@@ -21,27 +21,7 @@ class SocketManager {
   }
 
   resetAll(): void {
-    for (const [url, ws] of this.sockets.entries()) {
-      try {
-        if (
-          ws.readyState === WebSocket.OPEN ||
-          ws.readyState === WebSocket.CONNECTING
-        ) {
-          ws.close();
-        }
-      } catch (err) {
-        logger.error(
-          '[SOCKET]',
-          `resetAll: failed to close socket ${url}`,
-          err,
-        );
-      }
-    }
-
-    this.sockets.clear();
-    this.listeners.clear();
-    this.errorListeners.clear();
-    this.connected.clear();
+    this.disconnectAll();
     logger.info('[SOCKET]', 'All connections and state have been reset.');
   }
 
@@ -68,11 +48,13 @@ class SocketManager {
     if (!this.errorListeners.has(url)) this.errorListeners.set(url, new Set());
 
     ws.addEventListener('open', () => {
+      if (this.sockets.get(url) !== ws) return;
       this.connected.set(url, true);
       logger.info('[SOCKET]', 'Connected to', url);
     });
 
     ws.addEventListener('message', (event) => {
+      if (this.sockets.get(url) !== ws) return;
       const handlers = this.listeners.get(url);
       if (handlers) {
         for (const handler of handlers) {
@@ -86,18 +68,25 @@ class SocketManager {
     });
 
     ws.addEventListener('close', () => {
+      if (this.sockets.get(url) !== ws) return;
+      this.sockets.delete(url);
       this.connected.set(url, false);
       logger.warn('[SOCKET]', `Disconnected: ${url}`);
       this.triggerError(url, 'Connection closed');
     });
 
     ws.addEventListener('error', (err) => {
+      if (this.sockets.get(url) !== ws) return;
       logger.error('[SOCKET]', `Socket error for ${url}:`, err);
       this.triggerError(url, err);
     });
   }
 
-  subscribe(url: string, listener: Listener, onError?: ErrorListener): void {
+  subscribe(
+    url: string,
+    listener: Listener,
+    onError?: ErrorListener,
+  ): () => void {
     if (!this.errorListeners.has(url)) {
       this.errorListeners.set(url, new Set());
     }
@@ -105,20 +94,27 @@ class SocketManager {
       this.errorListeners.get(url)?.add(onError);
     }
 
-    if (!this.sockets.has(url)) {
-      this.connect(url);
-    }
-
     if (!this.listeners.has(url)) {
       this.listeners.set(url, new Set());
     }
     this.listeners.get(url)?.add(listener);
+    this.connect(url);
+
+    let subscribed = true;
+    return () => {
+      if (!subscribed) return;
+      subscribed = false;
+      this.unsubscribe(url, listener, onError);
+    };
   }
 
   unsubscribe(url: string, listener: Listener, onError?: ErrorListener): void {
     this.listeners.get(url)?.delete(listener);
     if (onError) {
       this.errorListeners.get(url)?.delete(onError);
+    }
+    if (!this.listeners.get(url)?.size && !this.errorListeners.get(url)?.size) {
+      this.disconnect(url);
     }
   }
 
@@ -135,17 +131,28 @@ class SocketManager {
 
   disconnect(url: string): void {
     const ws = this.sockets.get(url);
+    // Invalidate first: delayed events from this socket must not reach a new
+    // subscriber or mark a replacement connection as disconnected.
+    this.sockets.delete(url);
+    this.listeners.delete(url);
+    this.errorListeners.delete(url);
+    this.connected.delete(url);
     if (ws) {
-      ws.close();
-      this.sockets.delete(url);
-      this.listeners.delete(url);
-      this.errorListeners.delete(url);
-      this.connected.delete(url);
+      try {
+        ws.close();
+      } catch (err) {
+        logger.error('[SOCKET]', `Failed to close socket ${url}:`, err);
+      }
     }
   }
 
   disconnectAll(): void {
-    for (const url of this.sockets.keys()) {
+    const urls = new Set([
+      ...this.sockets.keys(),
+      ...this.listeners.keys(),
+      ...this.errorListeners.keys(),
+    ]);
+    for (const url of urls) {
       this.disconnect(url);
     }
   }

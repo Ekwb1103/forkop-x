@@ -387,6 +387,16 @@ function sing_box_exe_path(path) {
     return basename == "sing-box" || basename == "sing-box (deleted)";
 }
 
+// Rust X also runs the independent Tailscale service from the same binary.
+// Match LuCI's upgrade process selection; only the proxy runtime must stop.
+function installer_sing_box_process(exe) {
+    if (!sing_box_exe_path(command_output([ "readlink", exe ])))
+        return false;
+    let pid = split(exe, "/")[2];
+    let args = split(fs.readfile("/proc/" + pid + "/cmdline") || "", chr(0));
+    return args[1] != "tailscale-luci";
+}
+
 function managed_upgrade_sing_box_service_pid() {
     let data = command_output([ "ubus", "call", "service", "list", "{\"name\":\"sing-box\"}" ]);
     let service;
@@ -402,16 +412,16 @@ function managed_upgrade_sing_box_service_pid() {
 function managed_upgrade_sing_box_marker(path) {
     let pid = managed_upgrade_sing_box_service_pid();
     let ticks = process_start_ticks(pid);
-    if (pid <= 0 || !sing_box_exe_path(command_output([ "readlink", "/proc/" + pid + "/exe" ])))
+    if (pid <= 0 || !installer_sing_box_process("/proc/" + pid + "/exe"))
         return;
     let count = 0;
     for (let exe in fs.glob("/proc/[0-9]*/exe")) {
-        if (sing_box_exe_path(command_output([ "readlink", exe ])))
+        if (installer_sing_box_process(exe))
             count++;
     }
     if (count != 1 || ticks == null || managed_upgrade_sing_box_service_pid() != pid ||
         process_start_ticks(pid) != ticks ||
-        !sing_box_exe_path(command_output([ "readlink", "/proc/" + pid + "/exe" ])))
+        !installer_sing_box_process("/proc/" + pid + "/exe"))
         return;
     let stamp = clock();
     let temporary = as_string(path) + ".new." + stamp[0] + "." + stamp[1];
@@ -1057,7 +1067,7 @@ function installer_service_action(init_script, action) {
 function installer_sing_box_process_count() {
     let count = 0;
     for (let exe in fs.glob("/proc/[0-9]*/exe"))
-        if (sing_box_exe_path(command_output([ "readlink", exe ])))
+        if (installer_sing_box_process(exe))
             count++;
     return count;
 }
@@ -1081,7 +1091,7 @@ function installer_recover_stale_forkop_runtime() {
             length(command) < 4 || command[0] != "/usr/bin/sing-box" ||
             command[1] != "run" || command[2] != "-c" ||
             command[3] != "/etc/sing-box/config.json" ||
-            !sing_box_exe_path(command_output([ "readlink", "/proc/" + pid + "/exe" ])))
+            !installer_sing_box_process("/proc/" + pid + "/exe"))
             return false;
         owned[as_string(pid)] = ticks;
         count++;
@@ -1090,7 +1100,7 @@ function installer_recover_stale_forkop_runtime() {
     // executable and command line happen to match Forkop's.
     let seen = 0;
     for (let exe in fs.glob("/proc/[0-9]*/exe")) {
-        if (!sing_box_exe_path(command_output([ "readlink", exe ])))
+        if (!installer_sing_box_process(exe))
             continue;
         let parts = split(exe, "/");
         let pid = parts[2];
@@ -1104,7 +1114,7 @@ function installer_recover_stale_forkop_runtime() {
     // identity immediately before the action; a reused PID fails closed.
     for (let pid, ticks in owned)
         if (process_start_ticks(pid) != ticks ||
-            !sing_box_exe_path(command_output([ "readlink", "/proc/" + pid + "/exe" ])))
+            !installer_sing_box_process("/proc/" + pid + "/exe"))
             return false;
     let current = command_output([ "ubus", "call", "service", "list" ]);
     let current_service;

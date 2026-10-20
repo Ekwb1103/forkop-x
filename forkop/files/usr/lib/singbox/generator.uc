@@ -13,6 +13,7 @@ let runtime_rulesets = require("singbox.rulesets");
 let runtime_subscription = require("singbox.subscription");
 let runtime_url = require("core.url");
 let runtime_urltest = require("singbox.urltest");
+let outbound_reachability = require("singbox.outbound_reachability");
 let source_rulesets = require("routing.rulesets");
 let rule_config = require("config.rule");
 let connections = require("config.connections");
@@ -27,6 +28,7 @@ let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
 let runtime_supports_certificate_pins = false;
 let runtime_supports_dns_response_matching = false;
+let runtime_prunable_outbounds = {};
 
 let as_string = common.as_string;
 let read_json_file = common.read_json_file;
@@ -2402,6 +2404,15 @@ function add_connections_outbound(config, section, taken) {
     state.urltestCandidateTags = unique_string_array(urltest_candidate_tags);
     runtime_subscription.resolve_urltest_profile_aliases(state);
     add_proxy_selector(config, section, selector_tags, urltest_candidate_tags, state);
+    if (length(connections.urltests(section)) > 0 || length(connections.priority_groups(section)) > 0) {
+        // Keep the section selector as a root. Dependencies are resolved after
+        // all sections/routes are built, so shared detours cannot be dropped.
+        for (let i = cascade_start; i < length(config.outbounds); i++) {
+            let tag = config.outbounds[i].tag;
+            if (tag != outbound_tag(section_name))
+                runtime_prunable_outbounds[tag] = true;
+        }
+    }
     if (!atomic_write_json_file(runtime_subscription.section_cache_path(section_name), state))
         runtime_generate_unsupported("failed to write section cache for " + section_name);
 }
@@ -3436,6 +3447,7 @@ function section_by_name(sections, name) {
 }
 
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
+    runtime_prunable_outbounds = {};
     // Verified for Xrust; Go X 1.0.4 and Extended 2.7.2 do not support this
     // whole-certificate pin. Never substitute an SPKI pin or remove the pin.
     runtime_supports_certificate_pins = match(as_string(sing_box_version), /-(rust-x|tachyon)\./) != null;
@@ -3500,6 +3512,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     }
 
     assert_unique_outbound_tags(config);
+    outbound_reachability.prune(config, runtime_prunable_outbounds);
     strip_internal_fields(config);
     if (!write_json_file(output_path, config)) {
         warn("failed to write ", output_path, "\n");

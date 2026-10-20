@@ -142,5 +142,32 @@ if grep -Fq 'meta mark 0x08000000 counter return' "$WORK_DIR/outbound-mark.nft";
 fi
 
 printf 'outbound mark generation checks passed\n'
+FORKOP_NFT_BATCH_FILE="$WORK_DIR/outbound-mark.nft" \
+  ucode -L "$FORKOP_LIB" "$NFT_UC" nft-create-runtime-output-rules \
+    ForkopMarkTest localv4 common ports ip_ports 0x04000000 198.18.0.0/15 \
+    localv6 common6 ip_ports6 fc00::/18
+if grep -Eq '@(common6?|ports|ip_ports6?)( |$)' "$WORK_DIR/outbound-mark.nft"; then
+  fail "obsolete common-set classifiers are still emitted"
+fi
+for chain in mangle mangle_output; do
+  grep -Fq "$chain ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x04000000" "$WORK_DIR/outbound-mark.nft" ||
+    fail "$chain lost FakeIP TCP capture"
+  grep -Fq "$chain ip daddr 198.18.0.0/15 meta l4proto udp meta mark set 0x04000000" "$WORK_DIR/outbound-mark.nft" ||
+    fail "$chain lost FakeIP UDP capture"
+done
+cat >"$WORK_DIR/protocols.json" <<'JSON'
+{"section":[
+  {".name":"capture","enabled":"1","action":"connection","ip_cidr":["11.0.0.1/32"]},
+  {".name":"bypass","enabled":"1","action":"bypass","ip_cidr":["11.0.0.2/32"]}
+]}
+JSON
+FORKOP_NFT_BATCH_FILE="$WORK_DIR/protocols.nft" \
+  ucode -L "$FORKOP_LIB" "$NFT_UC" nft-add-section-priority-rules-fixture \
+    "$WORK_DIR/protocols.json" ForkopMarkTest interfaces localv4 localv6 0x04000000
+grep -Fq '@forkop_rule_capture_subnets meta l4proto { tcp, udp } meta mark set 0x04000000 counter accept' "$WORK_DIR/protocols.nft" ||
+  fail "subnet capture still marks protocols unsupported by TPROXY"
+grep -Fq '@forkop_rule_bypass_subnets counter accept' "$WORK_DIR/protocols.nft" ||
+  fail "subnet bypass was restricted to TCP/UDP"
+printf 'minimal classifier and capture protocol checks passed\n'
 printf 'transition guard checks passed\n'
 printf 'atomic nft candidate checks passed\n'

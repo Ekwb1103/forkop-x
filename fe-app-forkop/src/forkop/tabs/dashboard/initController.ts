@@ -53,6 +53,7 @@ let dashboardMounted = false;
 let dashboardMountId = 0;
 let dashboardDataUpdatesStarted = false;
 let dashboardDataUpdatesId = 0;
+let dashboardSocketUnsubscribes: Array<() => void> = [];
 let pageUnloading = false;
 const followedSubscriptionJobs = new Set<string>();
 const followedLatencyJobs = new Set<string>();
@@ -492,109 +493,113 @@ async function connectToClashSockets(dataUpdatesId: number) {
     return;
   }
 
-  socket.subscribe(
-    `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
-    (msg) => {
-      if (
-        dataUpdatesId !== dashboardDataUpdatesId ||
-        getDashboardServiceAvailability() === 'stopped'
-      ) {
-        return;
-      }
+  dashboardSocketUnsubscribes.push(
+    socket.subscribe(
+      `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
+      (msg) => {
+        if (
+          dataUpdatesId !== dashboardDataUpdatesId ||
+          getDashboardServiceAvailability() === 'stopped'
+        ) {
+          return;
+        }
 
-      const parsedMsg = JSON.parse(msg);
+        const parsedMsg = JSON.parse(msg);
 
-      store.set({
-        bandwidthWidget: {
-          loading: false,
-          failed: false,
-          data: { up: parsedMsg.up, down: parsedMsg.down },
-        },
-      });
-    },
-    (_err) => {
-      if (
-        dataUpdatesId !== dashboardDataUpdatesId ||
-        getDashboardServiceAvailability() === 'stopped'
-      ) {
-        return;
-      }
+        store.set({
+          bandwidthWidget: {
+            loading: false,
+            failed: false,
+            data: { up: parsedMsg.up, down: parsedMsg.down },
+          },
+        });
+      },
+      (_err) => {
+        if (
+          dataUpdatesId !== dashboardDataUpdatesId ||
+          getDashboardServiceAvailability() === 'stopped'
+        ) {
+          return;
+        }
 
-      logger.error(
-        '[DASHBOARD]',
-        'connectToClashSockets - traffic: failed to connect to',
-        getClashWsUrl(),
-      );
-      store.set({
-        bandwidthWidget: {
-          loading: false,
-          failed: true,
-          data: { up: 0, down: 0 },
-        },
-      });
-    },
+        logger.error(
+          '[DASHBOARD]',
+          'connectToClashSockets - traffic: failed to connect to',
+          getClashWsUrl(),
+        );
+        store.set({
+          bandwidthWidget: {
+            loading: false,
+            failed: true,
+            data: { up: 0, down: 0 },
+          },
+        });
+      },
+    ),
   );
 
-  socket.subscribe(
-    `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
-    (msg) => {
-      if (
-        dataUpdatesId !== dashboardDataUpdatesId ||
-        getDashboardServiceAvailability() === 'stopped'
-      ) {
-        return;
-      }
+  dashboardSocketUnsubscribes.push(
+    socket.subscribe(
+      `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
+      (msg) => {
+        if (
+          dataUpdatesId !== dashboardDataUpdatesId ||
+          getDashboardServiceAvailability() === 'stopped'
+        ) {
+          return;
+        }
 
-      const parsedMsg = JSON.parse(msg);
+        const parsedMsg = JSON.parse(msg);
 
-      store.set({
-        trafficTotalWidget: {
-          loading: false,
-          failed: false,
-          data: {
-            downloadTotal: parsedMsg.downloadTotal,
-            uploadTotal: parsedMsg.uploadTotal,
+        store.set({
+          trafficTotalWidget: {
+            loading: false,
+            failed: false,
+            data: {
+              downloadTotal: parsedMsg.downloadTotal,
+              uploadTotal: parsedMsg.uploadTotal,
+            },
           },
-        },
-        systemInfoWidget: {
-          loading: false,
-          failed: false,
-          data: {
-            connections: parsedMsg.connections?.length,
-            memory: parsedMsg.memory,
+          systemInfoWidget: {
+            loading: false,
+            failed: false,
+            data: {
+              connections: parsedMsg.connections?.length,
+              memory: parsedMsg.memory,
+            },
           },
-        },
-      });
-    },
-    (_err) => {
-      if (
-        dataUpdatesId !== dashboardDataUpdatesId ||
-        getDashboardServiceAvailability() === 'stopped'
-      ) {
-        return;
-      }
+        });
+      },
+      (_err) => {
+        if (
+          dataUpdatesId !== dashboardDataUpdatesId ||
+          getDashboardServiceAvailability() === 'stopped'
+        ) {
+          return;
+        }
 
-      logger.error(
-        '[DASHBOARD]',
-        'connectToClashSockets - connections: failed to connect to',
-        getClashWsUrl(),
-      );
-      store.set({
-        trafficTotalWidget: {
-          loading: false,
-          failed: true,
-          data: { downloadTotal: 0, uploadTotal: 0 },
-        },
-        systemInfoWidget: {
-          loading: false,
-          failed: true,
-          data: {
-            connections: 0,
-            memory: 0,
+        logger.error(
+          '[DASHBOARD]',
+          'connectToClashSockets - connections: failed to connect to',
+          getClashWsUrl(),
+        );
+        store.set({
+          trafficTotalWidget: {
+            loading: false,
+            failed: true,
+            data: { downloadTotal: 0, uploadTotal: 0 },
           },
-        },
-      });
-    },
+          systemInfoWidget: {
+            loading: false,
+            failed: true,
+            data: {
+              connections: 0,
+              memory: 0,
+            },
+          },
+        });
+      },
+    ),
   );
 }
 
@@ -618,7 +623,8 @@ function stopDashboardDataUpdates() {
   }
 
   sectionsRefreshQueued = false;
-  socket.resetAll();
+  for (const unsubscribe of dashboardSocketUnsubscribes) unsubscribe();
+  dashboardSocketUnsubscribes = [];
 }
 
 function startDashboardDataUpdates() {

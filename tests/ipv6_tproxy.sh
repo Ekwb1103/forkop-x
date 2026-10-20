@@ -27,7 +27,7 @@ exit 0
 EOF
 chmod +x "$WORK_DIR/bin/ip" "$WORK_DIR/bin/logger"
 cat >"$WORK_DIR/fixture.json" <<'EOF'
-{"settings":{"dns_server":"1.1.1.1"},"section":[{".name":"test",".type":"section","enabled":"1","action":"connection","outbound_jsons":"{\"type\":\"direct\"}","domain_suffix":"example.org","ports":"443","fully_routed_ips":["192.0.2.1/32","2001:db8::1/128"]}]}
+{"settings":{"dns_server":"1.1.1.1"},"section":[{".name":"test",".type":"section","enabled":"1","action":"connection","outbound_jsons":"{\"type\":\"direct\"}","domain_suffix":"example.org","ports":"443","fully_routed_ips":["192.0.2.1/32","2001:db8::1/128"]},{".name":"ports",".type":"section","enabled":"1","action":"block","ports":"443"}]}
 EOF
 
 for mode in enabled all-disabled lo-disabled missing; do
@@ -66,11 +66,12 @@ for mode in enabled all-disabled lo-disabled missing; do
     FORKOP_NFT_BATCH_FILE=$batch ucode -L "$FORKOP_LIB" "$NFT_UC" nft-add-section-priority-rules-fixture \
         "$WORK_DIR/fixture.json" ForkopIPv6Test interfaces localv4 localv6 0x04000000 198.18.0.0/15 fc00::/18
     grep -q 'tproxy ip to' "$batch" || fail "$mode lost IPv4 interception"
+    grep -q 'priority_output_rules ip daddr != @localv4 tcp dport @forkop_rule_ports_ports' "$batch" ||
+        fail "$mode lost family-scoped section port capture"
     if [ "$mode" = enabled ]; then
         grep -q 'tproxy ip6 to' "$batch" || fail 'missing IPv6 interception'
     else
         if grep '^add rule ' "$batch" | grep -q ' ip6 '; then fail "$mode kept IPv6 rules"; fi
-        grep -q 'meta nfproto ipv4 tcp dport @ports' "$batch" || fail "$mode marks IPv6 by port"
     fi
     signature=$(ucode -L "$FORKOP_LIB" "$NFT_UC" nft-runtime-signature-fixture "$WORK_DIR/fixture.json")
     state_signature=$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/service/state.uc" nft-signature-fixture "$WORK_DIR/fixture.json")

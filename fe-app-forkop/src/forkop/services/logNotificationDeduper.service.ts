@@ -81,9 +81,7 @@ export function getForkopLogNotification(
   }
 
   if (
-    line
-      .toLowerCase()
-      .includes('[routing-warning] discord-cloudflare-overlap')
+    line.toLowerCase().includes('[routing-warning] discord-cloudflare-overlap')
   ) {
     return { kind: 'discord-cloudflare-overlap', line };
   }
@@ -106,9 +104,7 @@ export function getForkopLogNotification(
 
 export function getLogNotificationKey(line: string) {
   if (
-    line
-      .toLowerCase()
-      .includes('[routing-warning] discord-cloudflare-overlap')
+    line.toLowerCase().includes('[routing-warning] discord-cloudflare-overlap')
   ) {
     return 'routing-warning:discord-cloudflare-overlap';
   }
@@ -122,6 +118,7 @@ export class LogNotificationDeduper {
   constructor(storage: Storage | null = getSessionStorage()) {
     this.storage = storage;
     this.seenKeys = new Set(readStoredKeys(storage));
+    this.trimSeenKeys();
   }
 
   shouldNotify(line: string) {
@@ -136,7 +133,15 @@ export class LogNotificationDeduper {
     }
 
     this.seenKeys.add(key);
+    this.trimSeenKeys();
     writeStoredKeys(this.storage, Array.from(this.seenKeys));
     return true;
+  }
+
+  private trimSeenKeys() {
+    while (this.seenKeys.size > MAX_STORED_LOG_NOTIFICATIONS) {
+      const oldest = this.seenKeys.values().next().value;
+      if (oldest !== undefined) this.seenKeys.delete(oldest);
+    }
   }
 }
