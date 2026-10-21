@@ -10,6 +10,8 @@ start_service() {
     "$native" tailscale-native-capability >/dev/null 2>&1 || return 1
     mkdir -p /var/run/forkop/ui-state
     /usr/lib/forkop/tailscale/lan.sh cleanup
+    [ ! -x /usr/lib/forkop/tailscale/transport.sh ] || /usr/lib/forkop/tailscale/transport.sh cleanup
+    rm -f /var/run/forkop/ui-state/tailscale-stopping
     procd_open_instance
     procd_set_param command "$native" tailscale-luci
     procd_set_param stdout 0
@@ -19,6 +21,9 @@ start_service() {
 }
 
 stop_service() {
+    mkdir -p /var/run/forkop/ui-state
+    touch /var/run/forkop/ui-state/tailscale-stopping
+    [ ! -x /usr/lib/forkop/tailscale/transport.sh ] || /usr/lib/forkop/tailscale/transport.sh cleanup
     /usr/lib/forkop/tailscale/lan.sh cleanup
     rm -f /var/run/forkop/ui-state/tailscale-auth
     printf '{"state":"disconnected"}\n' > /var/run/forkop/ui-state/tailscale-status.json

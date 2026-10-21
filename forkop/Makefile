@@ -23,7 +23,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/forkop
 	SECTION:=net
 	CATEGORY:=Network
-	DEPENDS:=+ca-bundle +kmod-inet-diag +kmod-tun +curl +ucode +ucode-mod-fs +ucode-mod-uci +kmod-nft-tproxy +bind-dig +nftables-json +kmod-nft-nat +ip-full
+	DEPENDS:=+ca-bundle +kmod-inet-diag +kmod-tun +curl +ucode +ucode-mod-fs +ucode-mod-uci +kmod-nft-tproxy +bind-dig +nftables-json +kmod-nft-nat +ip-full +flock
 	CONFLICTS:=https-dns-proxy nextdns luci-app-passwall luci-app-passwall2
 	TITLE:=Forkop backend service
 	URL:=https://github.com/Screamshow/forkop-x
@@ -80,6 +80,7 @@ define Package/forkop/install
 	$(CP) ./files/usr/lib/. $(1)/usr/lib/forkop/
 	$(INSTALL_BIN) ./files/usr/lib/support/ssh-gate.sh $(1)/usr/lib/forkop/support/ssh-gate.sh
 	$(INSTALL_BIN) ./files/usr/lib/tailscale/lan.sh $(1)/usr/lib/forkop/tailscale/lan.sh
+	$(INSTALL_BIN) ./files/usr/lib/tailscale/transport.sh $(1)/usr/lib/forkop/tailscale/transport.sh
 
 	$(INSTALL_DIR) $(1)/usr/share/forkop/defaults
 	$(INSTALL_CONF) ./files/etc/config/forkop $(1)/usr/share/forkop/defaults/forkop

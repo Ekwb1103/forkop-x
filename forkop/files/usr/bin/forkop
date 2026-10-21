@@ -189,6 +189,7 @@ function command_spec(command) {
         tailscale_native_disconnect: [ "tailscale/action.uc", "disconnect", 0 ],
         tailscale_native_ssh: [ "tailscale/action.uc", "ssh", 1 ],
         tailscale_native_lan: [ "tailscale/action.uc", "lan", 1 ],
+        tailscale_native_exit: [ "tailscale/action.uc", "exit", 1 ],
         validate_nfqws_strategy_json: [ "diagnostics/runtime.uc", "validate-nfqws-strategy-json", 1 ],
         validate_nfqws2_strategy_json: [ "diagnostics/runtime.uc", "validate-nfqws2-strategy-json", 1 ],
         validate_byedpi_strategy_json: [ "providers/byedpi/validator.uc", "validate-json", 1 ],

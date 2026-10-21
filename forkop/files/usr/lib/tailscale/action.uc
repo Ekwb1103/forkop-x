@@ -9,6 +9,7 @@ let rust_selected = trim(fs.readfile('/etc/forkop/sing-box-variant') || '') == '
 let version_supported = system('ucode /usr/lib/forkop/tailscale/compat.uc check >/dev/null 2>&1') == 0;
 let available = version_supported && rust_selected && system('/usr/lib/rust-x/sing-box tailscale-native-capability >/dev/null 2>&1') == 0;
 let ssh_available = available && system('/usr/lib/rust-x/sing-box tailscale-ssh-capability >/dev/null 2>&1') == 0;
+let exit_available = available && system('/usr/lib/rust-x/sing-box tailscale-exit-capability >/dev/null 2>&1') == 0;
 let action = ARGV[0];
 const EVENTS = DIR + '/tailscale-events.json';
 function connection_events(data) {
@@ -27,6 +28,7 @@ function connection_events(data) {
     if (data.ip && data.state == 'connected') message += ': ' + data.ip;
     if (data.message) message += '. ' + data.message;
     if (data.lan_enabled && data.state != 'disconnected' && data.routes_approved) message += '. Доступ к LAN разрешён';
+    if (data.exit_enabled && data.state == 'connected') message += data.exit_approved ? '. Exit Node одобрен' : '. Exit Node ожидает одобрения';
     let signature = message;
     if (history.signature != signature) {
         push(history.entries, {time:time(), message});
@@ -47,6 +49,8 @@ function result(data) {
     data.minimum_forkop = '2.3.4';
     data.saved_identity = fs.stat(STATE + '/tailscale.state') != null;
     data.ssh_available = ssh_available;
+    data.exit_available = exit_available;
+    data.exit_enabled = fs.stat(STATE + '/exit-enabled') != null;
     data.ssh_enabled = fs.stat(STATE + '/ssh-enabled') != null;
     data.lan_enabled = fs.stat(STATE + '/lan.json') != null;
     if (data.lan_enabled) {
@@ -85,12 +89,13 @@ if (action == 'connect') {
     fs.unlink(DIR + '/tailscale-auth-input');
     system(INIT + ' stop >/dev/null 2>&1');
     system(INIT + ' disable >/dev/null 2>&1');
-} else if (action == 'ssh') {
-    if (!ssh_available || (ARGV[1] != '0' && ARGV[1] != '1')) exit(1);
+} else if (action == 'ssh' || action == 'exit') {
+    if (!(action == 'ssh' ? ssh_available : exit_available) || (ARGV[1] != '0' && ARGV[1] != '1')) exit(1);
+    let flag = action == 'ssh' ? '/ssh-enabled' : '/exit-enabled';
     fs.mkdir(STATE, 0700); fs.chmod(STATE, 0700);
     if (ARGV[1] == '1') {
-        fs.writefile(STATE + '/ssh-enabled', '1'); fs.chmod(STATE + '/ssh-enabled', 0600);
-    } else { fs.unlink(STATE + '/ssh-enabled'); }
+        fs.writefile(STATE + flag, '1'); fs.chmod(STATE + flag, 0600);
+    } else { fs.unlink(STATE + flag); }
     if (fs.stat(STATE + '/enabled')) {
         system(INIT + ' stop >/dev/null 2>&1');
         fs.writefile(STATUS, '{"state":"connecting"}');

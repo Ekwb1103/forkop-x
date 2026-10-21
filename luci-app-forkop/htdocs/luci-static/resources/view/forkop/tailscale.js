@@ -21,22 +21,54 @@ function createTailscaleContent(section) {
       indicator.style.backgroundColor = color;
     }
     const details = E("p");
+    const transport = E("div", { style: "margin:16px 0;width:720px;max-width:100%;min-width:0;box-sizing:border-box" });
+    const intro = E("p", {}, "Введите ключ своей сети Tailscale.");
+    const keyRow = E("label", {}, ["Ключ подключения", E("br"), key]);
     const logs = E("pre", { style: "max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px", "aria-live":"polite" }, "Событий пока нет.");
     const logPanel = E("details", { style:"margin-top:20px" }, [E("summary", { style:"cursor:pointer" }, "Логи соединения"), logs]);
     const connect = E("button", { type: "button", class: "cbi-button cbi-button-apply" }, "Подключить");
     const disconnect = E("button", { type: "button", class: "cbi-button" }, "Отключить");
     const ssh = E("input", { type: "checkbox" });
     const lan = E("input", { type: "checkbox" });
-    const lanStatus = E("p");
-    const admin = E("a", { href: "https://login.tailscale.com/admin/machines", target: "_blank", rel: "noopener noreferrer", style: "display:none" }, "Открыть панель Tailscale");
-    const labels = { disconnected: "Отключено", connecting: "Подключение…", reconnecting: "Восстановление соединения…", connected: "Подключено", error: "Ошибка подключения", unavailable: "Обновите Xrust для нативного Tailscale" };
+    const helpStyle = "margin:6px 0 0;font-size:13px;line-height:1.5;opacity:.75";
+    const lanStatus = E("p", { style: helpStyle });
+    const exitNode = E("input", { type: "checkbox" });
+    const exitStatus = E("p", { style: helpStyle });
+    const labels = { disconnected: "Tailscale отключён", connecting: "Подключение к Tailscale…", reconnecting: "Восстановление связи с Tailscale…", connected: "Роутер подключён к Tailscale", error: "Ошибка подключения", unavailable: "Обновите Xrust для нативного Tailscale" };
     function render(data) {
       latest = data;
       const entries = Array.isArray(data.events) ? data.events : [];
       const text = entries.length ? entries.map(entry => "[" + new Date(entry.time * 1000).toLocaleString("ru-RU") + "] " + entry.message).join("\n") : "Событий пока нет.";
       if (logs.textContent !== text) { logs.textContent = text; logs.scrollTop = logs.scrollHeight; }
       setStatus(data.available ? (labels[data.state] || "Состояние неизвестно") : data.version_supported === false ? "Требуется Forkop 2.3.4 или новее" : data.rust_selected === false ? "Доступно только при выбранном Xrust" : labels.unavailable, data.available ? data.state : "unavailable");
-      details.textContent = data.message || (data.ip ? "Tailscale IP: " + data.ip : "");
+      details.textContent = data.message || (data.ip ? "Адрес роутера в Tailscale: " + data.ip : "");
+      const network = data.transport && data.transport.network;
+      const paths = data.transport && data.transport.peers || [];
+      transport.replaceChildren();
+      transport.style.display = data.state === "connected" ? "" : "none";
+      if (data.state === "connected") {
+        transport.appendChild(E("strong", {}, "Соединения с устройствами"));
+        if (paths.length) {
+          const rows = paths.slice().sort((a, b) => String(a.name || (a.addresses || [])[0] || "").localeCompare(String(b.name || (b.addresses || [])[0] || ""))).map(peer => {
+            const address = (peer.addresses || []).filter(ip => ip.indexOf(":") < 0).join(", ") || (peer.addresses || []).join(", ");
+            const name = typeof peer.name === "string" ? peer.name.replace(/\.$/, "").split(".")[0] : "";
+            const direct = peer.path === "direct", relayed = peer.path === "derp";
+            const region = network && network.home_derp === peer.derp_region ? network.derp_region : "регион " + peer.derp_region;
+            return E("tr", {}, [
+              E("td", { style: "padding:14px 16px;overflow-wrap:anywhere" }, [E("strong", {}, name || "Имя недоступно"), E("div", { style: "font-size:13px;opacity:.75;margin-top:4px" }, address)]),
+              E("td", { style: "padding:14px 16px" }, [E("strong", { style: "color:" + (direct ? "#22c55e" : relayed ? "#f59e0b" : "inherit") }, direct ? "Напрямую (Direct)" : relayed ? "Через DERP" : "Проверка соединения"), relayed ? E("div", { style: "font-size:12px;opacity:.75" }, region) : ""]),
+              E("td", { style: "padding:14px 16px;white-space:nowrap" }, direct && peer.direct_rtt_ms != null ? peer.direct_rtt_ms + " мс" : "—"),
+            ]);
+          });
+          transport.appendChild(E("div", { style: "width:100%;max-width:100%;overflow-x:auto;box-sizing:border-box" }, E("table", { class: "fkp-tailscale-peers", style: "width:100%;max-width:100%;table-layout:fixed;border-collapse:collapse;margin-top:8px;text-align:left" }, [
+            E("thead", {}, E("tr", {}, ["Устройство", "Текущий путь", "Задержка"].map(label => E("th", { style: "padding:12px 16px;font-weight:normal;opacity:.7" }, label)))),
+            E("tbody", {}, rows),
+          ])));
+        } else transport.appendChild(E("p", {}, "Соединений с устройствами пока нет."));
+        if (network && network.derp_region) transport.appendChild(E("p", { style: "font-size:13px;opacity:.75;margin:8px 0 0" }, "Резерв для входящих соединений: DERP · " + network.derp_region + (network.derp_latency_ms != null ? " · " + network.derp_latency_ms + " мс" : "")));
+      }
+      intro.style.display = keyRow.style.display = data.state === "connected" ? "none" : "";
+      connect.style.display = data.state === "connected" ? "none" : "";
       connect.disabled = busy || !data.available || data.state === "connected" || data.state === "connecting";
       disconnect.disabled = busy || !data.available || data.state === "disconnected";
       key.disabled = busy || !data.available || data.state === "connected";
@@ -46,8 +78,12 @@ function createTailscaleContent(section) {
       lan.disabled = busy || !data.available;
       lan.checked = Boolean(data.lan_enabled);
       const routes = (data.lan_routes || []).join(", ");
-      lanStatus.textContent = !data.lan_enabled ? "Устройства в локальной сети недоступны." : data.state !== "connected" ? "Локальная сеть: " + routes + ". Ожидаем подключения." : !data.lan_ready ? "Не удалось настроить доступ к локальной сети." : data.routes_approved ? "Доступ к локальной сети включён: " + routes : "Сеть " + routes + " ожидает одобрения. В панели Tailscale откройте этот роутер → Edit route settings и разрешите маршрут.";
-      admin.style.display = data.lan_enabled && data.state === "connected" && !data.routes_approved ? "inline-block" : "none";
+      lanStatus.textContent = !data.lan_enabled ? "" : data.state !== "connected" ? "Локальная сеть: ожидает подключения." : !data.lan_ready ? "Локальная сеть: ошибка настройки доступа." : data.routes_approved ? "Локальная сеть: доступ разрешён (" + routes + ")." : "Локальная сеть: ожидает одобрения (" + routes + "). В панели Tailscale: этот роутер → Edit route settings → разрешить маршрут.";
+      lanStatus.style.display = lanStatus.textContent ? "" : "none";
+      exitNode.disabled = busy || !data.exit_available;
+      exitNode.checked = Boolean(data.exit_enabled);
+      exitStatus.textContent = !data.exit_enabled ? "" : !data.exit_available ? "Exit Node: требуется обновление Xrust." : data.state !== "connected" ? "Exit Node: ожидает подключения." : !data.exit_ready ? "Exit Node: ошибка настройки доступа." : !data.exit_approved ? "Exit Node: ожидает одобрения. В панели Tailscale: этот роутер → Edit route settings → Use as exit node." : "";
+      exitStatus.style.display = exitStatus.textContent ? "" : "none";
     }
     async function request(action, args = []) {
       const result = await fs.exec("/usr/bin/forkop", ["tailscale_native_" + action, ...args]);
@@ -84,14 +120,18 @@ function createTailscaleContent(section) {
     disconnect.addEventListener("click", () => act("disconnect"));
     ssh.addEventListener("change", () => act("ssh", [ssh.checked ? "1" : "0"]));
     lan.addEventListener("change", () => act("lan", [lan.checked ? "1" : "0"]));
+    exitNode.addEventListener("change", () => act("exit", [exitNode.checked ? "1" : "0"]));
     const root = E("div", { class: "cbi-section" }, [
-      E("style", {}, "#cbi-forkop-tailscale_native > h3 { display: none; }"),
-      E("h3", {}, "Удалённый доступ"),
-      E("p", {}, "Введите ключ своей сети Tailscale."),
-      E("p", {}, [status]), details,
-      E("label", {}, ["Ключ подключения", E("br"), key]),
+      E("style", {}, "#cbi-forkop-tailscale_native > h3 { display: none; } .fkp-tailscale-peers th, .fkp-tailscale-peers td { border-bottom:1px solid rgba(148,163,184,.25) !important; } .fkp-tailscale-peers tbody tr:last-child td:last-child { border-bottom:0 !important; }"),
+      E("div", { style: "display:flex;flex-direction:column;align-items:flex-start;gap:16px;margin:0 0 12px" }, [E("h3", { style: "margin:0;padding:0" }, "Удалённый доступ"), status]),
+      intro,
+      details, transport,
+      keyRow,
       E("p", { style: "display:flex;gap:12px;flex-wrap:wrap;margin-top:16px" }, [connect, disconnect]),
-      E("hr"), E("p", {}, [E("label", { title: "Разрешает подключаться к SSH роутера через Tailscale по порту 22." }, [ssh, " Разрешить SSH"])]), E("label", {}, [lan, " Разрешить доступ к локальной сети"]), lanStatus, admin,
+      E("hr"),
+      E("div", { style: "margin:14px 0" }, E("label", { style: "display:inline-flex;align-items:center;gap:8px", title: "Разрешает подключаться к SSH роутера через Tailscale по порту 22." }, [ssh, "Разрешить SSH"])),
+      E("div", { style: "margin:14px 0" }, [E("label", { style: "display:inline-flex;align-items:center;gap:8px" }, [lan, "Разрешить доступ к локальной сети"]), lanStatus]),
+      E("div", { style: "margin:14px 0" }, [E("label", { style: "display:inline-flex;align-items:center;gap:8px", title: "Разрешает устройствам вашей сети Tailscale выходить в интернет через этот роутер и правила Forkop. Доступ в LAN и SSH включается отдельно." }, [exitNode, "Использовать роутер как Exit Node"]), exitStatus]),
       logPanel,
     ]);
     poll.add(refresh, 3); refresh();
