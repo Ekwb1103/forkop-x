@@ -95,6 +95,7 @@ if grep -Fq 'kmod-netlink-diag' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
 fi
 
 require_package_dependency "nftables-json"
+require_package_dependency "flock"
 if grep -Eq '(^|[[:space:],+])nftables([[:space:],]|$)' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
   fail "Forkop must depend on the concrete nftables-json provider, not the nftables virtual package"
 fi

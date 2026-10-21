@@ -8,6 +8,8 @@ start_service() {
     [ "$(cat /etc/forkop/sing-box-variant 2>/dev/null)" = rust-x ] || return 1
     native=/usr/lib/rust-x/sing-box
     "$native" tailscale-native-capability >/dev/null 2>&1 || return 1
+    # Repair permissions on existing installations before direct execution.
+    chmod 0755 /usr/lib/forkop/tailscale/lan.sh /usr/lib/forkop/tailscale/transport.sh || return 1
     mkdir -p /var/run/forkop/ui-state
     /usr/lib/forkop/tailscale/lan.sh cleanup
     [ ! -x /usr/lib/forkop/tailscale/transport.sh ] || /usr/lib/forkop/tailscale/transport.sh cleanup

@@ -94,6 +94,13 @@ if [ "$exit_mode" = 1 ]; then
     nft list set inet "$table" "$interfaces" >/dev/null 2>&1 || exit 1
 fi
 [ "${1:-}" != check ] || exit 0
+# Tailscale assigns IPv6 tailnet addresses even with an IPv4-only WAN.
+# A router-wide default can disable IPv6 on this newly created owned TUN.
+# Enable only this interface so its required tailnet route can be installed.
+ipv6_disabled=/proc/sys/net/ipv6/conf/forkop-tslan/disable_ipv6
+if [ -f "$ipv6_disabled" ] && [ "$(cat "$ipv6_disabled")" != 0 ]; then
+    printf '0\n' > "$ipv6_disabled"
+fi
 refresh=0
 if [ -f "$owned" ] && [ "$(cat "$owned")" != "$signature" ]; then refresh=1; fi
 if ! nft list table inet forkop_native_tailscale >/dev/null 2>&1; then
