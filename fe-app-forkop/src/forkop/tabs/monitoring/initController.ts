@@ -758,7 +758,14 @@ function renderSourceValue(source: ReturnType<typeof getSourceCellParts>) {
 }
 
 function renderTableCell(label: string, children: (Node | string)[]) {
-  const cell = E('td', {}, children);
+  const cell = E('div', { class: 'fkp_monitoring-page__cell', role: 'cell' }, [
+    E(
+      'span',
+      { class: 'fkp_monitoring-page__cell-label', 'aria-hidden': 'true' },
+      label,
+    ),
+    E('div', { class: 'fkp_monitoring-page__cell-content' }, children),
+  ]);
   cell.setAttribute('data-label', label);
   return cell;
 }
@@ -784,9 +791,15 @@ function renderConnectionRow(connection: MonitoredConnection) {
       : E('span', {}, '-');
 
   return E(
-    'tr',
+    'div',
     {
-      class: isClosing ? 'fkp_monitoring-page__row--closing' : '',
+      class: [
+        'fkp_monitoring-page__row',
+        isClosing ? 'fkp_monitoring-page__row--closing' : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      role: 'row',
     },
     [
       renderTableCell(_('Host'), [renderValue(target.primary)]),
@@ -817,26 +830,34 @@ function renderConnectionRow(connection: MonitoredConnection) {
 }
 
 function renderStateRow(text: string, className = '') {
-  return E('tr', { class: 'fkp_monitoring-page__state-row' }, [
-    E(
-      'td',
-      {
-        class: 'fkp_monitoring-page__state-cell',
-        colSpan: 8,
-      },
-      [
-        E(
-          'div',
-          {
-            class: ['fkp_monitoring-page__state', className]
-              .filter(Boolean)
-              .join(' '),
-          },
-          text,
-        ),
-      ],
-    ),
-  ]);
+  return E(
+    'div',
+    {
+      class: 'fkp_monitoring-page__row fkp_monitoring-page__state-row',
+      role: 'row',
+    },
+    [
+      E(
+        'div',
+        {
+          class: 'fkp_monitoring-page__state-cell',
+          role: 'cell',
+          'aria-colspan': '8',
+        },
+        [
+          E(
+            'div',
+            {
+              class: ['fkp_monitoring-page__state', className]
+                .filter(Boolean)
+                .join(' '),
+            },
+            text,
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 function renderConnectionsTable(
@@ -849,22 +870,43 @@ function renderConnectionsTable(
 
   return E('div', { class: 'fkp_monitoring-page__table-wrap' }, [
     E(
-      'table',
-      { class: 'table cbi-section-table fkp_monitoring-page__table' },
+      'div',
+      {
+        class: 'fkp_monitoring-page__table',
+        role: 'table',
+        'aria-label': _('Connections'),
+      },
       [
-        E('thead', {}, [
-          E('tr', {}, [
-            E('th', {}, _('Host')),
-            E('th', {}, _('Type')),
-            E('th', {}, _('Route')),
-            E('th', {}, _('Time')),
-            E('th', {}, `\u2193 ${_('Downloaded')}`),
-            E('th', {}, `\u2191 ${_('Uploaded')}`),
-            E('th', {}, _('Source')),
-            E('th', {}, _('Close')),
-          ]),
+        E('div', { class: 'fkp_monitoring-page__head', role: 'rowgroup' }, [
+          E(
+            'div',
+            { class: 'fkp_monitoring-page__row', role: 'row' },
+            [
+              _('Host'),
+              _('Type'),
+              _('Route'),
+              _('Time'),
+              `\u2193 ${_('Downloaded')}`,
+              `\u2191 ${_('Uploaded')}`,
+              _('Source'),
+              _('Close'),
+            ].map((label) =>
+              E(
+                'div',
+                {
+                  class: 'fkp_monitoring-page__header-cell',
+                  role: 'columnheader',
+                },
+                label,
+              ),
+            ),
+          ),
         ]),
-        E('tbody', {}, rows),
+        E(
+          'div',
+          { class: 'fkp_monitoring-page__rows', role: 'rowgroup' },
+          rows,
+        ),
       ],
     ),
   ]);

@@ -272,6 +272,7 @@ export const styles = `
 
 .fkp_monitoring-page__table-wrap {
     width: 100%;
+    min-width: 0;
     overflow-x: auto;
     margin-bottom: 0;
 }
@@ -279,24 +280,40 @@ export const styles = `
 .fkp_monitoring-page__table {
     width: 100%;
     min-width: 840px;
-    table-layout: fixed;
-    border-collapse: collapse;
-    border-spacing: 0;
     margin-bottom: 0;
 }
 
-.fkp_monitoring-page__table th,
-.fkp_monitoring-page__table td {
+.fkp_monitoring-page__row {
+    display: grid;
+    grid-template-columns: minmax(0, 28fr) minmax(0, 6fr) minmax(0, 16fr) minmax(0, 8fr) minmax(0, 9.5fr) minmax(0, 8.5fr) minmax(0, 16fr) minmax(0, 8fr);
+    min-width: 0;
+}
+
+.fkp_monitoring-page__header-cell,
+.fkp_monitoring-page__cell {
     padding: 8px 6px;
     border-bottom: 1px solid var(--fkp-monitoring-divider-color);
     box-sizing: border-box;
     text-align: left;
-    vertical-align: middle;
+    min-width: 0;
     overflow: hidden;
     white-space: nowrap;
 }
 
-.fkp_monitoring-page__table th {
+.fkp_monitoring-page__cell {
+    display: flex;
+    align-items: center;
+}
+
+.fkp_monitoring-page__cell-content {
+    width: 100%;
+}
+
+.fkp_monitoring-page__cell-label {
+    display: none;
+}
+
+.fkp_monitoring-page__header-cell {
     color: var(--text-color-medium);
     font-size: 11px;
     font-weight: 600;
@@ -305,63 +322,31 @@ export const styles = `
     border-bottom-color: rgba(127, 127, 127, 0.32);
 }
 
-.fkp_monitoring-page__table th:nth-child(1) {
-    width: 28%;
-}
-
-.fkp_monitoring-page__table th:nth-child(2) {
-    width: 6%;
-}
-
-.fkp_monitoring-page__table th:nth-child(3) {
-    width: 16%;
-}
-
-.fkp_monitoring-page__table th:nth-child(4) {
-    width: 8%;
-}
-
-.fkp_monitoring-page__table th:nth-child(5) {
-    width: 9.5%;
-}
-
-.fkp_monitoring-page__table th:nth-child(6) {
-    width: 8.5%;
-}
-
-.fkp_monitoring-page__table th:nth-child(7) {
-    width: 16%;
-}
-
-.fkp_monitoring-page__table th:nth-child(8) {
-    width: 8%;
-}
-
-.fkp_monitoring-page__table tbody tr:last-child td {
+.fkp_monitoring-page__rows > .fkp_monitoring-page__row:last-child > .fkp_monitoring-page__cell {
     border-bottom: 0;
 }
 
-.fkp_monitoring-page__table td:last-child {
+.fkp_monitoring-page__cell:last-child {
     padding-top: 0;
     padding-bottom: 0;
 }
 
-.fkp_monitoring-page__table th:nth-child(4),
-.fkp_monitoring-page__table td:nth-child(4),
-.fkp_monitoring-page__table th:nth-child(5),
-.fkp_monitoring-page__table td:nth-child(5),
-.fkp_monitoring-page__table th:nth-child(6),
-.fkp_monitoring-page__table td:nth-child(6) {
+.fkp_monitoring-page__header-cell:nth-child(4),
+.fkp_monitoring-page__cell:nth-child(4),
+.fkp_monitoring-page__header-cell:nth-child(5),
+.fkp_monitoring-page__cell:nth-child(5),
+.fkp_monitoring-page__header-cell:nth-child(6),
+.fkp_monitoring-page__cell:nth-child(6) {
     text-align: right;
 }
 
-.fkp_monitoring-page__table th:nth-child(7),
-.fkp_monitoring-page__table td:nth-child(7) {
+.fkp_monitoring-page__header-cell:nth-child(7),
+.fkp_monitoring-page__cell:nth-child(7) {
     text-align: left;
 }
 
-.fkp_monitoring-page__table th:last-child,
-.fkp_monitoring-page__table td:last-child {
+.fkp_monitoring-page__header-cell:last-child,
+.fkp_monitoring-page__cell:last-child {
     text-align: center;
 }
 
@@ -377,6 +362,11 @@ export const styles = `
     color: var(--text-color-high);
     font-size: 13px;
     user-select: text;
+}
+
+.fkp_monitoring-page__cell-content {
+    min-width: 0;
+    max-width: 100%;
 }
 
 .fkp_monitoring-page__source-value {
@@ -451,9 +441,9 @@ export const styles = `
     text-transform: lowercase;
 }
 
-.fkp_monitoring-page__table td:nth-child(4) .fkp_monitoring-page__value,
-.fkp_monitoring-page__table td:nth-child(5) .fkp_monitoring-page__value,
-.fkp_monitoring-page__table td:nth-child(6) .fkp_monitoring-page__value {
+.fkp_monitoring-page__cell:nth-child(4) .fkp_monitoring-page__value,
+.fkp_monitoring-page__cell:nth-child(5) .fkp_monitoring-page__value,
+.fkp_monitoring-page__cell:nth-child(6) .fkp_monitoring-page__value {
     color: var(--text-color-medium, #bbb);
     font-family: inherit;
     text-align: right;
@@ -511,6 +501,7 @@ export const styles = `
 
 .fkp_monitoring-page__state-cell {
     padding: 0 !important;
+    grid-column: 1 / -1;
 }
 
 .fkp_monitoring-page__state--error {
@@ -518,40 +509,59 @@ export const styles = `
 }
 
 @media (max-width: 900px) {
+    .fkp_monitoring-page {
+        --fkp-monitoring-control-height: 40px;
+        --fkp-monitoring-row-action-size: 40px;
+    }
+
     .fkp_monitoring-page__controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
+        gap: 10px;
     }
 
     .fkp_monitoring-page__tabs {
-        flex: 1 0 100%;
+        grid-column: 1 / -1;
+        max-width: 100%;
     }
 
     .fkp_monitoring-page__filters {
-        flex: 1 1 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 10px;
     }
 
     .fkp_monitoring-page__device-filter,
     .fkp_monitoring-page__search {
+        width: 100%;
         max-width: none;
+    }
+
+    .fkp_monitoring-page .btn.fkp_monitoring-page__icon-button {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
     }
 
     .fkp_monitoring-page__table {
         min-width: 0;
     }
 
-    .fkp_monitoring-page__table thead {
+    .fkp_monitoring-page__head {
         display: none;
     }
 
     .fkp_monitoring-page__table,
-    .fkp_monitoring-page__table tbody,
-    .fkp_monitoring-page__table tr,
-    .fkp_monitoring-page__table td {
+    .fkp_monitoring-page__rows,
+    .fkp_monitoring-page__row,
+    .fkp_monitoring-page__cell {
         display: block;
         width: 100%;
     }
 
-    .fkp_monitoring-page__table tr {
+    .fkp_monitoring-page__row {
         border: 1px var(--background-color-low, lightgray) solid;
         border-radius: 4px;
         padding: 8px;
@@ -559,7 +569,7 @@ export const styles = `
         margin-bottom: 8px;
     }
 
-    .fkp_monitoring-page__table td {
+    .fkp_monitoring-page__cell {
         display: grid;
         grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
         gap: 8px;
@@ -570,16 +580,17 @@ export const styles = `
         text-align: left;
     }
 
-    .fkp_monitoring-page__table td::before {
-        content: attr(data-label);
+    .fkp_monitoring-page__cell-label {
+        display: block;
+        text-align: left;
         color: var(--text-color-medium);
         font-weight: 700;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
-    .fkp_monitoring-page__table td:last-child {
+    .fkp_monitoring-page__cell:last-child {
         grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
         align-items: center;
         border-bottom: 0;
@@ -587,58 +598,88 @@ export const styles = `
         padding: 0;
     }
 
-    .fkp_monitoring-page__value {
-        text-align: right;
+    .fkp_monitoring-page__cell .fkp_monitoring-page__value {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-align: left;
     }
 
-    .fkp_monitoring-page__source-value {
-        justify-content: flex-end;
-    }
-
-    .fkp_monitoring-page__state-row td::before {
-        display: none;
-    }
-}
-
-@media (max-width: 520px) {
-    .fkp_monitoring-page__controls,
-    .fkp_monitoring-page__filters {
-        align-items: stretch;
-    }
-
-    .fkp_monitoring-page__tabs,
-    .fkp_monitoring-page__filters,
-    .fkp_monitoring-page__device-filter,
-    .fkp_monitoring-page__search {
-        width: 100%;
-    }
-
-    .fkp_monitoring-page__controls,
-    .fkp_monitoring-page__filters {
-        flex-direction: column;
-    }
-
-    .fkp_monitoring-page__actions {
-        align-self: flex-end;
-    }
-
-    .fkp_monitoring-page__tabs {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        width: 100%;
-    }
-
-    .fkp_monitoring-page__table td {
-        grid-template-columns: 1fr;
-        gap: 2px;
-    }
-
-    .fkp_monitoring-page__value {
+    .fkp_monitoring-page__cell > .fkp_monitoring-page__cell-content,
+    .fkp_monitoring-page__cell > .fkp_monitoring-page__cell-content > .fkp_monitoring-page__value {
         text-align: left;
     }
 
     .fkp_monitoring-page__source-value {
+        flex-wrap: wrap;
         justify-content: flex-start;
+    }
+
+    .fkp_monitoring-page__source-name,
+    .fkp_monitoring-page__source-ip {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .fkp_monitoring-page__reason {
+        max-width: 100%;
+    }
+
+    .fkp_monitoring-page__table .fkp_monitoring-page__state-cell {
+        display: block;
+    }
+
+}
+
+@media (max-width: 520px) {
+    .fkp_monitoring-page__filters {
+        grid-column: 1 / -1;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .fkp_monitoring-page__actions {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .fkp_monitoring-page__tabs {
+        grid-column: 1;
+        grid-row: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        width: 100%;
+        min-width: 0;
+    }
+
+    .fkp_monitoring-page .btn.fkp_monitoring-page__tab {
+        height: auto;
+        min-width: 0;
+        min-height: var(--fkp-monitoring-control-height);
+        padding: 5px;
+        gap: 4px;
+        flex-wrap: wrap;
+        font-size: 12px;
+    }
+
+    .fkp_monitoring-page__tab-label {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .fkp_monitoring-page__device-filter,
+    .fkp_monitoring-page__search-input {
+        font-size: 16px;
+    }
+
+    .fkp_monitoring-page__cell,
+    .fkp_monitoring-page__cell:last-child {
+        grid-template-columns: minmax(92px, 30%) minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .fkp_monitoring-page__source-value {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
     }
 }
 `;
