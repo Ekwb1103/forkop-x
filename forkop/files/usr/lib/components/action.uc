@@ -3109,6 +3109,11 @@ function install_forkop(requested_version) {
         }
     }
 
+    // New release dependencies must be resolvable before stopping Forkop or
+    // installing any release package, including when opkg lists are empty.
+    if (!run_logged("Updating package lists before Forkop package change", pkg_list_update_command()))
+        action_fail("forkop", "install", "Failed to update package lists", FORKOP_VERSION, latest_version);
+
     let rollback_packages = stage_forkop_rollback_packages();
     if (rollback_packages == null)
         action_fail("forkop", "install", "Cannot cache the exact installed Forkop packages for rollback", FORKOP_VERSION, latest_version);
