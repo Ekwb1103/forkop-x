@@ -1910,6 +1910,9 @@ msgstr "Доступна новая версия:"
 msgid "Update subscriptions"
 msgstr "Обновить подписки"
 
+msgid "Update all subscriptions"
+msgstr "Обновить все подписки"
+
 msgid "Update this subscription automatically"
 msgstr "Автоматически обновлять эту подписку"
 

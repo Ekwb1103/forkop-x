@@ -154,4 +154,7 @@ ops/deployed-nginx/
 !/tests/quic_modes.sh
 !/tests/fakeip_variant_preservation.sh
 !/tests/installer_core_processes.sh
+!/tests/subscription_filter_selection.sh
+!/tests/subscription_filter_selection.uc
 !/docs/releases/2.3.9.md
+!/docs/releases/2.4.2.md

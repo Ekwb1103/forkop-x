@@ -2945,6 +2945,9 @@ msgstr ""
 msgid "Update subscriptions"
 msgstr ""
 
+msgid "Update all subscriptions"
+msgstr ""
+
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2268
 msgid "Update this subscription automatically"
 msgstr ""

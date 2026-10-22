@@ -318,6 +318,22 @@ function value_to_list(value) {
     return words(value);
 }
 
+function reload(package_name) {
+    if (fixture_enabled())
+        return true;
+    let c = cursor();
+    if (c == null)
+        return false;
+    try {
+        c.unload(package_name);
+        delete loaded_packages[package_name];
+        return load(package_name);
+    }
+    catch (e) {
+        return false;
+    }
+}
+
 function get(path) {
     path = as_string(path);
     if (fixture_enabled())
@@ -626,6 +642,7 @@ function section_objects(package_name, type_name) {
 return {
     available,
     load,
+    reload,
     get,
     get_all,
     exists,

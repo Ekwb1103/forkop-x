@@ -20,6 +20,22 @@ describe('ForkopShellMethods.subscriptionUpdate', () => {
     vi.useRealTimers();
   });
 
+  it('starts one global update without restricting the rule or source', async () => {
+    mocks.executeShellCommand.mockResolvedValue({
+      stdout: JSON.stringify({ success: true, job_id: 'all-subscriptions' }),
+      stderr: '',
+      code: 0,
+    });
+    expect((await ForkopShellMethods.subscriptionUpdateStart()).success).toBe(
+      true,
+    );
+    expect(mocks.executeShellCommand).toHaveBeenCalledWith({
+      command: '/usr/bin/forkop',
+      args: ['subscription_update_async'],
+      timeout: 15000,
+    });
+  });
+
   it('starts a targeted background subscription update and waits for its state', async () => {
     mocks.executeShellCommand.mockImplementation(({ args }) => {
       if (args[0] === 'subscription_update_async') {

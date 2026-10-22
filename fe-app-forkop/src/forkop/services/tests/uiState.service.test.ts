@@ -89,6 +89,27 @@ function createUiState(
 }
 
 describe('applyUiStateToStore', () => {
+  it('restores the global subscription update indicator without a section', () => {
+    clearLocalActionOverlay();
+    applyUiStateToStore(
+      createUiState({
+        subscription: [
+          {
+            success: true,
+            running: true,
+            job_id: 'all-subscriptions',
+            section: '',
+            message: 'Subscription update is running',
+          },
+        ],
+      }),
+    );
+    expect(store.get().sectionsWidget.subscriptionUpdatingSections).toEqual({
+      '*': true,
+    });
+    applyUiStateToStore(createUiState());
+    expect(store.get().sectionsWidget.subscriptionUpdatingSections).toEqual({});
+  });
   it('preserves XHTTP capability independently of the core variant', () => {
     applyUiStateToStore(
       createUiState({}, { sing_box_extended: 0, sing_box_xhttp: 1 }),

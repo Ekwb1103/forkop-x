@@ -7,6 +7,7 @@ emit() {
 function array_or_empty(v) { return type(v) == 'array' ? v : []; }
 function object_or_empty(v) { return type(v) == 'object' ? v : {}; }
 function as_string(v) { return v == null ? '' : '' + v; }
+let subscription_filter_connections = { new: 'host-new', old: 'host-old' };
 UCODE
     for name in array_contains tag_display_name tag_name_filter_matches; do
         sed -n "/^function $name(/,/^}/p" "$ROOT_DIR/forkop/files/usr/lib/singbox/generator.uc"
@@ -23,6 +24,11 @@ assert(tag_name_filter_matches('old', names, ['Moscow #1'], {}, metadata, curren
 current['Moscow #1'] = true;
 assert(tag_name_filter_matches('old', names, [], { old: true }, metadata, current), 'regex matches remain independent');
 assert(!tag_name_filter_matches('old', names, ['Other'], {}, metadata, current), 'unrelated name must not match');
+metadata.selectionBindings = { 'Moscow #1': [ 'host-old' ] };
+assert(!tag_name_filter_matches('new', names, ['Moscow #1'], {}, metadata, current), 'binding must reject a reused name');
+assert(tag_name_filter_matches('old', names, ['Moscow #1'], {}, metadata, current), 'binding follows the selected connection');
+metadata.selectionBindings['Moscow #1'] = [ 'removed-host' ];
+assert(!tag_name_filter_matches('new', names, ['Moscow #1'], {}, metadata, current), 'removed host must not be replaced by current name owner');
 print('PASS: URLTest current names and rename fallback\n');
 UCODE
 }

@@ -7,6 +7,7 @@ let uci_core = require("core.uci");
 let connections = require("config.connections");
 let subscription_share_link = require("subscription.share_link");
 let filter_identity = require("subscription.filter_identity");
+let filter_selection = require("subscription.filter_selection");
 let core_ip = require("core.ip");
 let core_url = require("core.url");
 
@@ -368,6 +369,8 @@ function cache_name_from_file(path) {
 
     if (file_name == "cache-format")
         return "";
+    if (ends_with(file_name, ".filter-bindings"))
+        return substr(file_name, 0, length(file_name) - 16);
     if (ends_with(file_name, ".metadata.json"))
         return substr(file_name, 0, length(file_name) - 14);
     if (ends_with(file_name, ".json"))
@@ -383,6 +386,8 @@ function cache_name_from_file(path) {
 }
 
 function keep_names_for_path(path, keep, tmp_dir, persistent_dir, section_cache_dir, links_dir, metadata_dir, outbound_metadata_dir) {
+    if (ends_with(path, ".filter-bindings"))
+        return keep.sections;
     if (path_starts_with(path, tmp_dir) || path_starts_with(path, persistent_dir))
         return keep.sources;
     if (path_starts_with(path, section_cache_dir))
@@ -2079,6 +2084,7 @@ function subscription_update_section(section, force) {
 
     ensure_runtime_dirs();
     log_message("Updating subscriptions for rule '" + section_name_value + "'", "info");
+    let filter_snapshot = filter_selection.snapshot(section);
 
     let metadata_tmpfile = temp_path(TMP_SUBSCRIPTION_FOLDER, section_name_value, "metadata-section");
     write_json(metadata_tmpfile, []);
@@ -2131,6 +2137,14 @@ function subscription_update_section(section, force) {
         update_result = 4;
 
     finalize_subscription_section_metadata(section_name_value, metadata_tmpfile, superseded > 0);
+
+    if (superseded == 0) {
+        let filters = filter_selection.finish(filter_snapshot);
+        if (!filters.ok)
+            return 1;
+        if (filters.changed && update_result == 2)
+            update_result = 0;
+    }
 
     if (update_result == 0) {
         write_subscription_update_timestamp(section_name_value);
@@ -2205,6 +2219,7 @@ function subscription_update_selected_source(sections, section_name_value, sourc
 
     let source_section = source_id(section_name_value, source_index);
     let metadata_output_path = temp_path(TMP_SUBSCRIPTION_FOLDER, source_section, "metadata-output");
+    let filter_snapshot = filter_selection.snapshot(section);
     let update_result = update_subscription_source(section_name_value, source_index, selected_entry, "runtime", metadata_output_path);
 
     if (update_result == 0 || update_result == 2)
@@ -2219,6 +2234,14 @@ function subscription_update_selected_source(sections, section_name_value, sourc
         );
 
     unlink_path(metadata_output_path);
+
+    if (update_result == 0 || update_result == 2) {
+        let filters = filter_selection.finish(filter_snapshot);
+        if (!filters.ok)
+            return 1;
+        if (filters.changed)
+            update_result = 0;
+    }
 
     if (update_result == 0) {
         write_subscription_update_timestamp(section_name_value);

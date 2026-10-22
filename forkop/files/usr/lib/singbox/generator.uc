@@ -6,6 +6,9 @@ let core_ip = require("core.ip");
 let uci_core = require("core.uci");
 let runtime_constants = require("singbox.constants");
 let cache_identity = require("singbox.cache_identity");
+let filter_selection = require("subscription.filter_selection");
+// Keep private connection identities out of outboundMetadata/UI caches.
+let subscription_filter_connections = {};
 let runtime_country = require("singbox.country");
 let runtime_dns = require("singbox.dns");
 let runtime_route = require("singbox.route");
@@ -899,6 +902,7 @@ function add_subscription_source_with_state(config, section, source_index, sourc
             base = display_name;
         }
         let new_tag = unique_tag(base, taken);
+        subscription_filter_connections[new_tag] = filter_selection.connection(source_entry, outbound);
         taken[new_tag] = true;
         tag_map[base] = new_tag;
         if (as_string(outbound.tag || "") != "")
@@ -1109,10 +1113,19 @@ function regex_match_set(tags, names, regexes) {
 
 function tag_name_filter_matches(tag, names, name_filter, regex_set, metadata, current_names) {
     let name = tag_display_name(tag, names);
-    if (array_contains(name_filter, name) || regex_set[tag])
+    if (regex_set[tag])
         return true;
+    let bindings = object_or_empty(object_or_empty(metadata).selectionBindings);
+    for (let selected in array_or_empty(name_filter)) {
+        if (type(bindings[selected]) == "array") {
+            if (array_contains(bindings[selected], subscription_filter_connections[tag]))
+                return true;
+        }
+        else if (selected == name)
+            return true;
+    }
     for (let previous_name in array_or_empty(object_or_empty(object_or_empty(metadata).filterNames)[tag]))
-        if (!current_names[previous_name] && array_contains(name_filter, previous_name))
+        if (bindings[previous_name] == null && !current_names[previous_name] && array_contains(name_filter, previous_name))
             return true;
     return false;
 }
@@ -1246,7 +1259,7 @@ function filter_candidate_outbounds(filter_mode, urltest_candidate_tags, names, 
         include_names,
         include_regex,
         include_countries,
-        metadata,
+        { ...object_or_empty(metadata), selectionBindings: object_or_empty(metadata).includeBindings },
         include_proxy_parameters,
         "and",
         include_protocols,
@@ -1261,7 +1274,7 @@ function filter_candidate_outbounds(filter_mode, urltest_candidate_tags, names, 
         exclude_names,
         exclude_regex,
         exclude_countries,
-        metadata,
+        { ...object_or_empty(metadata), selectionBindings: object_or_empty(metadata).excludeBindings },
         exclude_proxy_parameters,
         "or",
         exclude_protocols,
@@ -1280,12 +1293,15 @@ function filter_candidate_outbounds(filter_mode, urltest_candidate_tags, names, 
 }
 
 function urltest_filtered_outbounds(section, urltest_id, urltest_candidate_tags, state) {
+    let saved = filter_selection.read(section[".name"])[filter_selection.urltest_key(section, urltest_id)];
     return filter_candidate_outbounds(
         connections.urltest_filter_mode(section, urltest_id),
         urltest_candidate_tags,
         object_or_empty(object_or_empty(state.outboundMetadata).names),
         urltest_country_metadata(section, urltest_id, state),
-        object_or_empty(state.outboundMetadata),
+        { ...object_or_empty(state.outboundMetadata),
+            includeBindings: filter_selection.bound_names(saved, "include", connections.urltest_include_outbounds(section, urltest_id)),
+            excludeBindings: filter_selection.bound_names(saved, "exclude", connections.urltest_exclude_outbounds(section, urltest_id)) },
         connections.urltest_include_outbounds(section, urltest_id),
         connections.urltest_include_regex(section, urltest_id),
         connections.urltest_include_countries(section, urltest_id),
@@ -1315,12 +1331,16 @@ function priority_level_filtered_outbounds(group_id, level_id, urltest_candidate
     if (connections.priority_level_direct(group_id, level_id))
         return [ runtime_constants.DIRECT_OUTBOUND_TAG ];
 
+    let owner = uci_core.get(CONFIG_NAME + "." + group_id + ".section");
+    let saved = owner ? filter_selection.read(owner)[filter_selection.priority_key(level_id)] : null;
     return filter_candidate_outbounds(
         connections.priority_level_filter_mode(group_id, level_id),
         urltest_candidate_tags,
         object_or_empty(object_or_empty(state.outboundMetadata).names),
         priority_level_country_metadata(group_id, level_id, state),
-        object_or_empty(state.outboundMetadata),
+        { ...object_or_empty(state.outboundMetadata),
+            includeBindings: filter_selection.bound_names(saved, "include", connections.priority_level_include_outbounds(group_id, level_id)),
+            excludeBindings: filter_selection.bound_names(saved, "exclude", connections.priority_level_exclude_outbounds(group_id, level_id)) },
         connections.priority_level_include_outbounds(group_id, level_id),
         connections.priority_level_include_regex(group_id, level_id),
         connections.priority_level_include_countries(group_id, level_id),
