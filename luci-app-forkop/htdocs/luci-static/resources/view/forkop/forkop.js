@@ -25,6 +25,8 @@
 
 // Updates
 "require view.forkop.updates as updates";
+const _ = main.translateForkop;
+
 
 // Keep LuCI's apply/confirm/rollback protocol, but skip its network settling
 // delay when the complete set of staged changes belongs to Forkop alone.

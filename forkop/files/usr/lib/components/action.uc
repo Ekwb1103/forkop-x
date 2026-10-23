@@ -2715,7 +2715,7 @@ function resolve_forkop_release(latest_version, selected) {
     if (release_json == "")
         return null;
     let asset_ext = is_apk() ? "apk" : "ipk";
-    let i18n_required = pkg_is_installed("luci-i18n-forkop-ru") ? "1" : "0";
+    let i18n_required = "1";
     let plan = helper_output_input(release_json, "forkop-release-plan", [ latest_version, asset_ext, i18n_required ]);
     let release = parse_forkop_release_plan(plan, latest_version, i18n_required);
     if (release != null) {

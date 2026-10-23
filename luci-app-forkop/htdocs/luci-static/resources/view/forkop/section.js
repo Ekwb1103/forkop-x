@@ -8,6 +8,8 @@
 "require view.forkop.local_devices as localDevices";
 "require view.forkop.main as main";
 "require view.forkop.whatsapp as whatsapp";
+const _ = main.translateForkop;
+
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
 const ACTION_PROVIDERS_AVAILABILITY_EVENT =

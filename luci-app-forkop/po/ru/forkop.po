@@ -2356,3 +2356,21 @@ msgstr "Обновление подписки: ошибка восстановл
 
 msgid "Section: %s"
 msgstr "Раздел: %s"
+
+msgid "Change Forkop X interface language"
+msgstr "Смена языка интерфейса Forkop X"
+
+msgid "Changes the language of LuCI. The page will reload."
+msgstr "Изменяет язык LuCI. Страница будет перезагружена."
+
+msgid "Could not change language. Please try again."
+msgstr "Не удалось изменить язык. Попробуйте ещё раз."
+
+msgid "Same as LuCI"
+msgstr "Как в LuCI"
+
+msgid "Only changes Forkop in this browser. LuCI keeps its language."
+msgstr "Меняет только язык Forkop в этом браузере. Язык LuCI сохраняется."
+
+msgid "Interface language"
+msgstr "Язык интерфейса"

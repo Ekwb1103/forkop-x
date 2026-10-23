@@ -1,7 +1,10 @@
 "use strict";
+"require view.forkop.main as main";
 "require baseclass";
 "require uci";
 "require ui";
+const _ = main.translateForkop;
+
 
 const CONFIG = "forkop";
 

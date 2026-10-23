@@ -3201,3 +3201,21 @@ msgstr ""
 
 msgid "Meta subnet lists for WhatsApp are missing. Download the Meta lists and apply again, or turn off real IPs for WhatsApp."
 msgstr ""
+
+msgid "Change Forkop X interface language"
+msgstr ""
+
+msgid "Changes the language of LuCI. The page will reload."
+msgstr ""
+
+msgid "Could not change language. Please try again."
+msgstr ""
+
+msgid "Same as LuCI"
+msgstr ""
+
+msgid "Only changes Forkop in this browser. LuCI keeps its language."
+msgstr ""
+
+msgid "Interface language"
+msgstr ""

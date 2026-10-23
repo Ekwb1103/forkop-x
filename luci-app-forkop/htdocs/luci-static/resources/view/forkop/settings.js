@@ -4,6 +4,8 @@
 "require baseclass";
 "require tools.widgets as widgets";
 "require view.forkop.main as main";
+const _ = main.translateForkop;
+
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
 

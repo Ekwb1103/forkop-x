@@ -51,6 +51,7 @@ import {
 } from '../../services/runtimeUiState.service';
 import { Forkop } from '../../types';
 import { renderFullUninstall } from './fullUninstall';
+import { renderLanguage } from './language';
 import { showReleaseSelector } from './releaseSelector';
 
 type UpdateStatus = StoreType['updatesChecks'][Forkop.ComponentName]['status'];
@@ -1029,7 +1030,8 @@ function getComponentCards(): ComponentCard[] {
       component: 'packet_steering',
       column: 2,
       title: 'Packet Steering',
-      description: 'Распределяет обработку сетевого трафика между ядрами процессора. Может повысить скорость на многоядерных роутерах. Эффект зависит от устройства и нагрузки.',
+      description:
+        'Распределяет обработку сетевого трафика между ядрами процессора. Может повысить скорость на многоядерных роутерах. Эффект зависит от устройства и нагрузки.',
       version: packetSteeringEnabled ? _('Mode 2 enabled') : _('Normal mode'),
       actions: [
         packetSteeringEnabled
@@ -1053,7 +1055,8 @@ function getComponentCards(): ComponentCard[] {
       component: 'direct_proxy',
       column: 2,
       title: _('Direct Proxy'),
-      description: 'Позволяет приложениям и устройствам подключаться к прокси Forkop X по HTTP или SOCKS5 уходя в Direct. Рекомендуется для торрентов.',
+      description:
+        'Позволяет приложениям и устройствам подключаться к прокси Forkop X по HTTP или SOCKS5 уходя в Direct. Рекомендуется для торрентов.',
       version: directProxyEnabled
         ? `HTTP/SOCKS5 Â· ${directProxyEndpoint || _('Enabled')}`
         : _('Disabled'),
@@ -1080,7 +1083,8 @@ function getComponentCards(): ComponentCard[] {
       component: 'torrserver_direct',
       column: 2,
       title: _('TorrServer Direct'),
-      description: 'Позволяет TorrServer обходить правила маршрутизации Forkop X.',
+      description:
+        'Позволяет TorrServer обходить правила маршрутизации Forkop X.',
       version: !torrserverRunning
         ? _('TorrServer not found')
         : !torrserverDirectAvailable
@@ -1120,7 +1124,14 @@ function renderComponentCard(card: ComponentCard) {
 
   // 1. Header (displays Title, Current Version, no badges)
   const headerChildren: Node[] = [
-    E('b', { class: 'fkp_updates-page__component__title', title: card.description || '' }, card.title),
+    E(
+      'b',
+      {
+        class: 'fkp_updates-page__component__title',
+        title: card.description || '',
+      },
+      card.title,
+    ),
     E(
       'span',
       { class: 'fkp_updates-page__component__header-version' },
@@ -1388,6 +1399,9 @@ function renderUpdatesComponents() {
   getComponentCards().forEach((card) => {
     columns[card.column].push(renderComponentCard(card));
   });
+  columns[0].push(
+    renderLanguage(isAnyActionLoading() || isServiceRuntimeActionLoading()),
+  );
   columns[2].push(
     renderFullUninstall(
       isAnyActionLoading() || isServiceRuntimeActionLoading(),
