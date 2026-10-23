@@ -170,7 +170,7 @@ const EntryPoint = {
     }
 
     return Promise.resolve()
-      .then(() => view.handleSaveApply.call(this, ev, mode))
+      .then(() => view.prototype.handleSaveApply.call(this, ev, mode))
       .then((result) => {
         window.setTimeout(refreshUiState, 250);
 

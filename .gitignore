@@ -20,6 +20,7 @@ ops/deployed-nginx/
 /tests/
 !/tests/
 /tests/*
+!/tests/luci_save_apply.cjs
 !/tests/list_change_cache.sh
 !/tests/ruleset_rollback_references.sh
 !/tests/latency_reload_serialization.sh
