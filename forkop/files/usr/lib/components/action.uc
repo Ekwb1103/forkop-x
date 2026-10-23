@@ -15,6 +15,7 @@ const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "
 const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "Screamshow/forkop-x";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
+const START_FAILURE_FILE = getenv("FORKOP_START_FAILURE_FILE") || RUNTIME_STATE_DIR + "/start.failure";
 const GITHUB_BACKOFF_FILE = RUNTIME_STATE_DIR + "/github-api-backoff.json";
 const MANAGED_UPGRADE_SING_BOX_MARKER = getenv("FORKOP_MANAGED_UPGRADE_SING_BOX_MARKER") || "/tmp/forkop-managed-upgrade-sing-box";
 const PACKAGE_UPGRADE_STATE = getenv("FORKOP_PACKAGE_UPGRADE_STATE") || "/tmp/forkop-package-was-running";
@@ -1411,9 +1412,13 @@ function wait_for_service_action_idle() {
 }
 
 function wait_for_forkop_restore(wait_for_explicit_start) {
-    let timeout = 180;
-    while (timeout >= 0) {
+    let deadline = now_seconds() + 180;
+    while (now_seconds() < deadline) {
         let starting = forkop_starting();
+        // A rejected configuration cannot become ready by waiting. During
+        // an owned start the marker may still belong to the previous attempt.
+        if (!starting && file_exists(START_FAILURE_FILE))
+            return false;
         if (!starting && forkop_status_running_with_timeout())
             return true;
         // A package postinst may have detached its start worker from procd.
@@ -1421,10 +1426,9 @@ function wait_for_forkop_restore(wait_for_explicit_start) {
         // second restart. Keep waiting for its explicit terminal state.
         if (!starting && !file_exists(PACKAGE_UPGRADE_STATE) && !wait_for_explicit_start)
             return false;
-        if (timeout <= 0)
+        if (now_seconds() >= deadline)
             break;
         command_success_from_args([ "sleep", "1" ]);
-        timeout--;
     }
     return false;
 }
@@ -1488,16 +1492,26 @@ wait_forkop_running_after_sing_box_change = function() {
     if (!file_exists(BIN_PATH))
         return false;
 
-    let waited = 0;
-    while (waited < 180) {
-        if (forkop_status_running_with_timeout()) {
+    let deadline = now_seconds() + 180;
+    while (now_seconds() < deadline) {
+        let starting = forkop_starting();
+        if (!starting && file_exists(START_FAILURE_FILE)) {
+            updates_log("Forkop startup failed; ending readiness wait so the component transition can finish or roll back", "error");
+            return false;
+        }
+        if (!starting && forkop_status_running_with_timeout()) {
+            if (now_seconds() + 8 >= deadline)
+                return false;
             command_success_from_args([ "sleep", "8" ]);
-            if (forkop_status_running_with_timeout()) {
+            if (!forkop_starting() && !file_exists(START_FAILURE_FILE) &&
+                forkop_status_running_with_timeout()) {
                 return true;
             }
         }
-        command_success_from_args([ "sleep", "4" ]);
-        waited += 4;
+        let remaining = deadline - now_seconds();
+        if (remaining <= 0)
+            break;
+        command_success_from_args([ "sleep", "" + (remaining < 4 ? remaining : 4) ]);
     }
     return false;
 };
