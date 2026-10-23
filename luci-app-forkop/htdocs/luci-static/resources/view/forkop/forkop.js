@@ -141,6 +141,48 @@ function configureGridSection(sectionRef, type, title, addTitle) {
 }
 
 const EntryPoint = {
+  // LuCI dispatches Save & Apply to the view, not the form.Map.
+  handleSaveApply(ev, mode) {
+    const refreshUiState = function () {
+      main.ForkopShellMethods.getUiState()
+        .then((response) => {
+          if (
+            response?.success &&
+            typeof main.applyUiStateToStore === "function"
+          ) {
+            main.applyUiStateToStore(response.data);
+          }
+        })
+        .catch(() => null);
+    };
+
+    if (main.store && typeof main.store.set === "function") {
+      const servicesInfoWidget = main.store.get().servicesInfoWidget;
+      main.store.set({
+        servicesInfoWidget: {
+          ...servicesInfoWidget,
+          data: {
+            ...servicesInfoWidget.data,
+            forkopStatus: "reloading",
+          },
+        },
+      });
+    }
+
+    return Promise.resolve()
+      .then(() => view.handleSaveApply.call(this, ev, mode))
+      .then((result) => {
+        window.setTimeout(refreshUiState, 250);
+
+        return result;
+      })
+      .catch((error) => {
+        refreshUiState();
+
+        throw error;
+      });
+  },
+
   async render() {
     configureForkopApplyHoldoff();
     main.injectGlobalStyles();
@@ -326,46 +368,6 @@ const EntryPoint = {
     const forkopMap = new form.Map(UCI_PACKAGE, _("Forkop X Settings"), null);
     whatsapp.configureMap(forkopMap);
     forkopMap.tabbed = true;
-    const originalHandleSaveApply = forkopMap.handleSaveApply;
-    forkopMap.handleSaveApply = function (ev, mode) {
-      const refreshUiState = function () {
-        main.ForkopShellMethods.getUiState()
-          .then((response) => {
-            if (
-              response?.success &&
-              typeof main.applyUiStateToStore === "function"
-            ) {
-              main.applyUiStateToStore(response.data);
-            }
-          })
-          .catch(() => null);
-      };
-
-      if (main.store && typeof main.store.set === "function") {
-        const servicesInfoWidget = main.store.get().servicesInfoWidget;
-        main.store.set({
-          servicesInfoWidget: {
-            ...servicesInfoWidget,
-            data: {
-              ...servicesInfoWidget.data,
-              forkopStatus: "reloading",
-            },
-          },
-        });
-      }
-
-      return Promise.resolve(originalHandleSaveApply.call(this, ev, mode))
-        .then((result) => {
-          window.setTimeout(refreshUiState, 250);
-
-          return result;
-        })
-        .catch((error) => {
-          refreshUiState();
-
-          throw error;
-        });
-    };
 
     const rulesSection = forkopMap.section(
       form.GridSection,

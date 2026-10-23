@@ -210,4 +210,16 @@ export const styles = `
     width: 16px;
     height: 16px;
 }
+@media (max-width: 700px) {
+    .fkp_diagnostic_alert__summary__item {
+        grid-template-columns: 16px minmax(0, 1fr);
+        row-gap: 2px;
+        margin-bottom: 8px;
+    }
+
+    .fkp_diagnostic_alert__summary__item > :nth-child(3) {
+        grid-column: 2;
+        min-width: 0;
+    }
+}
 `;

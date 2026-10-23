@@ -21,7 +21,7 @@ function createTailscaleContent(section) {
       indicator.style.backgroundColor = color;
     }
     const details = E("p");
-    const transport = E("div", { style: "margin:16px 0;width:720px;max-width:100%;min-width:0;box-sizing:border-box" });
+    const transport = E("div", { style: "margin:16px 0;width:100%;max-width:100%;min-width:0;box-sizing:border-box" });
     const intro = E("p", {}, "Введите ключ своей сети Tailscale.");
     const keyRow = E("label", {}, ["Ключ подключения", E("br"), key]);
     const logs = E("pre", { style: "max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px", "aria-live":"polite" }, "Событий пока нет.");
@@ -55,9 +55,9 @@ function createTailscaleContent(section) {
             const direct = peer.path === "direct", relayed = peer.path === "derp";
             const region = network && network.home_derp === peer.derp_region ? network.derp_region : "регион " + peer.derp_region;
             return E("tr", {}, [
-              E("td", { style: "padding:14px 16px;overflow-wrap:anywhere" }, [E("strong", {}, name || "Имя недоступно"), E("div", { style: "font-size:13px;opacity:.75;margin-top:4px" }, address)]),
-              E("td", { style: "padding:14px 16px" }, [E("strong", { style: "color:" + (direct ? "#22c55e" : relayed ? "#f59e0b" : "inherit") }, direct ? "Напрямую (Direct)" : relayed ? "Через DERP" : "Проверка соединения"), relayed ? E("div", { style: "font-size:12px;opacity:.75" }, region) : ""]),
-              E("td", { style: "padding:14px 16px;white-space:nowrap" }, direct && peer.direct_rtt_ms != null ? peer.direct_rtt_ms + " мс" : "—"),
+              E("td", { "data-label": "Устройство", style: "padding:14px 16px;overflow-wrap:anywhere" }, [E("strong", {}, name || "Имя недоступно"), E("div", { style: "font-size:13px;opacity:.75;margin-top:4px" }, address)]),
+              E("td", { "data-label": "Текущий путь", style: "padding:14px 16px" }, [E("strong", { style: "color:" + (direct ? "#22c55e" : relayed ? "#f59e0b" : "inherit") }, direct ? "Напрямую (Direct)" : relayed ? "Через DERP" : "Проверка соединения"), relayed ? E("div", { style: "font-size:12px;opacity:.75" }, region) : ""]),
+              E("td", { "data-label": "Задержка", style: "padding:14px 16px;white-space:nowrap" }, direct && peer.direct_rtt_ms != null ? peer.direct_rtt_ms + " мс" : "—"),
             ]);
           });
           transport.appendChild(E("div", { style: "width:100%;max-width:100%;overflow-x:auto;box-sizing:border-box" }, E("table", { class: "fkp-tailscale-peers", style: "width:100%;max-width:100%;table-layout:fixed;border-collapse:collapse;margin-top:8px;text-align:left" }, [
@@ -121,8 +121,17 @@ function createTailscaleContent(section) {
     ssh.addEventListener("change", () => act("ssh", [ssh.checked ? "1" : "0"]));
     lan.addEventListener("change", () => act("lan", [lan.checked ? "1" : "0"]));
     exitNode.addEventListener("change", () => act("exit", [exitNode.checked ? "1" : "0"]));
-    const root = E("div", { class: "cbi-section" }, [
-      E("style", {}, "#cbi-forkop-tailscale_native > h3 { display: none; } .fkp-tailscale-peers th, .fkp-tailscale-peers td { border-bottom:1px solid rgba(148,163,184,.25) !important; } .fkp-tailscale-peers tbody tr:last-child td:last-child { border-bottom:0 !important; }"),
+    const root = E("div", { class: "cbi-section fkp-tailscale" }, [
+      E("style", {}, `.fkp-tailscale { min-width:0; max-width:100%; box-sizing:border-box; overflow-wrap:anywhere; } #cbi-forkop-tailscale_native > h3 { display: none; } .fkp-tailscale-peers th, .fkp-tailscale-peers td { border-bottom:1px solid rgba(148,163,184,.25) !important; } .fkp-tailscale-peers tbody tr:last-child td:last-child { border-bottom:0 !important; }
+@media (max-width:700px) {
+ .fkp-tailscale-peers, .fkp-tailscale-peers tbody, .fkp-tailscale-peers tr { display:block; width:100%; min-width:0; }
+ .fkp-tailscale-peers thead { display:none; }
+ .fkp-tailscale-peers tr { border:1px solid rgba(148,163,184,.25); margin-bottom:10px; box-sizing:border-box; }
+ .fkp-tailscale-peers td { display:block; width:auto !important; padding:8px 12px !important; white-space:normal !important; overflow-wrap:anywhere; }
+ .fkp-tailscale-peers td::before { content:attr(data-label); display:block; font-size:12px; opacity:.7; margin-bottom:3px; }
+ .fkp-tailscale > div, .fkp-tailscale [role="status"] { min-width:0; max-width:100%; box-sizing:border-box; }
+}
+`),
       E("div", { style: "display:flex;flex-direction:column;align-items:flex-start;gap:16px;margin:0 0 12px" }, [E("h3", { style: "margin:0;padding:0" }, "Удалённый доступ"), status]),
       intro,
       details, transport,
