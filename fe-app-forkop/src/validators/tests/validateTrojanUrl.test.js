@@ -2,6 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { validateTrojanUrl } from '../validateTrojanUrl';
 
 const validUrls = [
+  [
+    'grpc service with slashes and encoded display name',
+    'trojan://test-password@example.com:443?type=grpc&serviceName=%2F20763%2Ftest&authority=example.com&security=tls#%F0%9F%87%B3%F0%9F%87%B1%20trojan-grpc-test%20GRPC',
+  ],
+  [
+    'display name with literal spaces',
+    'trojan://test-password@example.com:443?type=grpc&serviceName=%2Ftest&security=tls#🇳🇱 trojan-grpc-test GRPC',
+  ],
   // TCP
   [
     'tcp + none',
@@ -100,6 +108,8 @@ const validUrls = [
 ];
 
 const invalidUrls = [
+  ['control in display name', 'trojan://pass@example.com:443#name\nother'],
+  ['space in password', 'trojan://pa ss@example.com:443#name'],
   ['No prefix', 'uuid@host:443?type=tcp&security=tls'],
   ['No password', 'trojan://@127.0.0.1:443?type=tcp&security=tls'],
   ['No host', 'trojan://pass@:443?type=tcp&security=tls'],

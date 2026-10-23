@@ -10,7 +10,10 @@ export function validateTrojanUrl(url: string): ValidationResult {
       };
     }
 
-    if (!url || /\s/.test(url)) {
+    // The fragment is a display name, not part of the connection address.
+    // Permit spaces there while still rejecting whitespace in credentials,
+    // host and transport parameters, and control characters anywhere.
+    if (/\s/.test(url.split('#', 1)[0]) || /\p{Cc}/u.test(url)) {
       return {
         valid: false,
         message: _('Invalid Trojan URL: must not contain spaces'),
