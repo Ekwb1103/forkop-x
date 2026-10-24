@@ -109,7 +109,6 @@ const ZAPRET2_ROUTE_MARK_BASE = constant_value("ZAPRET2_ROUTE_MARK_BASE", "0x020
 const ZAPRET2_QUEUE_BASE = constant_value("ZAPRET2_QUEUE_BASE", "4300");
 const ZAPRET2_DESYNC_MARK = constant_value("ZAPRET2_DESYNC_MARK", "0x40000000");
 const ZAPRET2_DESYNC_MARK_POSTNAT = constant_value("ZAPRET2_DESYNC_MARK_POSTNAT", "0x20000000");
-const BYEDPI_BIN = constant_value("BYEDPI_BIN", "/usr/bin/ciadpi");
 
 const DNS_APPLY_UC = LIB_DIR + "/dns/apply.uc";
 const VALIDATOR_UC = LIB_DIR + "/config/validator.uc";
@@ -127,7 +126,6 @@ const DIAGNOSTICS_UC = LIB_DIR + "/diagnostics/runtime.uc";
 const AUTOMATIC_LATENCY_PENDING_FILE = getenv("FORKOP_AUTOMATIC_LATENCY_PENDING_FILE") || "/etc/forkop/automatic-latency-test.pending";
 const ZAPRET_UC = LIB_DIR + "/providers/zapret/runtime.uc";
 const ZAPRET2_UC = LIB_DIR + "/providers/zapret2/runtime.uc";
-const BYEDPI_UC = LIB_DIR + "/providers/byedpi/runtime.uc";
 const PACKAGES_UC = LIB_DIR + "/core/packages.uc";
 
 let start_subscription_update_lock_held = false;
@@ -324,7 +322,6 @@ function lifecycle_env() {
         SB_VERSION_STATE_FILE: SB_VERSION_STATE_FILE,
         ZAPRET_PROVIDER_NFQWS_BIN: ZAPRET_PROVIDER_NFQWS_BIN,
         ZAPRET2_PROVIDER_NFQWS2_BIN: ZAPRET2_PROVIDER_NFQWS2_BIN,
-        BYEDPI_BIN: BYEDPI_BIN,
         FORKOP_RULE_CONDITION_CACHE_ENABLED: as_string(rule_condition_cache_enabled)
     };
 
@@ -1048,8 +1045,6 @@ function start_main() {
     if (status != 0)
         return start_phase_failed("cron-refresh", status);
 
-    module_success(BYEDPI_UC, [ "start-runtime" ]);
-
     status = start_sing_box_and_wait();
     if (status != 0) {
         log_message("sing-box did not reach a stable running state after start. Aborted.", "fatal");
@@ -1169,7 +1164,6 @@ function stop_main(allow_process_conflict) {
 
     module_success(ZAPRET_UC, [ "stop-runtime" ]);
     module_success(ZAPRET2_UC, [ "stop-runtime" ]);
-    module_success(BYEDPI_UC, [ "stop-runtime" ]);
 
     if (command_success_from_args([ "nft", "list", "table", "inet", NFT_TABLE_NAME ]))
         command_success_from_args([ "nft", "delete", "table", "inet", NFT_TABLE_NAME ]);
@@ -1497,14 +1491,12 @@ function parse_reload_plan(output) {
         changed_zapret_runtime: 0,
         changed_zapret2_queue: 0,
         changed_zapret2_runtime: 0,
-        changed_byedpi_runtime: 0,
         changed_cron: 0,
         changed_list: 0,
         needs_sing_box_reload: 0,
         needs_nft_rebuild: 0,
         needs_zapret_restart: 0,
         needs_zapret2_restart: 0,
-        needs_byedpi_restart: 0,
         needs_dnsmasq_configure: 0,
         needs_dnsmasq_restore: 0,
         needs_cron_refresh: 0,
@@ -1539,7 +1531,6 @@ function reload_actions_summary(plan) {
     actions = append_reload_action(actions, plan.needs_nft_rebuild, "nftables");
     actions = append_reload_action(actions, plan.needs_zapret_restart, "Zapret");
     actions = append_reload_action(actions, plan.needs_zapret2_restart, "Zapret2");
-    actions = append_reload_action(actions, plan.needs_byedpi_restart, "ByeDPI");
     actions = append_reload_action(actions, plan.needs_dnsmasq_configure || plan.needs_dnsmasq_restore, "dnsmasq");
     actions = append_reload_action(actions, plan.needs_cron_refresh, "scheduled jobs");
     actions = append_reload_action(actions, plan.needs_list_update, "remote lists");
@@ -1802,8 +1793,6 @@ function reload(reason) {
         module_success(ZAPRET_UC, [ "stop-runtime" ]);
     if (plan.needs_zapret2_restart == 1)
         module_success(ZAPRET2_UC, [ "stop-runtime" ]);
-    if (plan.needs_byedpi_restart == 1)
-        module_success(BYEDPI_UC, [ "stop-runtime" ]);
 
     // A staged config and a checked nft batch must both exist before the
     // first live transition. The old sing-box process keeps its in-memory
@@ -1983,8 +1972,6 @@ function reload(reason) {
         module_success(ZAPRET_UC, [ "start-runtime" ]);
     if (plan.needs_zapret2_restart == 1)
         module_success(ZAPRET2_UC, [ "start-runtime" ]);
-    if (plan.needs_byedpi_restart == 1)
-        module_success(BYEDPI_UC, [ "start-runtime" ]);
 
     if (plan.needs_dnsmasq_configure == 1) {
         status = dnsmasq_configure(true);

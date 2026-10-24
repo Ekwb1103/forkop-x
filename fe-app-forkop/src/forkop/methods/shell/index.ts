@@ -240,10 +240,6 @@ export const ForkopShellMethods = {
     callBaseMethod<Forkop.Zapret2CheckResult>(
       Forkop.AvailableMethods.CHECK_ZAPRET2_RUNTIME,
     ),
-  checkByedpiRuntime: async () =>
-    callBaseMethod<Forkop.ByedpiCheckResult>(
-      Forkop.AvailableMethods.CHECK_BYEDPI_RUNTIME,
-    ),
   getStatus: async () =>
     callBaseMethod<Forkop.GetStatus>(Forkop.AvailableMethods.GET_STATUS),
   getOutboundMetadata: async (section: string) =>
@@ -271,10 +267,6 @@ export const ForkopShellMethods = {
   getZapret2Status: async () =>
     callBaseMethod<Forkop.GetZapret2Status>(
       Forkop.AvailableMethods.GET_ZAPRET2_STATUS,
-    ),
-  getByedpiStatus: async () =>
-    callBaseMethod<Forkop.GetByedpiStatus>(
-      Forkop.AvailableMethods.GET_BYEDPI_STATUS,
     ),
   getClashApiProxies: async () =>
     callBaseMethod<ClashAPI.Proxies>(Forkop.AvailableMethods.CLASH_API, [

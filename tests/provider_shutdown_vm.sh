@@ -11,7 +11,7 @@ cleanup() {
 }
 trap cleanup EXIT
 sleep 60 & external=$!
-for provider in zapret zapret2 byedpi; do
+for provider in zapret zapret2; do
     state="$work/$provider"
     mkdir -p "$state/pid" "$state/child-pid" "$state/log"
     sleep 60 & supervisor=$!
@@ -20,7 +20,7 @@ for provider in zapret zapret2 byedpi; do
     sleep 1
     echo "$supervisor" > "$state/pid/rule.pid"
     echo "$child" > "$state/child-pid/rule.pid"
-    export ZAPRET_STATE_DIR="$state" ZAPRET2_STATE_DIR="$state" BYEDPI_STATE_DIR="$state"
+    export ZAPRET_STATE_DIR="$state" ZAPRET2_STATE_DIR="$state"
     export ZAPRET_LEGACY_RUNTIME_BASE_DIR="$work/legacy" ZAPRET_HOSTLIST_DIR="$work/hostlist"
     a=$(cut -d' ' -f1 /proc/uptime)
     ucode -L "$lib" "$lib/providers/$provider/runtime.uc" stop-runtime

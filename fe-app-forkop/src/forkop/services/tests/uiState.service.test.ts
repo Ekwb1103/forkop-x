@@ -75,7 +75,6 @@ function createUiState(
       sing_box_tailscale: 1,
       zapret_installed: 1,
       zapret2_installed: 0,
-      byedpi_installed: 1,
       ...capabilities,
     },
     actions: {
@@ -197,7 +196,6 @@ describe('applyUiStateToStore', () => {
       sing_box_extended: 1,
       zapret_installed: 1,
       zapret2_installed: 0,
-      byedpi_installed: 1,
     });
     expect(state.diagnosticsActions.start.loading).toBe(true);
     expect(state.sectionsWidget.subscriptionUpdatingSections).toEqual({
@@ -409,7 +407,6 @@ describe('applyUiStateToStore', () => {
         sing_box_tailscale: 1,
         zapret_installed: 0,
         zapret2_installed: 0,
-        byedpi_installed: 1,
       },
     });
 
@@ -437,7 +434,6 @@ describe('applyUiStateToStore', () => {
           sing_box_tailscale: 0,
           zapret_installed: 1,
           zapret2_installed: 1,
-          byedpi_installed: 0,
         },
       ),
     );
@@ -451,7 +447,6 @@ describe('applyUiStateToStore', () => {
       sing_box_tailscale: 0,
       zapret_installed: 1,
       zapret2_installed: 1,
-      byedpi_installed: 0,
     });
     expect(
       store.get().updatesActions.singBoxInstallExtendedCompressed.loading,

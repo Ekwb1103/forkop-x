@@ -50,6 +50,7 @@ ops/deployed-nginx/
 !/tests/subscription_pin_compatibility.uc
 !/tests/subscription_protocol_compatibility.sh
 !/tests/subscription_protocol_compatibility.uc
+!/tests/byedpi_removed.sh
 !/tests/whatsapp_real_dns_vm.sh
 !/tests/log_hygiene.sh
 !/tests/urltest_groups.sh

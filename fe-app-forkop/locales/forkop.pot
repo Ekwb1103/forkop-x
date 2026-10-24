@@ -277,57 +277,6 @@ msgstr ""
 msgid "By flag emoji from name"
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5990
-msgid "ByeDPI listen address and port are assigned by Forkop and must not be set in the strategy."
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6167
-msgid "ByeDPI option does not accept a compact value: %s"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6096
-msgid "ByeDPI option does not accept a value: %s"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6088
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6114
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6148
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6157
-msgid "ByeDPI option requires a value: %s"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:71
-msgid "ByeDPI package is installed"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:72
-msgid "ByeDPI package is not installed"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:64
-msgid "ByeDPI provider binary is available"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:65
-msgid "ByeDPI provider binary is not available"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:107
-msgid "ByeDPI sing-box outbound is configured"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:108
-msgid "ByeDPI sing-box outbound is not configured"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:7000
-msgid "ByeDPI Strategy"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6193
-msgid "ByeDPI strategy cannot be empty"
-msgstr ""
-
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/settings.js:692
 msgid "Cache File Path"
 msgstr ""
@@ -344,7 +293,6 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:26
 #: src/forkop/tabs/diagnostic/checks/runDnsCheck.ts:27
 #: src/forkop/tabs/diagnostic/checks/runNftCheck.ts:28
 #: src/forkop/tabs/diagnostic/checks/runSectionsCheck.ts:46
@@ -383,7 +331,6 @@ msgid "Check URL"
 msgstr ""
 
 #: src/forkop/tabs/diagnostic/initController.ts:1048
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:14
 #: src/forkop/tabs/diagnostic/checks/runDnsCheck.ts:15
 #: src/forkop/tabs/diagnostic/checks/runFakeIPCheck.ts:15
 #: src/forkop/tabs/diagnostic/checks/runNftCheck.ts:13
@@ -1122,14 +1069,6 @@ msgstr ""
 msgid "Forkop is restarting automatically"
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5999
-msgid "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here."
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5996
-msgid "Forkop manages the ciadpi process lifecycle itself, so daemon mode is not allowed here."
-msgstr ""
-
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5143
 msgid "Forkop manages the nfqws process lifecycle itself, so daemon mode is not allowed here."
 msgstr ""
@@ -1172,22 +1111,6 @@ msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:285
 msgid "Forkop X Settings"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:91
-msgid "Forkop-managed ciadpi runtime has restarted"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:94
-msgid "Forkop-managed ciadpi runtime is not ready"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:97
-msgid "Forkop-managed ciadpi runtime is not running"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:93
-msgid "Forkop-managed ciadpi runtime is ready"
 msgstr ""
 
 #: src/forkop/tabs/diagnostic/checks/runZapretCheck.ts:87
@@ -1390,10 +1313,6 @@ msgstr ""
 #: src/forkop/tabs/dashboard/initController.ts:907
 #: src/forkop/tabs/dashboard/initController.ts:1148
 msgid "Interval"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:7021
-msgid "Invalid ByeDPI strategy"
 msgstr ""
 
 #: src/validators/validateSubnet.ts:25
@@ -1860,10 +1779,6 @@ msgstr ""
 
 #: src/forkop/tabs/diagnostic/checks/runNftCheck.ts:105
 msgid "No other marking rules found"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:79
-msgid "No rules use ByeDPI"
 msgstr ""
 
 #: src/forkop/tabs/diagnostic/checks/runZapretCheck.ts:79
@@ -2531,22 +2446,6 @@ msgstr ""
 msgid "Source Network Interface"
 msgstr ""
 
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:122
-msgid "Standalone ByeDPI autostart is enabled"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:119
-msgid "Standalone ByeDPI is active together with Forkop ByeDPI rules"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:120
-msgid "Standalone ByeDPI service is active"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:123
-msgid "Standalone ByeDPI service is inactive"
-msgstr ""
-
 #: src/forkop/tabs/diagnostic/checks/runZapretCheck.ts:111
 msgid "Standalone Zapret is active together with Forkop Zapret rules"
 msgstr ""
@@ -2701,20 +2600,12 @@ msgstr ""
 msgid "The rule applies to the domain and all its subdomains. Use full:, keyword:, or regex: prefixes for exact match, keyword match, or regular expression."
 msgstr ""
 
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:78
-msgid "There are rules using ByeDPI"
-msgstr ""
-
 #: src/forkop/tabs/diagnostic/checks/runZapretCheck.ts:78
 msgid "There are rules using Zapret"
 msgstr ""
 
 #: src/forkop/tabs/diagnostic/checks/runZapret2Check.ts:81
 msgid "There are rules using Zapret2"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6002
-msgid "This field must start a working ciadpi strategy; help/version options exit immediately and are not allowed here."
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5146
@@ -2795,10 +2686,6 @@ msgstr ""
 msgid "Traffic Total"
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5993
-msgid "Transparent proxy mode is incompatible with action=byedpi because Forkop connects to ciadpi through SOCKS."
-msgstr ""
-
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:1962
 msgid "Transport"
 msgstr ""
@@ -2829,10 +2716,6 @@ msgstr ""
 msgid "Unable to read remote support status"
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5917
-msgid "Unable to validate the ByeDPI strategy through the backend parser."
-msgstr ""
-
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5060
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6398
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6937
@@ -2847,15 +2730,6 @@ msgstr ""
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2885
 #: src/forkop/tabs/dashboard/initController.ts:1269
 msgid "Unavailability timeout"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6134
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6183
-msgid "Unexpected ByeDPI strategy argument: %s"
-msgstr ""
-
-#: src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:96
-msgid "Unexpected Forkop-managed ciadpi runtime is running"
 msgstr ""
 
 #: src/forkop/tabs/diagnostic/checks/runZapretCheck.ts:89
@@ -2887,12 +2761,6 @@ msgstr ""
 #: src/forkop/services/systemInfo.service.ts:34
 #: src/forkop/tabs/updates/initController.ts:332
 msgid "unknown"
-msgstr ""
-
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6103
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6125
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6176
-msgid "Unknown ByeDPI option: %s"
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:603

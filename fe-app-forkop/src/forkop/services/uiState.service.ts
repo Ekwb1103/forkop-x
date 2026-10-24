@@ -33,9 +33,6 @@ function getEmptyUpdatesActions(): StoreType['updatesActions'] {
     zapret2Check: { loading: false },
     zapret2Install: { loading: false },
     zapret2Remove: { loading: false },
-    byedpiCheck: { loading: false },
-    byedpiInstall: { loading: false },
-    byedpiRemove: { loading: false },
     zapretManagerInstall: { loading: false },
     zapretManagerRemove: { loading: false },
     packetSteeringEnable: { loading: false },
@@ -103,7 +100,6 @@ function applyServiceState(uiState: Forkop.UiState) {
     providerInfoLoaded: true,
     zapret_installed: uiState.capabilities.zapret_installed,
     zapret2_installed: uiState.capabilities.zapret2_installed,
-    byedpi_installed: uiState.capabilities.byedpi_installed,
   };
 
   nextSystemInfo.sing_box_extended = uiState.capabilities.sing_box_extended;

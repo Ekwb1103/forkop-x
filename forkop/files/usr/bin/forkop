@@ -81,7 +81,6 @@ function show_help() {
     print("    check_fakeip            Test sing-box FakeIP DNS\n");
     print("    check_zapret_runtime    Check external zapret provider state\n");
     print("    check_zapret2_runtime   Check external zapret2 provider state\n");
-    print("    check_byedpi_runtime    Check external ByeDPI provider state\n");
     print("    neutralize_zapret_defaults\n");
     print("                            Compatibility no-op; Forkop does not manage standalone zapret\n");
     print("    clash_api               Clash API interface for managing proxies and groups\n");
@@ -96,7 +95,6 @@ function show_help() {
     print("    get_sing_box_status     Get sing-box service status\n");
     print("    get_zapret_status       Get zapret provider and Forkop-managed nfqws status\n");
     print("    get_zapret2_status      Get zapret2 provider and Forkop-managed nfqws2 status\n");
-    print("    get_byedpi_status       Get ByeDPI provider and Forkop-managed ciadpi status\n");
     print("    get_system_info         Get system information in JSON format\n");
     print("    get_ui_capabilities     Get lightweight UI capabilities in JSON format\n");
     print("    get_ui_state            Get lightweight UI service/action state in JSON format\n");
@@ -105,7 +103,7 @@ function show_help() {
     print("    latency_test_async      Start a dashboard latency test in the background\n");
     print("    latency_test_status     Get background latency test status\n");
     print("    ui_action_ack           Acknowledge a finished UI action state\n");
-    print("    component_action        Manage Forkop, sing-box, zapret, zapret2, and ByeDPI components\n");
+    print("    component_action        Manage Forkop, sing-box, zapret, and zapret2 components\n");
     print("    component_action_async  Start a component action in the background\n");
     print("    component_action_status Get background component action status\n");
     print("    forkop_releases         List mirrored releases available for GUI installation\n");
@@ -118,8 +116,6 @@ function show_help() {
     print("                            Validate an NFQWS strategy and print JSON result\n");
     print("    validate_nfqws2_strategy_json\n");
     print("                            Validate an NFQWS2 strategy and print JSON result\n");
-    print("    validate_byedpi_strategy_json\n");
-    print("                            Validate a ByeDPI ciadpi strategy and print JSON result\n");
 }
 
 function command_spec(command) {
@@ -153,7 +149,6 @@ function command_spec(command) {
         check_fakeip: [ "diagnostics/runtime.uc", "check-fakeip", 0 ],
         check_zapret_runtime: [ "diagnostics/runtime.uc", "check-zapret-runtime", 0 ],
         check_zapret2_runtime: [ "diagnostics/runtime.uc", "check-zapret2-runtime", 0 ],
-        check_byedpi_runtime: [ "diagnostics/runtime.uc", "check-byedpi-runtime", 0 ],
         neutralize_zapret_defaults: [ "diagnostics/runtime.uc", "neutralize-zapret-defaults", 0 ],
         clash_api: [ "diagnostics/runtime.uc", "clash-api", 4 ],
         show_config: [ "diagnostics/runtime.uc", "show-config", 1 ],
@@ -166,7 +161,6 @@ function command_spec(command) {
         get_sing_box_status: [ "diagnostics/runtime.uc", "get-sing-box-status", 0 ],
         get_zapret_status: [ "diagnostics/runtime.uc", "get-zapret-status", 0 ],
         get_zapret2_status: [ "diagnostics/runtime.uc", "get-zapret2-status", 0 ],
-        get_byedpi_status: [ "diagnostics/runtime.uc", "get-byedpi-status", 0 ],
         get_system_info: [ "diagnostics/runtime.uc", "get-system-info", 0 ],
         get_ui_capabilities: [ "service/ui.uc", "get-ui-capabilities", 0 ],
         get_ui_state: [ "service/ui.uc", "get-ui-state", 0 ],
@@ -192,7 +186,6 @@ function command_spec(command) {
         tailscale_native_exit: [ "tailscale/action.uc", "exit", 1 ],
         validate_nfqws_strategy_json: [ "diagnostics/runtime.uc", "validate-nfqws-strategy-json", 1 ],
         validate_nfqws2_strategy_json: [ "diagnostics/runtime.uc", "validate-nfqws2-strategy-json", 1 ],
-        validate_byedpi_strategy_json: [ "providers/byedpi/validator.uc", "validate-json", 1 ],
         package_prerm: [ "service/package.uc", "prerm", 1 ],
         package_postinst: [ "service/package.uc", "postinst", 0 ],
         luci_postinst: [ "service/package.uc", "luci-postinst", 0 ],

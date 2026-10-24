@@ -217,7 +217,6 @@ generate_config_with_subscription_cache() {
 check_section="$(printf '%s\n' '[
   {".name":"youtube-zapret","action":"zapret"},
   {".name":"legacy-zapret2","action":"zapret2"},
-  {".name":"local-byedpi","action":"byedpi"},
   {".name":"Flint","action":"connection"},
   {".name":"later-proxy","action":"connection"}
 ]' | ucode -L "$FORKOP_LIB" "$SINGBOX_GENERATOR_UC" service-route-check-section-fixture)"
@@ -226,7 +225,7 @@ check_section="$(printf '%s\n' '[
 
 no_proxy_check_section="$(printf '%s\n' '[
   {".name":"youtube-zapret","action":"zapret"},
-  {".name":"local-byedpi","action":"byedpi"}
+  {".name":"legacy-zapret2","action":"zapret2"}
 ]' | ucode -L "$FORKOP_LIB" "$SINGBOX_GENERATOR_UC" service-route-check-section-fixture)"
 [ -z "$no_proxy_check_section" ] ||
   fail "public-IP control route must not treat a DPI bypass provider as a remote proxy"
@@ -608,8 +607,7 @@ cat >"$WORK_DIR/provider-actions-fixture.json" <<'JSON'
   },
   "section": [
     { ".name": "zap", ".type": "section", "enabled": "1", "action": "zapret", "domain_suffix": [ "zap.example" ] },
-    { ".name": "zap2", ".type": "section", "enabled": "1", "action": "zapret2", "domain_suffix": [ "zap2.example" ] },
-    { ".name": "bye", ".type": "section", "enabled": "1", "action": "byedpi", "domain_suffix": [ "bye.example" ] }
+    { ".name": "zap2", ".type": "section", "enabled": "1", "action": "zapret2", "domain_suffix": [ "zap2.example" ] }
   ]
 }
 JSON
@@ -1519,7 +1517,6 @@ assert(outbound(urltest, "proxy-out").default == "proxy-urltest-out", "selector 
 let providers = cfg("providers");
 assert(outbound(providers, "zap-out").routing_mark == 0x01000001, "Zapret mark");
 assert(outbound(providers, "zap2-out").routing_mark == 0x02000001, "Zapret2 mark");
-assert(outbound(providers, "bye-out").type == "socks" && outbound(providers, "bye-out").server_port == 1080, "ByeDPI outbound");
 
 let manual = cfg("manual");
 let vless = outbound(manual, "proxy-1-out");

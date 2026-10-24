@@ -41,7 +41,6 @@ function createUiState(
       sing_box_tailscale: 1,
       zapret_installed: 1,
       zapret2_installed: 1,
-      byedpi_installed: 0,
     },
     actions: {
       service: [],

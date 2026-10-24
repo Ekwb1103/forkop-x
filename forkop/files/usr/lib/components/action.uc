@@ -1647,39 +1647,6 @@ function download_and_extract_zip_package(release, component) {
     };
 }
 
-function resolve_byedpi_release(arch) {
-    let asset_ext = is_apk() ? "apk" : "ipk";
-    let release_series = trim(helper_output("openwrt-release-series", [ "/etc/openwrt_release" ]));
-    let releases_json = fetch_github_releases_json("DPITrickster", "ByeDPI-OpenWrt", "30");
-    if (releases_json == "")
-        return null;
-    let resolved = trim(helper_output_input(releases_json, "byedpi-select-asset", [ release_series, asset_ext, arch.candidates ]));
-    let fields = split(resolved, "\t");
-    if (length(fields) < 4)
-        return null;
-    return {
-        arch: fields[0],
-        package_name: fields[1],
-        package_url: fields[2],
-        release_url: fields[3],
-        version: extract_arch_package_version(fields[1], fields[0])
-    };
-}
-
-function download_byedpi_package(release) {
-    let package_file = tmp_dir + "/" + release.package_name;
-    if (!download_with_retry(release.package_url, package_file, release.package_name) || !file_nonempty(package_file))
-        return null;
-    let version = as_string(release.version || "");
-    if (version == "")
-        version = extract_arch_package_version(release.package_name, release.arch);
-    return {
-        name: release.package_name,
-        file: package_file,
-        version
-    };
-}
-
 function disable_standalone_service(name) {
     let init = "/etc/init.d/" + as_string(name);
     if (!file_exists(init))
@@ -1741,43 +1708,6 @@ function install_zapret(action) {
 
 function install_zapret2(action) {
     install_zapret_like("zapret2", action, LIB_DIR + "/providers/zapret2/runtime.uc", resolve_zapret2_release, "zapret2");
-}
-
-function install_byedpi(action) {
-    init_tmp_dir() || action_fail("byedpi", action, "Failed to create temporary directory");
-    let arch = resolve_arch_candidates();
-    if (arch == null)
-        action_fail("byedpi", action, "Failed to detect package architecture");
-    let release = null;
-    retry_resolve("Resolving ByeDPI package", function() {
-        release = resolve_byedpi_release(arch);
-        return release != null;
-    });
-    if (release == null)
-        action_fail("byedpi", action, "Failed to resolve ByeDPI package for this router architecture");
-
-    let runtime_module = LIB_DIR + "/providers/byedpi/runtime.uc";
-    let installed = provider_installed(runtime_module);
-    let current_version = provider_package_version(runtime_module);
-    if (action == "check_update") {
-        if (!installed)
-            action_fail("byedpi", action, "ByeDPI is not installed", current_version, release.version);
-        check_success("byedpi", current_version, release.version, release.release_url || "");
-    }
-
-    let pkg = download_byedpi_package(release);
-    if (pkg == null)
-        action_fail("byedpi", action, "Failed to download ByeDPI package");
-    if (!run_logged("Installing ByeDPI package " + pkg.name, pkg_install_files_command([ pkg.file ])))
-        action_fail("byedpi", action, "Failed to install ByeDPI package", current_version, pkg.version);
-
-    disable_standalone_service("byedpi");
-    restart_forkop_after_successful_change();
-    clear_version_caches();
-    current_version = provider_package_version(runtime_module);
-    if (current_version == "")
-        current_version = "unknown";
-    action_success("byedpi", action, "ByeDPI package has been installed", current_version, pkg.version, 1, "latest", release.release_url || "");
 }
 
 function install_zapret_manager(action) {
@@ -3412,10 +3342,6 @@ function component_action(component, action, version) {
         install_zapret2(action);
     else if (component == "zapret2" && action == "remove")
         remove_optional_component("zapret2", "zapret2", "zapret2", LIB_DIR + "/providers/zapret2/runtime.uc");
-    else if (component == "byedpi" && (action == "check_update" || action == "install"))
-        install_byedpi(action);
-    else if (component == "byedpi" && action == "remove")
-        remove_optional_component("byedpi", "byedpi", "ByeDPI", LIB_DIR + "/providers/byedpi/runtime.uc");
     else if (component == "zapret_manager" && action == "install")
         install_zapret_manager(action);
     else if (component == "zapret_manager" && action == "remove")

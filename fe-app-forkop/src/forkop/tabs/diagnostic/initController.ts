@@ -6,7 +6,6 @@ import { runNftCheck } from './checks/runNftCheck';
 import { runFakeIPCheck } from './checks/runFakeIPCheck';
 import { runZapretCheck } from './checks/runZapretCheck';
 import { runZapret2Check } from './checks/runZapret2Check';
-import { runByedpiCheck } from './checks/runByedpiCheck';
 import {
   DIAGNOSTICS_CHECKS,
   DIAGNOSTICS_CHECKS_MAP,
@@ -99,13 +98,12 @@ function sleep(ms: number) {
 function getDiagnosticsProviderOptions(
   systemInfo: Pick<
     StoreType['diagnosticsSystemInfo'],
-    'zapret_installed' | 'zapret2_installed' | 'byedpi_installed'
+    'zapret_installed' | 'zapret2_installed'
   > = store.get().diagnosticsSystemInfo,
 ): DiagnosticsProviderOptions {
   return {
     includeZapret: Boolean(systemInfo.zapret_installed),
     includeZapret2: Boolean(systemInfo.zapret2_installed),
-    includeByedpi: Boolean(systemInfo.byedpi_installed),
   };
 }
 
@@ -398,7 +396,6 @@ async function fetchDiagnosticsProviderInfo({
         sing_box_tailscale: uiState.capabilities.sing_box_tailscale,
         zapret_installed: uiState.capabilities.zapret_installed,
         zapret2_installed: uiState.capabilities.zapret2_installed,
-        byedpi_installed: uiState.capabilities.byedpi_installed,
       });
 
       if (!nextSystemInfo.zapret_installed) {
@@ -407,10 +404,6 @@ async function fetchDiagnosticsProviderInfo({
 
       if (!nextSystemInfo.zapret2_installed) {
         nextSystemInfo.zapret2_version = 'not installed';
-      }
-
-      if (!nextSystemInfo.byedpi_installed) {
-        nextSystemInfo.byedpi_version = 'not installed';
       }
 
       const nextState: Partial<StoreType> = {
@@ -433,10 +426,9 @@ async function fetchDiagnosticsProviderInfo({
       return;
     }
 
-    const [zapretRuntime, zapret2Runtime, byedpiRuntime] = await Promise.all([
+    const [zapretRuntime, zapret2Runtime] = await Promise.all([
       ForkopShellMethods.checkZapretRuntime(),
       ForkopShellMethods.checkZapret2Runtime(),
-      ForkopShellMethods.checkByedpiRuntime(),
     ]);
 
     if (requestId !== latestProviderInfoRequestId) {
@@ -453,9 +445,6 @@ async function fetchDiagnosticsProviderInfo({
       zapret2_installed: zapret2Runtime.success
         ? zapret2Runtime.data.zapret2_installed
         : currentSystemInfo.zapret2_installed,
-      byedpi_installed: byedpiRuntime.success
-        ? byedpiRuntime.data.byedpi_installed
-        : currentSystemInfo.byedpi_installed,
     };
 
     if (!zapretRuntime.success) {
@@ -470,20 +459,12 @@ async function fetchDiagnosticsProviderInfo({
       );
     }
 
-    if (!byedpiRuntime.success) {
-      logger.error('[DIAGNOSTIC]', 'fetchByedpiRuntime failed', byedpiRuntime);
-    }
-
     if (!nextSystemInfo.zapret_installed) {
       nextSystemInfo.zapret_version = 'not installed';
     }
 
     if (!nextSystemInfo.zapret2_installed) {
       nextSystemInfo.zapret2_version = 'not installed';
-    }
-
-    if (!nextSystemInfo.byedpi_installed) {
-      nextSystemInfo.byedpi_version = 'not installed';
     }
 
     const nextState: Partial<StoreType> = {
@@ -758,7 +739,10 @@ async function handleShowSingBoxConfig() {
       );
 
       ui.showModal(
-        formatCoreLabel(_('Show sing-box config'), store.get().diagnosticsSystemInfo),
+        formatCoreLabel(
+          _('Show sing-box config'),
+          store.get().diagnosticsSystemInfo,
+        ),
         renderModal(rawSingBoxConfigText, 'show_sing_box_config', {
           maskText: () => maskedSingBoxConfigText,
           initialAutoRefresh: false,
@@ -963,13 +947,6 @@ function renderDiagnosticSystemInfoWidget() {
     });
   }
 
-  if (diagnosticsSystemInfo.byedpi_installed) {
-    items.push({
-      key: 'ByeDPI',
-      value: diagnosticsSystemInfo.byedpi_version,
-    });
-  }
-
   items.push(
     {
       key: 'OS',
@@ -1068,9 +1045,6 @@ function getDiagnosticRunners(
       : []),
     ...(providerOptions.includeZapret2
       ? [{ code: DIAGNOSTICS_CHECKS.ZAPRET2, run: runZapret2Check }]
-      : []),
-    ...(providerOptions.includeByedpi
-      ? [{ code: DIAGNOSTICS_CHECKS.BYEDPI, run: runByedpiCheck }]
       : []),
     { code: DIAGNOSTICS_CHECKS.OUTBOUNDS, run: runSectionsCheck },
     { code: DIAGNOSTICS_CHECKS.FAKEIP, run: runFakeIPCheck },

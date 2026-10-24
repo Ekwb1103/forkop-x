@@ -182,42 +182,6 @@ msgstr "Встроенные наборы правил"
 msgid "By flag emoji from name"
 msgstr "По эмодзи флага из названия"
 
-msgid "ByeDPI listen address and port are assigned by Forkop and must not be set in the strategy."
-msgstr "Адрес и порт прослушивания ByeDPI назначаются Forkop и не должны задаваться в стратегии."
-
-msgid "ByeDPI option does not accept a compact value: %s"
-msgstr "Опция ByeDPI не принимает компактное значение: %s"
-
-msgid "ByeDPI option does not accept a value: %s"
-msgstr "Опция ByeDPI не принимает значение: %s"
-
-msgid "ByeDPI option requires a value: %s"
-msgstr "Для опции ByeDPI требуется значение: %s"
-
-msgid "ByeDPI package is installed"
-msgstr "Пакет ByeDPI установлен"
-
-msgid "ByeDPI package is not installed"
-msgstr "Пакет ByeDPI не установлен"
-
-msgid "ByeDPI provider binary is available"
-msgstr "Бинарный файл провайдера ByeDPI доступен"
-
-msgid "ByeDPI provider binary is not available"
-msgstr "Бинарный файл провайдера ByeDPI недоступен"
-
-msgid "ByeDPI sing-box outbound is configured"
-msgstr "Outbound ByeDPI в sing-box настроен"
-
-msgid "ByeDPI sing-box outbound is not configured"
-msgstr "Outbound ByeDPI в sing-box не настроен"
-
-msgid "ByeDPI Strategy"
-msgstr "Стратегия ByeDPI"
-
-msgid "ByeDPI strategy cannot be empty"
-msgstr "Стратегия ByeDPI не может быть пустой"
-
 msgid "Cache File Path"
 msgstr "Путь к файлу кэша"
 
@@ -719,12 +683,6 @@ msgstr "Ошибка Forkop"
 msgid "Forkop is restarting automatically"
 msgstr "Forkop X перезапускается автоматически"
 
-msgid "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here."
-msgstr "Forkop сам управляет pid-файлами ciadpi, поэтому параметры pidfile здесь запрещены."
-
-msgid "Forkop manages the ciadpi process lifecycle itself, so daemon mode is not allowed here."
-msgstr "Forkop сам управляет жизненным циклом ciadpi, поэтому режим daemon здесь запрещён."
-
 msgid "Forkop manages the nfqws process lifecycle itself, so daemon mode is not allowed here."
 msgstr "Forkop сам управляет жизненным циклом nfqws, поэтому режим daemon здесь запрещён."
 
@@ -751,18 +709,6 @@ msgstr "Forkop X и sing-box удалены. Исходные репозитор
 
 msgid "Forkop X Settings"
 msgstr "Настройки Forkop X"
-
-msgid "Forkop-managed ciadpi runtime has restarted"
-msgstr "ciadpi Forkop перезапускался"
-
-msgid "Forkop-managed ciadpi runtime is not ready"
-msgstr "ciadpi Forkop не готов"
-
-msgid "Forkop-managed ciadpi runtime is not running"
-msgstr "ciadpi Forkop не запущен"
-
-msgid "Forkop-managed ciadpi runtime is ready"
-msgstr "ciadpi Forkop готов"
 
 msgid "Forkop-managed nfqws runtime is not ready"
 msgstr "NFQWS Forkop не готов"
@@ -880,9 +826,6 @@ msgstr "Прерывать соединения, когда URLTest перекл
 
 msgid "Interval"
 msgstr "Интервал"
-
-msgid "Invalid ByeDPI strategy"
-msgstr "Некорректная стратегия ByeDPI"
 
 msgid "Invalid CIDR prefix"
 msgstr "Неверный префикс CIDR"
@@ -1207,9 +1150,6 @@ msgstr "Нет закрытых подключений"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
-
-msgid "No rules use ByeDPI"
-msgstr "Нет правил, использующих ByeDPI"
 
 msgid "No rules use Zapret"
 msgstr "Нет правил, использующих Zapret"
@@ -1646,18 +1586,6 @@ msgstr "Источник"
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
 
-msgid "Standalone ByeDPI autostart is enabled"
-msgstr "Автозапуск отдельной службы ByeDPI включен"
-
-msgid "Standalone ByeDPI is active together with Forkop ByeDPI rules"
-msgstr "Отдельная служба ByeDPI активна вместе с правилами ByeDPI в Forkop"
-
-msgid "Standalone ByeDPI service is active"
-msgstr "Отдельная служба ByeDPI активна"
-
-msgid "Standalone ByeDPI service is inactive"
-msgstr "Отдельная служба ByeDPI неактивна"
-
 msgid "Standalone Zapret is active together with Forkop Zapret rules"
 msgstr "Отдельная служба Zapret активна вместе с правилами Zapret в Forkop"
 
@@ -1760,17 +1688,11 @@ msgstr "Номер NFQUEUE назначается Forkop для каждого �
 msgid "The rule applies to the domain and all its subdomains. Use full:, keyword:, or regex: prefixes for exact match, keyword match, or regular expression."
 msgstr "Правило применяется к домену и всем его поддоменам. Для полного совпадения, совпадению по слову или регулярному выражению используйте префиксы full:, keyword: или regex:."
 
-msgid "There are rules using ByeDPI"
-msgstr "Есть правила, использующие ByeDPI"
-
 msgid "There are rules using Zapret"
 msgstr "Есть правила использующие Zapret"
 
 msgid "There are rules using Zapret2"
 msgstr "Есть правила, использующие Zapret2"
-
-msgid "This field must start a working ciadpi strategy; help/version options exit immediately and are not allowed here."
-msgstr "Это поле должно запускать рабочую стратегию ciadpi; параметры help/version сразу завершают процесс и здесь запрещены."
 
 msgid "This field must start a working nfqws strategy; --dry-run exits immediately and is not allowed here."
 msgstr "Это поле должно запускать рабочую стратегию nfqws; --dry-run сразу завершает процесс и здесь запрещён."
@@ -1826,9 +1748,6 @@ msgstr "Трафик этого уровня пойдёт напрямую."
 msgid "Traffic Total"
 msgstr "Всего трафика"
 
-msgid "Transparent proxy mode is incompatible with action=byedpi because Forkop connects to ciadpi through SOCKS."
-msgstr "Режим прозрачного прокси несовместим с action=byedpi, потому что Forkop подключается к ciadpi через SOCKS."
-
 msgid "Transport"
 msgstr "Транспорт"
 
@@ -1847,9 +1766,6 @@ msgstr "Тип"
 msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"
 
-msgid "Unable to validate the ByeDPI strategy through the backend parser."
-msgstr "Не удалось проверить стратегию ByeDPI через backend-парсер."
-
 msgid "Unable to validate the NFQWS strategy through the backend parser."
 msgstr "Не удалось проверить стратегию NFQWS через backend-парсер."
 
@@ -1858,12 +1774,6 @@ msgstr "Не удалось проверить стратегию NFQWS2 чер�
 
 msgid "Unavailability timeout"
 msgstr "Таймаут недоступности"
-
-msgid "Unexpected ByeDPI strategy argument: %s"
-msgstr "Неожиданный аргумент стратегии ByeDPI: %s"
-
-msgid "Unexpected Forkop-managed ciadpi runtime is running"
-msgstr "Обнаружен лишний ciadpi Forkop"
 
 msgid "Unexpected Forkop-managed nfqws runtime is running"
 msgstr "Обнаружен лишний NFQWS Forkop"
@@ -1879,9 +1789,6 @@ msgstr "уникальный идентификатор UCI"
 
 msgid "unknown"
 msgstr "неизвестно"
-
-msgid "Unknown ByeDPI option: %s"
-msgstr "Неизвестная опция ByeDPI: %s"
 
 msgid "Unknown country"
 msgstr "Неизвестная страна"

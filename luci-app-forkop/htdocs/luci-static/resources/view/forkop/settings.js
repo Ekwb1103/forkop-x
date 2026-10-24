@@ -48,8 +48,6 @@ function isDownloadSectionAction(action, capabilities) {
       return !capabilities?.loaded || Boolean(capabilities.zapretInstalled);
     case "zapret2":
       return !capabilities?.loaded || Boolean(capabilities.zapret2Installed);
-    case "byedpi":
-      return !capabilities?.loaded || Boolean(capabilities.byedpiInstalled);
     default:
       return false;
   }

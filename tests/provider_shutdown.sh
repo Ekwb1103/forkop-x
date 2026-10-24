@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for provider in nfqueue byedpi; do
+for provider in nfqueue; do
   {
     cat <<'UCODE'
 let files = {};
 let calls = [];
-const BYEDPI_PID_DIR = "owned/pid";
-const BYEDPI_CHILD_PID_DIR = "owned/child-pid";
-const BYEDPI_LOG_DIR = "owned/log";
+const OWNED_PID_DIR = "owned/pid";
+const OWNED_CHILD_PID_DIR = "owned/child-pid";
+const OWNED_LOG_DIR = "owned/log";
 function pidfiles_in_dir(dir) { return files[dir] || []; }
 function kill_pidfile_process(path, signal) {
     push(calls, ["kill", path, signal]);
     // Supervisors can remove a child PID file after TERM.
     if (path == "self-removing" && signal == "")
-        files[BYEDPI_CHILD_PID_DIR] = [];
+        files[OWNED_CHILD_PID_DIR] = [];
 }
 function command_success_from_args(args) { push(calls, args); return true; }
 UCODE
@@ -22,8 +22,8 @@ UCODE
          emit { print }
          emit && /^}/ { exit }' "$ROOT_DIR/forkop/files/usr/lib/providers/$provider/runtime.uc"
     cat <<'UCODE'
-let cfg = { pid_dir: BYEDPI_PID_DIR, child_pid_dir: BYEDPI_CHILD_PID_DIR,
-            log_dir: BYEDPI_LOG_DIR, hostlist_dir: "", legacy_runtime_base: "" };
+let cfg = { pid_dir: OWNED_PID_DIR, child_pid_dir: OWNED_CHILD_PID_DIR,
+            log_dir: OWNED_LOG_DIR, hostlist_dir: "", legacy_runtime_base: "" };
 let cases = [
     { name: "absent", supervisors: null, children: null, waits: 0 },
     { name: "empty", supervisors: [], children: [], waits: 0 },

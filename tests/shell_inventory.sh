@@ -28,7 +28,7 @@ expected_runtime_shell_files="$(printf '%s\n' \
 [ "$runtime_shell_files" = "$expected_runtime_shell_files" ] ||
   fail "runtime library contains unexpected shell helpers: $runtime_shell_files"
 
-legacy_shell_owners='runtime_state\.sh|rules_nft_runtime\.sh|config_validation\.sh|sing_box_runtime\.sh|updates_runtime\.sh|updater\.sh|status_diagnostics\.sh|helpers\.sh|constants\.sh|subscription_runtime\.sh|byedpi\.sh|zapret\.sh|zapret2\.sh'
+legacy_shell_owners='runtime_state\.sh|rules_nft_runtime\.sh|config_validation\.sh|sing_box_runtime\.sh|updates_runtime\.sh|updater\.sh|status_diagnostics\.sh|helpers\.sh|constants\.sh|subscription_runtime\.sh|zapret\.sh|zapret2\.sh'
 if find "$FORKOP_FILES" -type f -print | grep -E "$legacy_shell_owners" >/dev/null 2>&1; then
   fail "legacy runtime shell owner file returned under forkop/files"
 fi

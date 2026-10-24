@@ -458,93 +458,6 @@
     ]
   },
   {
-    "call": "ByeDPI listen address and port are assigned by Forkop and must not be set in the strategy.",
-    "key": "ByeDPI listen address and port are assigned by Forkop and must not be set in the strategy.",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5990"
-    ]
-  },
-  {
-    "call": "ByeDPI option does not accept a compact value: %s",
-    "key": "ByeDPI option does not accept a compact value: %s",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6167"
-    ]
-  },
-  {
-    "call": "ByeDPI option does not accept a value: %s",
-    "key": "ByeDPI option does not accept a value: %s",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6096"
-    ]
-  },
-  {
-    "call": "ByeDPI option requires a value: %s",
-    "key": "ByeDPI option requires a value: %s",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6088",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6114",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6148",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6157"
-    ]
-  },
-  {
-    "call": "ByeDPI package is installed",
-    "key": "ByeDPI package is installed",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:71"
-    ]
-  },
-  {
-    "call": "ByeDPI package is not installed",
-    "key": "ByeDPI package is not installed",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:72"
-    ]
-  },
-  {
-    "call": "ByeDPI provider binary is available",
-    "key": "ByeDPI provider binary is available",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:64"
-    ]
-  },
-  {
-    "call": "ByeDPI provider binary is not available",
-    "key": "ByeDPI provider binary is not available",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:65"
-    ]
-  },
-  {
-    "call": "ByeDPI sing-box outbound is configured",
-    "key": "ByeDPI sing-box outbound is configured",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:107"
-    ]
-  },
-  {
-    "call": "ByeDPI sing-box outbound is not configured",
-    "key": "ByeDPI sing-box outbound is not configured",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:108"
-    ]
-  },
-  {
-    "call": "ByeDPI Strategy",
-    "key": "ByeDPI Strategy",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:7000"
-    ]
-  },
-  {
-    "call": "ByeDPI strategy cannot be empty",
-    "key": "ByeDPI strategy cannot be empty",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6193"
-    ]
-  },
-  {
     "call": "Cache File Path",
     "key": "Cache File Path",
     "places": [
@@ -573,7 +486,6 @@
     "call": "Cannot receive checks result",
     "key": "Cannot receive checks result",
     "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:26",
       "src/forkop/tabs/diagnostic/checks/runDnsCheck.ts:27",
       "src/forkop/tabs/diagnostic/checks/runNftCheck.ts:28",
       "src/forkop/tabs/diagnostic/checks/runSectionsCheck.ts:46",
@@ -633,7 +545,6 @@
     "key": "Checking, please wait",
     "places": [
       "src/forkop/tabs/diagnostic/initController.ts:1048",
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:14",
       "src/forkop/tabs/diagnostic/checks/runDnsCheck.ts:15",
       "src/forkop/tabs/diagnostic/checks/runFakeIPCheck.ts:15",
       "src/forkop/tabs/diagnostic/checks/runNftCheck.ts:13",
@@ -1876,20 +1787,6 @@
     ]
   },
   {
-    "call": "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here.",
-    "key": "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here.",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5999"
-    ]
-  },
-  {
-    "call": "Forkop manages the ciadpi process lifecycle itself, so daemon mode is not allowed here.",
-    "key": "Forkop manages the ciadpi process lifecycle itself, so daemon mode is not allowed here.",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5996"
-    ]
-  },
-  {
     "call": "Forkop manages the nfqws process lifecycle itself, so daemon mode is not allowed here.",
     "key": "Forkop manages the nfqws process lifecycle itself, so daemon mode is not allowed here.",
     "places": [
@@ -1964,34 +1861,6 @@
     "key": "Forkop X Settings",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:285"
-    ]
-  },
-  {
-    "call": "Forkop-managed ciadpi runtime has restarted",
-    "key": "Forkop-managed ciadpi runtime has restarted",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:91"
-    ]
-  },
-  {
-    "call": "Forkop-managed ciadpi runtime is not ready",
-    "key": "Forkop-managed ciadpi runtime is not ready",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:94"
-    ]
-  },
-  {
-    "call": "Forkop-managed ciadpi runtime is not running",
-    "key": "Forkop-managed ciadpi runtime is not running",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:97"
-    ]
-  },
-  {
-    "call": "Forkop-managed ciadpi runtime is ready",
-    "key": "Forkop-managed ciadpi runtime is ready",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:93"
     ]
   },
   {
@@ -2332,13 +2201,6 @@
     "places": [
       "src/forkop/tabs/dashboard/initController.ts:907",
       "src/forkop/tabs/dashboard/initController.ts:1148"
-    ]
-  },
-  {
-    "call": "Invalid ByeDPI strategy",
-    "key": "Invalid ByeDPI strategy",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:7021"
     ]
   },
   {
@@ -3132,13 +2994,6 @@
     "key": "No other marking rules found",
     "places": [
       "src/forkop/tabs/diagnostic/checks/runNftCheck.ts:105"
-    ]
-  },
-  {
-    "call": "No rules use ByeDPI",
-    "key": "No rules use ByeDPI",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:79"
     ]
   },
   {
@@ -4290,34 +4145,6 @@
     ]
   },
   {
-    "call": "Standalone ByeDPI autostart is enabled",
-    "key": "Standalone ByeDPI autostart is enabled",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:122"
-    ]
-  },
-  {
-    "call": "Standalone ByeDPI is active together with Forkop ByeDPI rules",
-    "key": "Standalone ByeDPI is active together with Forkop ByeDPI rules",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:119"
-    ]
-  },
-  {
-    "call": "Standalone ByeDPI service is active",
-    "key": "Standalone ByeDPI service is active",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:120"
-    ]
-  },
-  {
-    "call": "Standalone ByeDPI service is inactive",
-    "key": "Standalone ByeDPI service is inactive",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:123"
-    ]
-  },
-  {
     "call": "Standalone Zapret is active together with Forkop Zapret rules",
     "key": "Standalone Zapret is active together with Forkop Zapret rules",
     "places": [
@@ -4604,13 +4431,6 @@
     ]
   },
   {
-    "call": "There are rules using ByeDPI",
-    "key": "There are rules using ByeDPI",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:78"
-    ]
-  },
-  {
     "call": "There are rules using Zapret",
     "key": "There are rules using Zapret",
     "places": [
@@ -4622,13 +4442,6 @@
     "key": "There are rules using Zapret2",
     "places": [
       "src/forkop/tabs/diagnostic/checks/runZapret2Check.ts:81"
-    ]
-  },
-  {
-    "call": "This field must start a working ciadpi strategy; help/version options exit immediately and are not allowed here.",
-    "key": "This field must start a working ciadpi strategy; help/version options exit immediately and are not allowed here.",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6002"
     ]
   },
   {
@@ -4764,13 +4577,6 @@
     ]
   },
   {
-    "call": "Transparent proxy mode is incompatible with action=byedpi because Forkop connects to ciadpi through SOCKS.",
-    "key": "Transparent proxy mode is incompatible with action=byedpi because Forkop connects to ciadpi through SOCKS.",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5993"
-    ]
-  },
-  {
     "call": "Transport",
     "key": "Transport",
     "places": [
@@ -4822,13 +4628,6 @@
     ]
   },
   {
-    "call": "Unable to validate the ByeDPI strategy through the backend parser.",
-    "key": "Unable to validate the ByeDPI strategy through the backend parser.",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:5917"
-    ]
-  },
-  {
     "call": "Unable to validate the NFQWS strategy through the backend parser.",
     "key": "Unable to validate the NFQWS strategy through the backend parser.",
     "places": [
@@ -4851,21 +4650,6 @@
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2885",
       "src/forkop/tabs/dashboard/initController.ts:1269"
-    ]
-  },
-  {
-    "call": "Unexpected ByeDPI strategy argument: %s",
-    "key": "Unexpected ByeDPI strategy argument: %s",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6134",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6183"
-    ]
-  },
-  {
-    "call": "Unexpected Forkop-managed ciadpi runtime is running",
-    "key": "Unexpected Forkop-managed ciadpi runtime is running",
-    "places": [
-      "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:96"
     ]
   },
   {
@@ -4912,15 +4696,6 @@
       "src/forkop/services/systemInfo.service.ts:33",
       "src/forkop/services/systemInfo.service.ts:34",
       "src/forkop/tabs/updates/initController.ts:332"
-    ]
-  },
-  {
-    "call": "Unknown ByeDPI option: %s",
-    "key": "Unknown ByeDPI option: %s",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6103",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6125",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6176"
     ]
   },
   {

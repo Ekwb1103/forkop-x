@@ -643,16 +643,6 @@ function legacy_rule_connection_kind(section) {
     return "proxy";
 }
 
-function migrate_byedpi_cmd_opts(ctx, section) {
-    let cmd_opts = option(section, "cmd_opts", "");
-    if (cmd_opts == "")
-        return;
-
-    if (option(section, "byedpi_cmd_opts", "") == "")
-        set_option(ctx, section, "byedpi_cmd_opts", cmd_opts);
-    delete_option(ctx, section, "cmd_opts");
-}
-
 function migrate_zapret_nfqws_default(ctx, section, constants) {
     if (migrated_rule_action(section) != "zapret")
         return;
@@ -1042,7 +1032,7 @@ function migrate_rule(ctx, section, converted_from_rule, constants) {
             delete_subscription_cache(ctx, section_name(section));
     }
     else if (action == "block" ||
-        action == "bypass" || action == "zapret" || action == "zapret2" || action == "byedpi") {
+        action == "bypass" || action == "zapret" || action == "zapret2") {
         delete_option(ctx, section, "proxy_config_type");
         delete_option(ctx, section, "proxy_string");
         delete_option(ctx, section, "urltest_proxy_links");
@@ -1055,7 +1045,6 @@ function migrate_rule(ctx, section, converted_from_rule, constants) {
     if (action != "connection")
         delete_legacy_urltest_options(ctx, section);
 
-    migrate_byedpi_cmd_opts(ctx, section);
     migrate_zapret_nfqws_default(ctx, section, constants);
 }
 

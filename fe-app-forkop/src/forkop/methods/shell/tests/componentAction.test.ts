@@ -244,7 +244,6 @@ describe('ForkopShellMethods.componentAction', () => {
               sing_box_tailscale: 0,
               zapret_installed: 1,
               zapret2_installed: 1,
-              byedpi_installed: 0,
             },
             actions: {
               service: [],

@@ -318,7 +318,6 @@ function notifyActionProvidersAvailabilityChanged(
       detail: {
         zapretInstalled: Boolean(systemInfo.zapret_installed),
         zapret2Installed: Boolean(systemInfo.zapret2_installed),
-        byedpiInstalled: Boolean(systemInfo.byedpi_installed),
       },
     }),
   );
@@ -400,18 +399,6 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
     }
   }
 
-  if (result.component === 'byedpi') {
-    nextSystemInfo.providerInfoLoaded = true;
-
-    if (result.action === 'remove') {
-      nextSystemInfo.byedpi_installed = 0;
-      nextSystemInfo.byedpi_version = 'not installed';
-    } else {
-      nextSystemInfo.byedpi_installed = 1;
-      nextSystemInfo.byedpi_version = version;
-    }
-  }
-
   if (result.component === 'zapret_manager') {
     nextSystemInfo.zapret_manager_installed =
       result.action === 'remove' ? 0 : 1;
@@ -433,11 +420,7 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
     diagnosticsSystemInfo: normalizedSystemInfo,
   });
 
-  if (
-    result.component === 'zapret' ||
-    result.component === 'zapret2' ||
-    result.component === 'byedpi'
-  ) {
+  if (result.component === 'zapret' || result.component === 'zapret2') {
     notifyActionProvidersAvailabilityChanged(normalizedSystemInfo);
   }
 }
@@ -810,7 +793,7 @@ function getOptionalComponentActions({
   installKey,
   removeKey,
 }: {
-  component: 'zapret' | 'zapret2' | 'byedpi';
+  component: 'zapret' | 'zapret2';
   installed: boolean;
   checkKey: UpdatesActionKey;
   installKey: UpdatesActionKey;
@@ -839,7 +822,6 @@ function getComponentCards(): ComponentCard[] {
   const systemInfoLoading = isSystemInfoLoading();
   const zapretInstalled = Boolean(systemInfo.zapret_installed);
   const zapret2Installed = Boolean(systemInfo.zapret2_installed);
-  const byedpiInstalled = Boolean(systemInfo.byedpi_installed);
   const zapretManagerInstalled = Boolean(systemInfo.zapret_manager_installed);
   const packetSteeringEnabled = systemInfo.packet_steering_mode === '2';
   const directProxyEnabled = Boolean(systemInfo.direct_proxy_enabled);
@@ -926,13 +908,6 @@ function getComponentCards(): ComponentCard[] {
     installKey: 'zapret2Install',
     removeKey: 'zapret2Remove',
   });
-  const byedpiActions = getOptionalComponentActions({
-    component: 'byedpi',
-    installed: byedpiInstalled,
-    checkKey: 'byedpiCheck',
-    installKey: 'byedpiInstall',
-    removeKey: 'byedpiRemove',
-  });
   const zapretManagerActions: ComponentActionButton[] = zapretManagerInstalled
     ? [
         {
@@ -1001,19 +976,6 @@ function getComponentCards(): ComponentCard[] {
       latestVersion: getLatestVersion('zapret2'),
       releaseUrl: getGitHubReleaseUrl('zapret2'),
       actions: zapret2Actions,
-    },
-    {
-      component: 'byedpi',
-      column: 1,
-      title: 'ByeDPI',
-      version: systemInfoLoading
-        ? _('Loading...')
-        : byedpiInstalled
-          ? systemInfo.byedpi_version
-          : _('Not installed'),
-      latestVersion: getLatestVersion('byedpi'),
-      releaseUrl: getGitHubReleaseUrl('byedpi'),
-      actions: byedpiActions,
     },
     {
       component: 'zapret_manager',

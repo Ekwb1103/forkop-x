@@ -68,7 +68,6 @@ const PROVIDERS_STATUS_UC = LIB_DIR + "/providers/status.uc";
 const SINGBOX_RUNTIME_UC = LIB_DIR + "/singbox/runtime.uc";
 const ZAPRET_RUNTIME_UC = LIB_DIR + "/providers/zapret/runtime.uc";
 const ZAPRET2_RUNTIME_UC = LIB_DIR + "/providers/zapret2/runtime.uc";
-const BYEDPI_RUNTIME_UC = LIB_DIR + "/providers/byedpi/runtime.uc";
 const ZAPRET_VALIDATOR_UC = LIB_DIR + "/providers/zapret/validator.uc";
 const ZAPRET2_VALIDATOR_UC = LIB_DIR + "/providers/zapret2/validator.uc";
 
@@ -853,17 +852,13 @@ function system_info_cache_is_valid() {
 
     let zapret_installed = 0;
     let zapret2_installed = 0;
-    let byedpi_installed = 0;
     if (provider_installed(ZAPRET_RUNTIME_UC))
         zapret_installed = 1;
     if (provider_installed(ZAPRET2_RUNTIME_UC))
         zapret2_installed = 1;
-    if (provider_installed(BYEDPI_RUNTIME_UC))
-        byedpi_installed = 1;
 
     return int(cache.zapret_installed || 0) == zapret_installed &&
         int(cache.zapret2_installed || 0) == zapret2_installed &&
-        int(cache.byedpi_installed || 0) == byedpi_installed &&
         int(cache.zapret_manager_installed || 0) == zapret_manager_installed;
 }
 
@@ -963,8 +958,6 @@ function build_system_info() {
     let zapret_version = zapret_installed ? provider_version(ZAPRET_RUNTIME_UC) : "not installed";
     let zapret2_installed = provider_installed(ZAPRET2_RUNTIME_UC) ? 1 : 0;
     let zapret2_version = zapret2_installed ? provider_version(ZAPRET2_RUNTIME_UC) : "not installed";
-    let byedpi_installed = provider_installed(BYEDPI_RUNTIME_UC) ? 1 : 0;
-    let byedpi_version = byedpi_installed ? provider_version(BYEDPI_RUNTIME_UC) : "not installed";
     let zapret_manager_installed = zapret_manager_is_installed() ? 1 : 0;
     let device_model = first_line_value("/tmp/sysinfo/model", "unknown");
     let packet_steering_mode = trim(uci_core.get("network.@globals[0].packet_steering"));
@@ -992,8 +985,6 @@ function build_system_info() {
         zapret_installed,
         zapret2_version,
         zapret2_installed,
-        byedpi_version,
-        byedpi_installed,
         zapret_manager_installed,
         packet_steering_mode,
         direct_proxy_enabled,
@@ -2341,8 +2332,6 @@ else if (mode == "check-zapret-runtime")
     exit(module_passthrough(ZAPRET_RUNTIME_UC, [ "check" ]));
 else if (mode == "check-zapret2-runtime")
     exit(module_passthrough(ZAPRET2_RUNTIME_UC, [ "check" ]));
-else if (mode == "check-byedpi-runtime")
-    exit(module_passthrough(BYEDPI_RUNTIME_UC, [ "check" ]));
 else if (mode == "neutralize-zapret-defaults")
     exit(neutralize_zapret_defaults());
 else if (mode == "clash-api")
@@ -2373,8 +2362,6 @@ else if (mode == "get-zapret-status")
     exit(module_passthrough(ZAPRET_RUNTIME_UC, [ "status" ]));
 else if (mode == "get-zapret2-status")
     exit(module_passthrough(ZAPRET2_RUNTIME_UC, [ "status" ]));
-else if (mode == "get-byedpi-status")
-    exit(module_passthrough(BYEDPI_RUNTIME_UC, [ "status" ]));
 else if (mode == "get-system-info")
     exit(get_system_info());
 else if (mode == "check-dns-available")

@@ -32,7 +32,6 @@ function componentDisplayName(component: string) {
     rust_x: 'Xrust',
     zapret: 'Zapret',
     zapret2: 'Zapret2',
-    byedpi: 'ByeDPI',
   };
 
   return names[component] || component;
@@ -42,7 +41,13 @@ function showLogNotification(notification: ForkopLogNotification) {
   if (notification.kind === 'rule-set-unavailable') {
     ui.addNotification(
       _('List changes were not applied'),
-      E('div', {}, _('A required list could not be downloaded or validated. The previous working configuration is still active. Check the list source and apply the settings again.')),
+      E(
+        'div',
+        {},
+        _(
+          'A required list could not be downloaded or validated. The previous working configuration is still active. Check the list source and apply the settings again.',
+        ),
+      ),
       'warning',
       'fkp-rule-set-unavailable-notification',
     );
@@ -81,7 +86,13 @@ function showLogNotification(notification: ForkopLogNotification) {
   if (notification.kind === 'start-recovery-pending') {
     ui.addNotification(
       _('Forkop is restarting automatically'),
-      E('div', {}, _('A startup attempt was interrupted. Forkop will retry automatically; no action is needed yet.')),
+      E(
+        'div',
+        {},
+        _(
+          'A startup attempt was interrupted. Forkop will retry automatically; no action is needed yet.',
+        ),
+      ),
       'warning',
       'fkp-start-recovery-notification',
     );
@@ -91,7 +102,11 @@ function showLogNotification(notification: ForkopLogNotification) {
   if (notification.kind === 'start-recovery-succeeded') {
     ui.addNotification(
       _('Forkop recovered automatically'),
-      E('div', {}, _('Forkop restarted successfully after a temporary startup failure.')),
+      E(
+        'div',
+        {},
+        _('Forkop restarted successfully after a temporary startup failure.'),
+      ),
       'success',
       'fkp-start-recovery-notification',
     );
@@ -103,12 +118,16 @@ function showLogNotification(notification: ForkopLogNotification) {
     _('Forkop Error'),
     errorMessage
       ? E('div', {}, [
-        E('div', {}, errorMessage),
-        E('details', {}, [
-          E('summary', {}, _('Technical details')),
-          E('pre', { style: 'white-space: pre-wrap; overflow-wrap: anywhere;' }, notification.line),
-        ]),
-      ])
+          E('div', {}, errorMessage),
+          E('details', {}, [
+            E('summary', {}, _('Technical details')),
+            E(
+              'pre',
+              { style: 'white-space: pre-wrap; overflow-wrap: anywhere;' },
+              notification.line,
+            ),
+          ]),
+        ])
       : E('div', {}, notification.line),
     'error',
     'fkp-log-error-notification',
@@ -118,7 +137,9 @@ function showLogNotification(notification: ForkopLogNotification) {
 export function coreService(options: CoreServiceOptions = {}) {
   let lastSubscriptionError = '';
   subscribeRuntimeUiState((state) => {
-    const key = state.subscription_error ? JSON.stringify(state.subscription_error) : '';
+    const key = state.subscription_error
+      ? JSON.stringify(state.subscription_error)
+      : '';
     if (key === lastSubscriptionError) return;
     lastSubscriptionError = key;
     if (typeof document !== 'undefined') {
@@ -126,7 +147,12 @@ export function coreService(options: CoreServiceOptions = {}) {
     }
     const alert = subscriptionApplyAlert(state.subscription_error);
     if (alert) {
-      ui.addNotification(alert.title, E('div', {}, alert.message), 'error', 'fkp-subscription-apply-error');
+      ui.addNotification(
+        alert.title,
+        E('div', {}, alert.message),
+        'error',
+        'fkp-subscription-apply-error',
+      );
     }
   });
   TabServiceInstance.onChange((activeId, tabs) => {

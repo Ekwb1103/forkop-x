@@ -195,7 +195,6 @@ const EntryPoint = {
       singBoxTailscale: true,
       zapretInstalled: false,
       zapret2Installed: false,
-      byedpiInstalled: false,
     };
     let uiCapabilitiesPromise = null;
 
@@ -206,7 +205,6 @@ const EntryPoint = {
             detail: {
               zapretInstalled: uiCapabilities.zapretInstalled,
               zapret2Installed: uiCapabilities.zapret2Installed,
-              byedpiInstalled: uiCapabilities.byedpiInstalled,
             },
           }),
         );
@@ -223,15 +221,11 @@ const EntryPoint = {
             sing_box_tailscale: uiCapabilities.singBoxTailscale ? 1 : 0,
             zapret_installed: uiCapabilities.zapretInstalled ? 1 : 0,
             zapret2_installed: uiCapabilities.zapret2Installed ? 1 : 0,
-            byedpi_installed: uiCapabilities.byedpiInstalled ? 1 : 0,
             zapret_version: uiCapabilities.zapretInstalled
               ? currentSystemInfo.zapret_version
               : "not installed",
             zapret2_version: uiCapabilities.zapret2Installed
               ? currentSystemInfo.zapret2_version
-              : "not installed",
-            byedpi_version: uiCapabilities.byedpiInstalled
-              ? currentSystemInfo.byedpi_version
               : "not installed",
           },
         });
@@ -253,9 +247,6 @@ const EntryPoint = {
       );
       uiCapabilities.zapret2Installed = Boolean(
         Number(data?.zapret2_installed) === 1,
-      );
-      uiCapabilities.byedpiInstalled = Boolean(
-        Number(data?.byedpi_installed) === 1,
       );
       applyUiCapabilities();
 
@@ -293,40 +284,28 @@ const EntryPoint = {
       return Promise.allSettled([
         main.ForkopShellMethods.checkZapretRuntime(),
         main.ForkopShellMethods.checkZapret2Runtime(),
-        main.ForkopShellMethods.checkByedpiRuntime(),
-      ]).then(
-        ([zapretRuntimeResult, zapret2RuntimeResult, byedpiRuntimeResult]) => {
-          const zapretRuntime =
-            zapretRuntimeResult.status === "fulfilled"
-              ? zapretRuntimeResult.value
-              : null;
-          const zapret2Runtime =
-            zapret2RuntimeResult.status === "fulfilled"
-              ? zapret2RuntimeResult.value
-              : null;
-          const byedpiRuntime =
-            byedpiRuntimeResult.status === "fulfilled"
-              ? byedpiRuntimeResult.value
-              : null;
-          return updateUiCapabilities({
-            zapret_installed:
-              zapretRuntime?.success &&
-              Number(zapretRuntime.data?.zapret_installed) === 1
-                ? 1
-                : 0,
-            zapret2_installed:
-              zapret2Runtime?.success &&
-              Number(zapret2Runtime.data?.zapret2_installed) === 1
-                ? 1
-                : 0,
-            byedpi_installed:
-              byedpiRuntime?.success &&
-              Number(byedpiRuntime.data?.byedpi_installed) === 1
-                ? 1
-                : 0,
-          });
-        },
-      );
+      ]).then(([zapretRuntimeResult, zapret2RuntimeResult]) => {
+        const zapretRuntime =
+          zapretRuntimeResult.status === "fulfilled"
+            ? zapretRuntimeResult.value
+            : null;
+        const zapret2Runtime =
+          zapret2RuntimeResult.status === "fulfilled"
+            ? zapret2RuntimeResult.value
+            : null;
+        return updateUiCapabilities({
+          zapret_installed:
+            zapretRuntime?.success &&
+            Number(zapretRuntime.data?.zapret_installed) === 1
+              ? 1
+              : 0,
+          zapret2_installed:
+            zapret2Runtime?.success &&
+            Number(zapret2Runtime.data?.zapret2_installed) === 1
+              ? 1
+              : 0,
+        });
+      });
     };
 
     const loadUiCapabilities = function () {

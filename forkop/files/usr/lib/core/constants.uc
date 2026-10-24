@@ -153,18 +153,6 @@ function constants_map() {
     c.ZAPRET2_DESYNC_MARK_POSTNAT = env("ZAPRET2_DESYNC_MARK_POSTNAT", "0x20000000");
     c.ZAPRET2_DEFAULT_NFQWS2_OPT = env("ZAPRET2_DEFAULT_NFQWS2_OPT", "--filter-tcp=80 --filter-l7=http --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --lua-desync=multisplit:pos=method+2 --new --filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld --new --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6");
 
-    c.BYEDPI_BIN = env("BYEDPI_BIN", "/usr/bin/ciadpi");
-    c.BYEDPI_SERVICE_INIT = env("BYEDPI_SERVICE_INIT", "/etc/init.d/byedpi");
-    c.BYEDPI_STATE_DIR = env("BYEDPI_STATE_DIR", "/var/run/forkop/byedpi");
-    c.BYEDPI_PID_DIR = env("BYEDPI_PID_DIR", c.BYEDPI_STATE_DIR + "/pid");
-    c.BYEDPI_CHILD_PID_DIR = env("BYEDPI_CHILD_PID_DIR", c.BYEDPI_STATE_DIR + "/child-pid");
-    c.BYEDPI_LOG_DIR = env("BYEDPI_LOG_DIR", c.BYEDPI_STATE_DIR + "/log");
-    c.BYEDPI_LISTEN_ADDRESS = env("BYEDPI_LISTEN_ADDRESS", "127.0.0.1");
-    c.BYEDPI_PORT_BASE = env("BYEDPI_PORT_BASE", "1080");
-    c.BYEDPI_RESPAWN_DELAY = env("BYEDPI_RESPAWN_DELAY", "5");
-    c.BYEDPI_OPEN_FILES_LIMIT = env("BYEDPI_OPEN_FILES_LIMIT", "4096");
-    c.BYEDPI_DEFAULT_CMD_OPTS = env("BYEDPI_DEFAULT_CMD_OPTS", "-o 2 --auto=t,r,a,s -d 2");
-
     return c;
 }
 

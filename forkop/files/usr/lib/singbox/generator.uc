@@ -1655,7 +1655,7 @@ function apply_section_detour_to_connection_outbounds(config, start_index, detou
 
 function mixed_proxy_enabled_action(action) {
     return action == "connection" || action == "proxy" || action == "outbound" || action == "vpn" ||
-        action == "byedpi" || action == "zapret" || action == "zapret2";
+        action == "zapret" || action == "zapret2";
 }
 
 function add_mixed_proxy_for_section(config, section, service_address) {
@@ -2520,19 +2520,6 @@ function add_zapret2_outbound(config, section, sections) {
         type: "direct",
         tag: outbound_tag(section[".name"]),
         routing_mark: runtime_constants.ZAPRET2_ROUTE_MARK_BASE + index
-    });
-}
-
-function add_byedpi_outbound(config, section, sections) {
-    let index = enabled_action_index(sections, section, "byedpi");
-    if (index <= 0)
-        runtime_generate_unsupported("unable to resolve ByeDPI index for " + section[".name"]);
-    push(config.outbounds, {
-        type: "socks",
-        tag: outbound_tag(section[".name"]),
-        server: runtime_constants.BYEDPI_LISTEN_ADDRESS,
-        server_port: runtime_constants.BYEDPI_PORT_BASE + index - 1,
-        version: "5"
     });
 }
 
@@ -3420,8 +3407,6 @@ function add_outbound_for_section(config, section, taken, sections) {
         add_zapret_outbound(config, section, sections);
     else if (action == "zapret2")
         add_zapret2_outbound(config, section, sections);
-    else if (action == "byedpi")
-        add_byedpi_outbound(config, section, sections);
     else if (action == "bypass") {
         /* route-only action */
     }
@@ -3440,7 +3425,7 @@ function reserve_section_outbound_tags(sections, taken) {
     for (let section in sections) {
         let action = option(section, "action", "");
         if (connections.is_connections_action(action) ||
-            action == "byedpi" || action == "zapret" || action == "zapret2")
+            action == "zapret" || action == "zapret2")
             taken[outbound_tag(section[".name"])] = true;
 
         if (!connections.is_connections_action(action))

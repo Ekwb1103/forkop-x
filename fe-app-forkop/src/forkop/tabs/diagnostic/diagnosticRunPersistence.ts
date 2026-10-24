@@ -43,8 +43,7 @@ function isDiagnosticsProviderOptions(
 
   return (
     isOptionalBoolean(value.includeZapret) &&
-    isOptionalBoolean(value.includeZapret2) &&
-    isOptionalBoolean(value.includeByedpi)
+    isOptionalBoolean(value.includeZapret2)
   );
 }
 

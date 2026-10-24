@@ -990,15 +990,14 @@ function render_proxy_response_ip_mask() {
     exit(1);
 }
 
-function write_ui_capabilities_json(sing_box_extended, sing_box_tiny, sing_box_compressed, sing_box_tailscale, zapret_installed, zapret2_installed, byedpi_installed) {
+function write_ui_capabilities_json(sing_box_extended, sing_box_tiny, sing_box_compressed, sing_box_tailscale, zapret_installed, zapret2_installed) {
     write_json({
         sing_box_extended: arg_number(sing_box_extended),
         sing_box_tiny: arg_number(sing_box_tiny),
         sing_box_compressed: arg_number(sing_box_compressed),
         sing_box_tailscale: arg_number(sing_box_tailscale),
         zapret_installed: arg_number(zapret_installed),
-        zapret2_installed: arg_number(zapret2_installed),
-        byedpi_installed: arg_number(byedpi_installed)
+        zapret2_installed: arg_number(zapret2_installed)
     });
 }
 
@@ -1191,7 +1190,6 @@ function render_global_system_info() {
     let sing_box_version = object_value(value, "sing_box_version") || "unknown";
     let zapret_version = object_value(value, "zapret_version") || "unknown";
     let zapret2_version = object_value(value, "zapret2_version") || "unknown";
-    let byedpi_version = object_value(value, "byedpi_version") || "unknown";
     let openwrt_version = object_value(value, "openwrt_version") || "unknown";
     let device_model = object_value(value, "device_model") || "unknown";
 
@@ -1205,8 +1203,6 @@ function render_global_system_info() {
         print_line("\ud83e\uddf5 Zapret:        " + zapret_version);
     if (flag_is_one(value.zapret2_installed))
         print_line("\ud83e\uddf5 Zapret2:       " + zapret2_version);
-    if (flag_is_one(value.byedpi_installed))
-        print_line("\ud83e\uddf5 ByeDPI:        " + byedpi_version);
     print_line("\ud83d\udedc OpenWrt:       " + openwrt_version);
     print_line("\ud83d\udedc Device:        " + device_model);
 }
@@ -1480,11 +1476,9 @@ function system_info_json() {
         zapret_installed: arg_number(ARGV[10]),
         zapret2_version: as_string(ARGV[11]),
         zapret2_installed: arg_number(ARGV[12]),
-        byedpi_version: as_string(ARGV[13]),
-        byedpi_installed: arg_number(ARGV[14]),
-        openwrt_version: as_string(ARGV[15]),
-        device_model: as_string(ARGV[16]),
-        generated_at: arg_number(ARGV[17])
+        openwrt_version: as_string(ARGV[13]),
+        device_model: as_string(ARGV[14]),
+        generated_at: arg_number(ARGV[15])
     });
 }
 
@@ -1758,7 +1752,7 @@ else if (mode == "server-required-port-conflict-owners")
 else if (mode == "json-error")
     json_error(ARGV[1]);
 else if (mode == "ui-capabilities-json")
-    write_ui_capabilities_json(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]);
+    write_ui_capabilities_json(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]);
 else if (mode == "service-status-json")
     write_service_status_json(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "service-status-running")
