@@ -31,6 +31,8 @@ let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
 let runtime_supports_certificate_pins = false;
 let runtime_supports_dns_response_matching = false;
+let runtime_supports_legacy_protocols = true;
+let runtime_skipped_protocol_outbounds = {};
 let runtime_prunable_outbounds = {};
 
 let as_string = common.as_string;
@@ -555,7 +557,47 @@ function outbound_uses_certificate_pins(outbound) {
     return type(value) == "array" ? length(value) > 0 : as_string(value) != "";
 }
 
+// Mirrors the outbound types rejected by the Xrust profile without the
+// legacy-protocols build feature (xrust core-config validate()).
+const RUST_X_EXCLUDED_OUTBOUND_TYPES = {
+    naive: true, vmess: true, trojan: true, shadowsocks: true, tuic: true,
+    anytls: true, snell: true, shadowtls: true, fptn: true, openvpn: true,
+    "openvpn-client": true, socks: true
+};
+
+function rust_x_core_version(version) {
+    // The packaged wrapper reports "-rust-x."; the bare binary reports "-tachyon.".
+    return match(as_string(version), /-(rust-x|tachyon)\./) != null;
+}
+
+function outbound_excluded_protocol(outbound) {
+    if (runtime_supports_legacy_protocols || type(outbound) != "object")
+        return "";
+    let t = lc(as_string(outbound.type || ""));
+    return RUST_X_EXCLUDED_OUTBOUND_TYPES[t] ? t : "";
+}
+
+function remember_skipped_protocol_outbound(section_name, protocol) {
+    section_name = as_string(section_name);
+    let counts = runtime_skipped_protocol_outbounds[section_name] || {};
+    counts[protocol] = (counts[protocol] || 0) + 1;
+    runtime_skipped_protocol_outbounds[section_name] = counts;
+}
+
+function skipped_protocol_summary(section_name) {
+    let counts = runtime_skipped_protocol_outbounds[as_string(section_name)];
+    if (type(counts) != "object")
+        return "";
+    let parts = [];
+    for (let protocol in sort(keys(counts)))
+        push(parts, protocol + " (" + counts[protocol] + ")");
+    return join(", ", parts);
+}
+
 function ensure_explicit_outbound_supported(outbound, source, name) {
+    let excluded = outbound_excluded_protocol(outbound);
+    if (excluded != "")
+        runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses protocol " + excluded + ", which is not included in Xrust; remove it or use a VLESS or Hysteria2 connection");
     if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound))
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' requires TLS certificate SHA-256 pinning; use Xrust or a core with verified certificate_sha256 support");
     if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound))
@@ -608,6 +650,12 @@ function compatible_subscription_outbounds(outbounds, section_name) {
     for (let outbound in array_or_empty(outbounds)) {
         if (!supported_subscription_outbound(outbound))
             continue;
+        let excluded = outbound_excluded_protocol(outbound);
+        if (excluded != "") {
+            warn_skipped_subscription_outbound(section_name, outbound, "protocol " + excluded + " is not included in Xrust");
+            remember_skipped_protocol_outbound(section_name, excluded);
+            continue;
+        }
         if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound)) {
             warn_skipped_subscription_outbound(section_name, outbound, "TLS certificate SHA-256 pinning requires Xrust; pin retained in subscription cache");
             continue;
@@ -2407,8 +2455,12 @@ function add_connections_outbound(config, section, taken) {
     add_connection_interfaces(config, state, section, taken, selector_tags, urltest_candidate_tags);
     add_connection_json_outbounds(config, state, section, taken, selector_tags, urltest_candidate_tags);
 
-    if (length(selector_tags) == 0)
+    if (length(selector_tags) == 0) {
+        let skipped_protocols = skipped_protocol_summary(section_name);
+        if (skipped_protocols != "")
+            runtime_generate_unsupported("connection section '" + section_name + "' has no outbounds compatible with Xrust; skipped subscription outbounds with unsupported protocols: " + skipped_protocols + ". Settings were not applied");
         runtime_generate_unsupported("connection section has no usable outbounds");
+    }
 
     if (section_needs_country_is(section)) {
         let previous_state = read_json_file(runtime_subscription.section_cache_path(section_name));
@@ -3468,9 +3520,12 @@ function section_by_name(sections, name) {
 
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
     runtime_prunable_outbounds = {};
+    runtime_skipped_protocol_outbounds = {};
     // Verified for Xrust; Go X 1.0.4 and Extended 2.7.2 do not support this
     // whole-certificate pin. Never substitute an SPKI pin or remove the pin.
-    runtime_supports_certificate_pins = match(as_string(sing_box_version), /-(rust-x|tachyon)\./) != null;
+    runtime_supports_certificate_pins = rust_x_core_version(sing_box_version);
+    // Xrust is built without vmess, trojan, shadowsocks and socks outbounds.
+    runtime_supports_legacy_protocols = !rust_x_core_version(sing_box_version);
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);
