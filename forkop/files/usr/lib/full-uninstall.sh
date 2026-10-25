@@ -154,9 +154,10 @@ run() {
     fi
     # Only known product paths are removed. Never recursively delete a path
     # supplied by a UCI option (it might point at /etc or other system data).
-    # /tmp/tachyon-rulesets holds the Rust X core's compiled rule-set cache.
-    for directory in /etc/forkop /etc/forkop-tailscale /etc/sing-box /tmp/sing-box /tmp/tachyon-rulesets \
-        /usr/lib/forkop /usr/share/forkop /www/luci-static/resources/view/forkop; do
+    # /tmp/xrust-rulesets holds the Rust X core's compiled rule-set cache;
+    # cores before the rename used /tmp/tachyon-rulesets.
+    for directory in /etc/forkop /etc/forkop-tailscale /etc/sing-box /tmp/sing-box /tmp/xrust-rulesets \
+        /tmp/tachyon-rulesets /usr/lib/forkop /usr/share/forkop /www/luci-static/resources/view/forkop; do
         rm -rf "$ROOT$directory"
     done
     for file in /etc/config/forkop /etc/config/forkop.apk-new /etc/config/forkop.apk-old \
