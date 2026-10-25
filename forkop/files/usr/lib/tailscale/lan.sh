@@ -4,6 +4,8 @@ set -eu
 umask 077
 mkdir -p /var/lock /var/run/forkop/ui-state
 exec 9>/var/lock/forkop-tailscale-network.lock
+# OpenWrt BusyBox provides flock; a firmware built without it must say so.
+command -v flock >/dev/null 2>&1 || { echo "flock is required (BusyBox flock applet)" >&2; exit 1; }
 flock -x 9
 state=/etc/forkop-tailscale
 owned=/var/run/forkop/ui-state/tailscale-lan-owned

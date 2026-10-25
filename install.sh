@@ -2818,6 +2818,32 @@ download_forkop_packages() {
     fi
 }
 
+# Install the packages the downloaded release would newly pull from the feeds
+# (dependencies new to this release, flock in 2.4.1 for example) before any
+# Forkop service is stopped: once it stops, the router can be offline until
+# the new release starts, and a download at that point fails the update.
+# A dry run lists them, nested ones included, without changing anything.
+preinstall_release_dependencies() {
+    set -- "$FORKOP_BACKEND_FILE" "$FORKOP_APP_FILE"
+    [ -z "$FORKOP_I18N_FILE" ] || set -- "$@" "$FORKOP_I18N_FILE"
+    dependency_check="$TMP_DIR/release-dependencies.log"
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk add --simulate --allow-untrusted "$@" </dev/null >"$dependency_check" 2>&1
+    else
+        opkg_with_lock_retry install --noaction --force-overwrite --force-downgrade "$@" >"$dependency_check" 2>&1
+    fi || {
+        # For example a conflict that the update removes later.
+        warn "New Forkop dependencies could not be listed in advance; the package manager installs them during the update"
+        return 0
+    }
+    # apk: "(1/2) Installing flock (2.40-r1)"; opkg: "Installing flock (2.40-1) to root..."
+    for dependency in $(sed -n -E 's/^(\([0-9]+\/[0-9]+\) )?Installing ([A-Za-z0-9][A-Za-z0-9._+-]*) \(.*/\2/p' "$dependency_check" | sort -u); do
+        case "$dependency" in forkop|luci-app-forkop|luci-i18n-forkop-ru) continue ;; esac
+        msg "Installing new Forkop dependency before stopping Forkop: $dependency"
+        pkg_install_name "$dependency" || fail "Failed to install Forkop dependency $dependency"
+    done
+}
+
 install_backend_package() {
     # This installer is a managed upgrade path. Record provenance before the
     # package manager invokes the old package prerm; a direct opkg/apk upgrade
@@ -2920,6 +2946,7 @@ main() {
     prepare_current_config_backup
     prepare_current_update_rollback
     ensure_flash_space
+    preinstall_release_dependencies
 
     if [ "$INSTALL_MODE" = "legacy" ]; then
         msg "Installing the Forkop X backend before removing legacy packages"

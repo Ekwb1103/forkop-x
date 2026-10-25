@@ -2976,6 +2976,44 @@ function save_forkop_configuration_backup(config_dir, backup_dir) {
     return backup;
 }
 
+// Packages the release files would newly pull from the feeds: dependencies
+// that are new to this release (flock in 2.4.1, for example). A dry run lists
+// them, nested ones included, without changing anything. null when the dry
+// run fails, e.g. on a conflict that is only removed later in the upgrade.
+function release_dependencies_to_preinstall(files) {
+    let args = is_apk() ? [ "apk", "add", "--simulate", "--allow-untrusted" ] :
+        [ "opkg", "install", "--noaction", "--force-overwrite", "--force-downgrade" ];
+    for (let file in files)
+        if (as_string(file) != "")
+            push(args, file);
+    if (!run_logged("Checking dependencies of the Forkop release", command_from_args(args) + " </dev/null"))
+        return null;
+    let names = [];
+    for (let line in split(last_logged_output, "\n")) {
+        // apk: "(1/2) Installing flock (2.40-r1)"; opkg: "Installing flock (2.40-1) to root..."
+        let parsed = match(trim(line), /^(\([0-9]+\/[0-9]+\) )?Installing ([A-Za-z0-9][A-Za-z0-9._+-]*) \(/);
+        if (parsed != null && !array_has([ "forkop", "luci-app-forkop", "luci-i18n-forkop-ru" ], parsed[2]) &&
+            !array_has(names, parsed[2]))
+            push(names, parsed[2]);
+    }
+    return names;
+}
+
+// Install them while Forkop still routes the router's own traffic: once it
+// stops, the router can be offline until the new release starts, and a
+// dependency download at that point fails the whole upgrade.
+function preinstall_release_dependencies(files) {
+    let names = release_dependencies_to_preinstall(files);
+    if (names == null) {
+        updates_log("New Forkop dependencies could not be listed in advance; the package manager installs them during the upgrade", "warn");
+        return true;
+    }
+    for (let name in names)
+        if (!run_logged("Installing new Forkop dependency " + name + " before stopping Forkop", pkg_install_name_command(name)))
+            return false;
+    return true;
+}
+
 function install_forkop(requested_version) {
     requested_version = as_string(requested_version);
     let selected = requested_version != "" ? selected_forkop_release(requested_version) : null;
@@ -3031,6 +3069,8 @@ function install_forkop(requested_version) {
     let preflight_error = forkop_package_preflight(backend_file, app_file, i18n_file, rollback_packages, latest_version);
     if (preflight_error != "")
         action_fail("forkop", "install", preflight_error, FORKOP_VERSION, latest_version);
+    if (!preinstall_release_dependencies([ backend_file, app_file, i18n_file ]))
+        action_fail("forkop", "install", "Failed to install new dependencies of the Forkop release", FORKOP_VERSION, latest_version);
 
     if (!module_success([ LIB_DIR + "/service/ui.uc", "begin-package-upgrade-quiesce", owner_pid() ]))
         action_fail("forkop", "install", "Another Forkop service transition or package upgrade is starting", FORKOP_VERSION, latest_version);

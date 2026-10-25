@@ -95,7 +95,12 @@ if grep -Fq 'kmod-netlink-diag' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
 fi
 
 require_package_dependency "nftables-json"
-require_package_dependency "flock"
+# OpenWrt BusyBox ships the flock applet. A separate flock package made
+# upgrades from releases without it download a dependency mid-upgrade.
+if grep -Eq '(^|[[:space:],+])flock([[:space:],"]|$)' "$FORKOP_MAKEFILE" ||
+  grep -E '^BACKEND_DEPENDS_(IPK|APK)=' "$BUILD_SCRIPT" | grep -Eq '(^|[[:space:],"])flock([[:space:],"]|$)'; then
+  fail "flock is provided by BusyBox and must not be a package dependency"
+fi
 if grep -Eq '(^|[[:space:],+])nftables([[:space:],]|$)' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
   fail "Forkop must depend on the concrete nftables-json provider, not the nftables virtual package"
 fi
