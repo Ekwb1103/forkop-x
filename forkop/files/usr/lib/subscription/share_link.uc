@@ -138,6 +138,8 @@ function add_tls_query(params, outbound, trojan_default_tls) {
         add_query(params, "sid", reality.short_id);
         if (type(reality.support_x25519mlkem768) == "bool")
             add_query(params, "support_x25519mlkem768", reality.support_x25519mlkem768 ? "true" : "false");
+        if (as_string(reality.__forkop_mldsa65_verify || "") != "")
+            add_query(params, "pqv", reality.__forkop_mldsa65_verify);
     }
     else {
         add_query(params, "security", "tls");

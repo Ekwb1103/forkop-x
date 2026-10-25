@@ -34,6 +34,7 @@ let runtime_supports_dns_response_matching = false;
 let runtime_supports_legacy_protocols = true;
 let runtime_supports_tls12_fingerprints = true;
 let runtime_supports_vless_encryption = true;
+let runtime_supports_reality_mldsa65 = true;
 let runtime_skipped_protocol_outbounds = {};
 let runtime_prunable_outbounds = {};
 
@@ -591,6 +592,34 @@ function outbound_unsupported_vless_encryption(outbound) {
     return split(encryption, ".")[0];
 }
 
+// REALITY ML-DSA-65 verification (pqv) is a Forkop-side marker: Xrust has no
+// ML-DSA verification, so such nodes are refused there; for the other cores
+// the marker is removed and their configuration is unchanged.
+function outbound_uses_reality_mldsa65(outbound) {
+    return type(outbound) == "object" && type(outbound.tls) == "object" &&
+        type(outbound.tls.reality) == "object" &&
+        as_string(outbound.tls.reality.__forkop_mldsa65_verify || "") != "";
+}
+
+function without_reality_mldsa65_marker(outbound) {
+    if (type(outbound) != "object" || type(outbound.tls) != "object" ||
+        type(outbound.tls.reality) != "object" || !exists(outbound.tls.reality, "__forkop_mldsa65_verify"))
+        return outbound;
+    let reality = {};
+    for (let key, value in outbound.tls.reality)
+        if (key != "__forkop_mldsa65_verify")
+            reality[key] = value;
+    let tls = {};
+    for (let key, value in outbound.tls)
+        tls[key] = value;
+    tls.reality = reality;
+    let copy = {};
+    for (let key, value in outbound)
+        copy[key] = value;
+    copy.tls = tls;
+    return copy;
+}
+
 function remember_skipped_protocol_outbound(section_name, protocol) {
     section_name = as_string(section_name);
     let counts = runtime_skipped_protocol_outbounds[section_name] || {};
@@ -642,6 +671,8 @@ function ensure_explicit_outbound_supported(outbound, source, name) {
     let encryption = outbound_unsupported_vless_encryption(outbound);
     if (encryption != "")
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses VLESS encryption " + encryption + ", which Xrust does not support; use a link with encryption=none");
+    if (!runtime_supports_reality_mldsa65 && outbound_uses_reality_mldsa65(outbound))
+        runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' requires REALITY ML-DSA-65 verification (pqv), which Xrust does not support; remove pqv only if you accept the server without it");
     if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound))
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' requires TLS certificate SHA-256 pinning; use Xrust or a core with verified certificate_sha256 support");
     if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound))
@@ -704,6 +735,11 @@ function compatible_subscription_outbounds(outbounds, section_name) {
         if (encryption != "") {
             warn_skipped_subscription_outbound(section_name, outbound, "VLESS encryption " + encryption + " is not supported by Xrust");
             remember_skipped_protocol_outbound(section_name, "vless encryption");
+            continue;
+        }
+        if (!runtime_supports_reality_mldsa65 && outbound_uses_reality_mldsa65(outbound)) {
+            warn_skipped_subscription_outbound(section_name, outbound, "REALITY ML-DSA-65 verification (pqv) is not supported by Xrust");
+            remember_skipped_protocol_outbound(section_name, "reality pqv");
             continue;
         }
         if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound)) {
@@ -830,7 +866,7 @@ function copy_subscription_outbound(outbound, new_tag) {
         copy.tls = tls;
     }
     copy.tag = new_tag;
-    return copy;
+    return without_reality_mldsa65_marker(copy);
 }
 
 function string_array_contains(values, needle) {
@@ -1961,6 +1997,8 @@ function apply_link_tls(outbound, scheme, query) {
             preference = query.supportX25519MLKEM768;
         if (preference != null)
             tls.reality.support_x25519mlkem768 = bool_query(preference);
+        if (as_string(query.pqv || "") != "")
+            tls.reality.__forkop_mldsa65_verify = as_string(query.pqv);
     }
     outbound.tls = tls;
 }
@@ -2313,6 +2351,7 @@ function add_manual_proxy_link(config, state, section_name, manual_index, link, 
     if (display_name == "")
         display_name = tag_name;
     ensure_explicit_outbound_supported(outbound, "manual outbound", display_name);
+    outbound = without_reality_mldsa65_marker(outbound);
     push(config.outbounds, outbound);
     push(selector_tags, tag_name);
     push(urltest_candidate_tags, tag_name);
@@ -3569,6 +3608,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     runtime_supports_legacy_protocols = !rust_x_core_version(sing_box_version);
     runtime_supports_tls12_fingerprints = !rust_x_core_version(sing_box_version);
     runtime_supports_vless_encryption = !rust_x_core_version(sing_box_version);
+    runtime_supports_reality_mldsa65 = !rust_x_core_version(sing_box_version);
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);

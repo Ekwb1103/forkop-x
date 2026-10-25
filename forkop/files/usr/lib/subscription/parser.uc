@@ -727,6 +727,10 @@ function add_tls(url, security, default_tls) {
             preference = query.supportX25519MLKEM768;
         if (preference != null)
             tls.reality.support_x25519mlkem768 = is_true(preference);
+        // ML-DSA-65 server verification (pqv): kept for the cores that can use
+        // it; the generator refuses it on Xrust and leaves it out of the config.
+        if (as_string(query.pqv || "") != "")
+            tls.reality.__forkop_mldsa65_verify = as_string(query.pqv);
     }
 
     return [tls, true];
@@ -2228,6 +2232,9 @@ function xray_tls_from_stream(stream, network) {
             tls.reality.public_key = public_key;
         if (short_id != "")
             tls.reality.short_id = short_id;
+        let mldsa65_verify = xray_first_string([reality.mldsa65Verify, settings.mldsa65Verify]);
+        if (mldsa65_verify != "")
+            tls.reality.__forkop_mldsa65_verify = mldsa65_verify;
         if (!tls.utls)
             tls.utls = { enabled: true, fingerprint: "chrome" };
     }
