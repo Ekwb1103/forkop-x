@@ -32,6 +32,7 @@ let runtime_supports_xhttp = true;
 let runtime_supports_certificate_pins = false;
 let runtime_supports_dns_response_matching = false;
 let runtime_supports_legacy_protocols = true;
+let runtime_supports_tls12_fingerprints = true;
 let runtime_skipped_protocol_outbounds = {};
 let runtime_prunable_outbounds = {};
 
@@ -594,7 +595,34 @@ function skipped_protocol_summary(section_name) {
     return join(", ", parts);
 }
 
+// Xrust has these uTLS profiles only as TLS 1.2 ClientHellos, and its client
+// speaks TLS 1.3 only: a node with them never completes a handshake.
+const RUST_X_TLS12_FINGERPRINTS = { android: true, "360": true };
+
+function use_supported_utls_fingerprint(outbound, source, name) {
+    if (runtime_supports_tls12_fingerprints || type(outbound) != "object" ||
+        type(outbound.tls) != "object" || type(outbound.tls.utls) != "object" ||
+        outbound.tls.utls.enabled === false)
+        return;
+    let fingerprint = lc(as_string(outbound.tls.utls.fingerprint || ""));
+    if (!RUST_X_TLS12_FINGERPRINTS[fingerprint])
+        return;
+    // Replace the nested objects: subscription copies share them with the cache.
+    let tls = {};
+    for (let key, value in outbound.tls)
+        tls[key] = value;
+    let utls = {};
+    for (let key, value in outbound.tls.utls)
+        utls[key] = value;
+    utls.fingerprint = "chrome";
+    tls.utls = utls;
+    outbound.tls = tls;
+    warn(as_string(source), " '", as_string(name), "' uses uTLS fingerprint ", fingerprint,
+        ", which Xrust supports only for TLS 1.2; using chrome\n");
+}
+
 function ensure_explicit_outbound_supported(outbound, source, name) {
+    use_supported_utls_fingerprint(outbound, source, name);
     let excluded = outbound_excluded_protocol(outbound);
     if (excluded != "")
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses protocol " + excluded + ", which is not included in Xrust; remove it or use a VLESS or Hysteria2 connection");
@@ -957,7 +985,9 @@ function add_subscription_source_with_state(config, section, source_index, sourc
             tag_map[as_string(outbound.tag)] = new_tag;
         if (as_string(outbound.remark || "") != "")
             tag_map[as_string(outbound.remark)] = new_tag;
-        push(prepared, copy_subscription_outbound(outbound, new_tag));
+        let prepared_outbound = copy_subscription_outbound(outbound, new_tag);
+        use_supported_utls_fingerprint(prepared_outbound, "subscription outbound for rule '" + section_name + "'", display_name);
+        push(prepared, prepared_outbound);
         push(display_names, display_name);
         let source_link = as_string(outbound.share_link || "");
         if (!subscription_share_link.is_copyable_link(source_link))
@@ -3511,6 +3541,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     runtime_supports_certificate_pins = rust_x_core_version(sing_box_version);
     // Xrust is built without vmess, trojan, shadowsocks and socks outbounds.
     runtime_supports_legacy_protocols = !rust_x_core_version(sing_box_version);
+    runtime_supports_tls12_fingerprints = !rust_x_core_version(sing_box_version);
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);
