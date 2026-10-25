@@ -168,6 +168,13 @@ function bool_option(section, key, fallback) {
     return value == "1" || value == "true" || value == "yes" || value == "on";
 }
 
+// The secret the generator writes to experimental.clash_api, and therefore
+// the token every router-side controller call must send. It depends on the
+// dashboard switch only: WAN exposure changes the bind address, not auth.
+function clash_api_secret(settings) {
+    return bool_option(settings, "enable_yacd", false) ? option(settings, "yacd_secret_key", "") : "";
+}
+
 function int_option(section, key, fallback) {
     let value = option(section, key, fallback);
     if (match(value, /[^0-9]/))
@@ -195,5 +202,6 @@ return {
     option,
     list_option,
     bool_option,
-    int_option
+    int_option,
+    clash_api_secret
 };

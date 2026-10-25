@@ -433,7 +433,7 @@ function clash_api_config(settings, service_address) {
     };
     if (bool_option(settings, "enable_yacd", false)) {
         result.external_ui = "ui";
-        let secret = option(settings, "yacd_secret_key", "");
+        let secret = common.clash_api_secret(settings);
         if (secret != "")
             result.secret = secret;
     }

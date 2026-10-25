@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let common = require("core.common");
 let process_memory = require("core.process_memory");
 let constants = require("core.constants");
 let core_ip = require("core.ip");
@@ -1501,10 +1502,12 @@ function clash_api_url() {
 }
 
 function clash_auth_args() {
-    let cfg = settings();
-    if (!bool_option(cfg, "enable_yacd_wan_access", false))
+    // Same condition as the generated config, not the WAN switch: the
+    // controller requires the token whenever it has a secret.
+    let secret = common.clash_api_secret(settings());
+    if (secret == "")
         return [];
-    return [ "--header", "Authorization: Bearer " + option(cfg, "yacd_secret_key", "") ];
+    return [ "--header", "Authorization: Bearer " + secret ];
 }
 
 function clash_urlencode(value) {
