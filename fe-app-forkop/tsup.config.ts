@@ -22,6 +22,9 @@ export default defineConfig({
             __FORKOP_RUSSIAN__: JSON.stringify(JSON.stringify(readTranslations(fs.readFileSync('../luci-app-forkop/po/ru/forkop.po', 'utf8')))),
         };
         options.legalComments = 'none';
+        // Emit non-ASCII text as UTF-8 instead of \uXXXX escapes (the Russian
+        // dictionary is ~3x smaller); LuCI already loads UTF-8 view sources.
+        options.charset = 'utf8';
         // Preserve LuCI directives and exported names; only compact whitespace.
         options.minifyWhitespace = true;
         options.minifyIdentifiers = false;
