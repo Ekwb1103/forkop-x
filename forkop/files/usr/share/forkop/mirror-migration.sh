@@ -36,9 +36,13 @@ mirror_supported() {
     target="$(sed -n "s/^DISTRIB_TARGET='\(.*\)'/\1/p" "$release_file" | head -n 1)"
     architecture="$(sed -n "s/^DISTRIB_ARCH='\(.*\)'/\1/p" "$release_file" | head -n 1)"
     [ "$target" = "mediatek/filogic" ] && [ "$architecture" = "aarch64_cortex-a53" ] || return 1
-    repository_file_has_vendor_origin "$(root_path /etc/opkg/distfeeds.conf)" && return 1
-    repository_file_has_vendor_origin "$(root_path /etc/apk/repositories)" && return 1
-    repository_file_has_vendor_origin "$(root_path /etc/apk/repositories.d/distfeeds.list)" && return 1
+    for repository_file in "$(root_path /etc/opkg/distfeeds.conf)" "$(root_path /etc/apk/repositories)" \
+        "$(root_path /etc/apk/repositories.d/distfeeds.list)"; do
+        repository_file_has_vendor_origin "$repository_file" && return 1
+        # A feed layout the mirror cannot replace keeps all native feeds, so a
+        # file is never left half redirected.
+        repository_layout_recognized "$repository_file" || return 1
+    done
     return 0
 }
 
@@ -77,19 +81,36 @@ remove_owned_apk_mirror_artifacts() {
     fi
 }
 
+# A release feed is recognised by what follows releases/ (a version with
+# targets/ or packages/, or the vNN.x layout), so any mirror path before it
+# works: /releases, /openwrt/releases, /downloads.openwrt.org/releases ...
+rewrite_feed_urls() {
+    sed -E \
+        -e "s#https?://[^/[:space:]]+/([^[:space:]]*/)?releases/(v[0-9]+\\.x/)#${MIRROR_BASE_URL}/openwrt/releases/\\2#" \
+        -e "s#https?://[^/[:space:]]+/([^[:space:]]*/)?releases/([0-9]+\\.[0-9]+[^/[:space:]]*/(targets|packages)/)#${MIRROR_BASE_URL}/openwrt/releases/\\2#" \
+        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/\\2/\\3/packages/packages.adb#" \
+        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/packages/\\2/\\3/packages.adb#" \
+        "$1"
+}
+
+# True when every release URL (in the file, or stdin) maps onto the mirror.
+feed_urls_redirected() {
+    ! grep -E 'https?://[^[:space:]]*/releases/' ${1:+"$1"} | grep -Fv "$MIRROR_BASE_URL/openwrt/releases/" >/dev/null
+}
+
+repository_layout_recognized() {
+    [ -e "$1" ] || return 0
+    rewrite_feed_urls "$1" | feed_urls_redirected
+}
+
 rewrite_repository_file() {
     repository_file="$1"
     [ -e "$repository_file" ] || return 0
 
     temporary="${repository_file}.forkop-mirror-new"
-    sed -E \
-        -e "s#https?://[^/]+/(pub/software/openwrt/|openwrt/)?releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
-        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/\\2/\\3/packages/packages.adb#" \
-        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/packages/\\2/\\3/packages.adb#" \
-        "$repository_file" > "$temporary"
+    rewrite_feed_urls "$repository_file" > "$temporary"
 
-    if grep -E 'https?://[^/]+/(pub/software/openwrt/|openwrt/)?releases/' "$temporary" |
-        grep -Fv "$MIRROR_BASE_URL/openwrt/releases/" >/dev/null; then
+    if ! feed_urls_redirected "$temporary"; then
         rm -f "$temporary"
         echo "Forkop mirror migration could not rewrite every URL in $repository_file" >&2
         return 1

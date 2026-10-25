@@ -30,6 +30,8 @@ src/gz glinet_core_slash https://fw.gl-inet.com/releases/v24.x/v24.10.4/mediatek
 https://downloads.openwrt.org/releases/v25.x/v25.12.5/mediatek/filogic/packages/packages.adb
 https://downloads.openwrt.org/releases/v25.x/v25.12.5/aarch64_cortex-a53/video/packages.adb
 https://ftp.halifax.rwth-aachen.de/openwrt/releases/25.12.3/targets/mediatek/filogic/packages/packages.adb
+src/gz openwrt_packages https://mirror.berlin.freifunk.net/downloads.openwrt.org/releases/24.10.2/packages/aarch64_cortex-a53/packages
+src/gz openwrt_luci https://ftp.example.net/pub/software/openwrt/releases/24.10.2/packages/aarch64_cortex-a53/luci
 EOF
 cp "$distfeeds" "$WORK_DIR/original"
 
@@ -47,6 +49,10 @@ grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/packages/aarch64_cor
   fail_test "transaction did not normalize an OpenWrt 25 package feed"
 grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.3/targets/mediatek/filogic/packages/packages.adb' "$distfeeds" ||
   fail_test "transaction did not redirect an OpenWrt mirror using the /openwrt/releases path"
+grep -Fxq 'src/gz openwrt_packages https://mirror.51343.ru/openwrt/releases/24.10.2/packages/aarch64_cortex-a53/packages' "$distfeeds" ||
+  fail_test "transaction did not redirect a mirror with a /downloads.openwrt.org/releases path"
+grep -Fxq 'src/gz openwrt_luci https://mirror.51343.ru/openwrt/releases/24.10.2/packages/aarch64_cortex-a53/luci' "$distfeeds" ||
+  fail_test "transaction did not redirect a mirror with a /pub/software/openwrt/releases path"
 [ -s "$distfeeds.pre-forkop-mirror" ] ||
   fail_test "transaction did not create a persistent recovery copy"
 
@@ -61,6 +67,36 @@ cleanup
 mkdir -p "$TMP_DIR"
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "committed transaction was unexpectedly rolled back"
+
+# An unknown feed layout is never half redirected: the file stays as it is
+# and the opkg setup falls back to the native feeds.
+unknown_feeds="$WORK_DIR/etc/opkg/unknown-distfeeds.conf"
+cat >"$unknown_feeds" <<'EOF'
+src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.7/targets/mediatek/filogic/packages
+src/gz openwrt_base https://mirror.example.net/openwrt/releases/stable/aarch64_cortex-a53/base
+EOF
+cp "$unknown_feeds" "$WORK_DIR/unknown-original"
+begin_package_mirror_transaction
+status=0
+rewrite_package_repository_file "$unknown_feeds" || status=$?
+[ "$status" -eq 2 ] || fail_test "unknown feed layout was not reported (status $status)"
+cmp -s "$WORK_DIR/unknown-original" "$unknown_feeds" ||
+  fail_test "unknown feed layout was partially rewritten"
+[ ! -e "$unknown_feeds.pre-forkop-mirror" ] ||
+  fail_test "unknown feed layout left a recovery copy"
+rollback_package_mirror quiet
+(
+  OPKG_DISTFEEDS_FILE="$unknown_feeds"
+  PKG_IS_APK=0
+  REPOSITORY_MODE=full-mirror
+  command_exists() { [ "$1" = opkg ]; }
+  pkg_list_update() { fail_test "package lists were updated from unredirected feeds"; }
+  warn() { :; }
+  configure_opkg_mirror
+  [ "$REPOSITORY_MODE" = native-feeds ] || fail_test "unknown feed layout did not fall back to native feeds"
+  cmp -s "$WORK_DIR/unknown-original" "$unknown_feeds" ||
+    fail_test "native fallback changed the feeds"
+) || exit 1
 
 PKG_IS_APK=1
 apk() {

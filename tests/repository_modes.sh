@@ -96,7 +96,23 @@ printf 'https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/filogic/
 printf 'https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/base/packages.adb\n' >"$apk_vanilla/etc/apk/repositories.d/distfeeds.list"
 run_apk_migration "$apk_vanilla"
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/' "$apk_vanilla/etc/apk/repositories" || fail 'vanilla Filogic/APK migration lost full mirror'
-grep -Fqx 'https://mirror.51343.ru/forkop/mirror/current/packages.adb' "$apk_vanilla/etc/apk/repositories.d/forkop.list" || fail 'full mirror APK feed missing'
+grep -Fqx 'https://mirror.51343.ru/forkop/mirror/current/aarch64_cortex-a53/packages.adb' "$apk_vanilla/etc/apk/repositories.d/forkop.list" || fail 'full mirror APK feed missing'
+
+freifunk="$WORK/freifunk"
+make_root "$freifunk" mediatek/filogic aarch64_cortex-a53
+printf 'src/gz openwrt_packages https://mirror.berlin.freifunk.net/downloads.openwrt.org/releases/24.10.2/packages/aarch64_cortex-a53/packages\n' >"$freifunk/etc/opkg/distfeeds.conf"
+run_opkg_migration "$freifunk"
+grep -Fqx 'src/gz openwrt_packages https://mirror.51343.ru/openwrt/releases/24.10.2/packages/aarch64_cortex-a53/packages' "$freifunk/etc/opkg/distfeeds.conf" ||
+  fail 'mirror with a /downloads.openwrt.org/releases path was not redirected'
+
+unknown="$WORK/unknown"
+make_root "$unknown" mediatek/filogic aarch64_cortex-a53
+printf '%s\n' 'src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.7/targets/mediatek/filogic/packages' \
+  'src/gz openwrt_base https://mirror.example.net/openwrt/releases/stable/aarch64_cortex-a53/base' >"$unknown/etc/opkg/distfeeds.conf"
+unknown_hash="$(sha256sum "$unknown/etc/opkg/distfeeds.conf" | awk '{print $1}')"
+run_opkg_migration "$unknown" || fail 'unknown feed layout failed the package migration'
+[ "$unknown_hash" = "$(sha256sum "$unknown/etc/opkg/distfeeds.conf" | awk '{print $1}')" ] || fail 'unknown feed layout was partially rewritten'
+[ ! -e "$unknown/etc/opkg/distfeeds.conf.pre-forkop-mirror" ] || fail 'unknown feed layout left a recovery copy'
 
 apk_glinet="$WORK/apk-glinet"
 make_root "$apk_glinet" mediatek/filogic aarch64_cortex-a53

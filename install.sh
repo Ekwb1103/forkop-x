@@ -1891,7 +1891,7 @@ rollback_package_mirror() {
         cp "$backup_file" "$repository_file" 2>/dev/null || true
     done < "$MIRROR_BACKUP_MANIFEST"
     MIRROR_TRANSACTION_ACTIVE=0
-    warn "Package feed configuration was restored after an installation error"
+    [ "${1:-}" = quiet ] || warn "Package feed configuration was restored after an installation error"
 }
 
 begin_package_mirror_transaction() {
@@ -1906,16 +1906,23 @@ rewrite_package_repository_file() {
     [ -e "$repository_file" ] || return 0
 
     rewritten="$TMP_DIR/repository.$MIRROR_BACKUP_COUNT.rewritten"
+    # A release feed is recognised by what follows releases/ (a version with
+    # targets/ or packages/, or the vNN.x vendor layout), so any mirror path
+    # before it works: /releases, /openwrt/releases,
+    # /downloads.openwrt.org/releases and so on.
     sed -E \
-        -e "s#https?://[^/]+/(pub/software/openwrt/|openwrt/)?releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
+        -e "s#https?://[^/[:space:]]+/([^[:space:]]*/)?releases/(v[0-9]+\\.x/)#${MIRROR_BASE_URL}/openwrt/releases/\\2#" \
+        -e "s#https?://[^/[:space:]]+/([^[:space:]]*/)?releases/([0-9]+\\.[0-9]+[^/[:space:]]*/(targets|packages)/)#${MIRROR_BASE_URL}/openwrt/releases/\\2#" \
         -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v?([0-9]+\\.[0-9]+\\.[0-9]+)/mediatek/filogic/?([[:space:]]|$)#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/mediatek/filogic/packages\\2#" \
         -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/\\2/\\3/packages/packages.adb#" \
         -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/packages/\\2/\\3/packages.adb#" \
         "$repository_file" > "$rewritten" || fail "Failed to prepare $repository_file"
 
-    if grep -E 'https?://[^/]+/(pub/software/openwrt/|openwrt/)?releases/' "$rewritten" |
+    # Feeds of an unknown layout must not end up half redirected; the caller
+    # keeps the native feeds instead (status 2).
+    if grep -E 'https?://[^[:space:]]*/releases/' "$rewritten" |
         grep -Fv "$MIRROR_BASE_URL/openwrt/releases/" >/dev/null; then
-        fail "Some OpenWrt feeds in $repository_file could not be redirected to $MIRROR_BASE_URL"
+        return 2
     fi
 
     if cmp -s "$repository_file" "$rewritten"; then
@@ -1936,6 +1943,13 @@ commit_package_mirror_transaction() {
     MIRROR_TRANSACTION_ACTIVE=0
 }
 
+# Undo this run's feed rewrite and continue with the device's own feeds.
+keep_native_feeds_for_unknown_layout() {
+    rollback_package_mirror quiet
+    REPOSITORY_MODE="native-feeds"
+    warn "Package feeds in $1 use a layout the Forkop mirror cannot replace; keeping the native OpenWrt feeds"
+}
+
 normalize_mirror_base_url() {
     case "$MIRROR_BASE_URL" in
         https://*|http://*) ;;
@@ -1953,22 +1967,27 @@ configure_apk_mirror() {
 
     normalize_mirror_base_url
 
-    mkdir -p /etc/apk/keys || fail "Failed to create /etc/apk/keys"
-    mirror_key_tmp="$TMP_DIR/forkop-mirror.pem"
-    download_with_retry "$MIRROR_BASE_URL/forkop/forkop-apk.pem" "$mirror_key_tmp" "Forkop mirror APK key" ||
-        fail "Unable to download the Forkop mirror APK key"
-    grep -Fq 'BEGIN PUBLIC KEY' "$mirror_key_tmp" ||
-        fail "The downloaded Forkop mirror APK key is invalid"
-    cp "$mirror_key_tmp" "$mirror_key" || fail "Failed to install the Forkop mirror APK key"
-    chmod 0644 "$mirror_key" || fail "Failed to set permissions on the Forkop mirror APK key"
-
     begin_package_mirror_transaction
     for repository_file in "$APK_REPOSITORIES_FILE" "$distfeeds"; do
-        rewrite_package_repository_file "$repository_file"
+        if ! rewrite_package_repository_file "$repository_file"; then
+            keep_native_feeds_for_unknown_layout "$repository_file"
+            return 0
+        fi
     done
+    if ! grep -Fq "$MIRROR_BASE_URL/openwrt/releases/" "$distfeeds"; then
+        keep_native_feeds_for_unknown_layout "$distfeeds"
+        return 0
+    fi
 
-    grep -Fq "$MIRROR_BASE_URL/openwrt/releases/" "$distfeeds" ||
-        fail "No mirrored OpenWrt release feeds were written to $distfeeds"
+    # The key is needed only once the feeds point at the mirror.
+    mirror_key_tmp="$TMP_DIR/forkop-mirror.pem"
+    if ! mkdir -p /etc/apk/keys ||
+        ! download_with_retry "$MIRROR_BASE_URL/forkop/forkop-apk.pem" "$mirror_key_tmp" "Forkop mirror APK key" ||
+        ! grep -Fq 'BEGIN PUBLIC KEY' "$mirror_key_tmp" ||
+        ! cp "$mirror_key_tmp" "$mirror_key" || ! chmod 0644 "$mirror_key"; then
+        rollback_package_mirror
+        fail "Unable to install the Forkop mirror APK key; original feeds were restored"
+    fi
     pkg_list_update || {
         rollback_package_mirror
         fail "Failed to update APK package lists from $MIRROR_BASE_URL; original feeds were restored"
@@ -1987,9 +2006,11 @@ configure_opkg_mirror() {
     normalize_mirror_base_url
 
     begin_package_mirror_transaction
-    rewrite_package_repository_file "$distfeeds"
-    grep -Fq "$MIRROR_BASE_URL/openwrt/releases/" "$distfeeds" ||
-        fail "No mirrored OpenWrt release feeds were written to $distfeeds"
+    if ! rewrite_package_repository_file "$distfeeds" ||
+        ! grep -Fq "$MIRROR_BASE_URL/openwrt/releases/" "$distfeeds"; then
+        keep_native_feeds_for_unknown_layout "$distfeeds"
+        return 0
+    fi
     pkg_list_update || {
         rollback_package_mirror
         fail "Failed to update OPKG package lists from $MIRROR_BASE_URL; original feeds were restored"
