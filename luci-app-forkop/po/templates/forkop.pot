@@ -3079,9 +3079,6 @@ msgstr ""
 msgid "Could not change language. Please try again."
 msgstr ""
 
-msgid "Same as LuCI"
-msgstr ""
-
 msgid "Only changes Forkop in this browser. LuCI keeps its language."
 msgstr ""
 

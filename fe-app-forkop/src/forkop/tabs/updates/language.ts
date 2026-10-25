@@ -8,14 +8,9 @@ let saving = false;
 
 export function renderLanguage(disabled: boolean) {
   const status = E('p', { role: 'status' });
-  const buttons = (['ru', 'en', 'auto'] as const).map((language) =>
+  const buttons = (['ru', 'en'] as const).map((language) =>
     renderButton({
-      text:
-        language === 'ru'
-          ? 'Русский'
-          : language === 'en'
-            ? 'English'
-            : _('Same as LuCI'),
+      text: language === 'ru' ? 'Русский' : 'English',
       disabled: disabled || saving || getForkopLanguage() === language,
       onClick: () => {
         if (saving) return;

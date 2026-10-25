@@ -2273,9 +2273,6 @@ msgstr "Изменяет язык LuCI. Страница будет переза
 msgid "Could not change language. Please try again."
 msgstr "Не удалось изменить язык. Попробуйте ещё раз."
 
-msgid "Same as LuCI"
-msgstr "Как в LuCI"
-
 msgid "Only changes Forkop in this browser. LuCI keeps its language."
 msgstr "Меняет только язык Forkop в этом браузере. Язык LuCI сохраняется."
 
