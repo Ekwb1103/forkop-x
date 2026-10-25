@@ -362,6 +362,11 @@ function postinst_restore() {
         return false;
     }
 
+    // The worker keeps the old module in memory; restart it so an upgrade
+    // applies the new rule. The init script does nothing while disabled.
+    if (!PACKAGE_TEST_MODE && path_exists('/etc/init.d/forkop-torrserver-direct'))
+        command_success_from_args([ '/etc/init.d/forkop-torrserver-direct', 'restart' ]);
+
     if (!path_exists(PACKAGE_UPGRADE_STATE)) {
         clear_upgrade_quiesce();
         clear_compressed_upgrade_backup();

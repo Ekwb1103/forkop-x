@@ -55,6 +55,7 @@ ops/deployed-nginx/
 !/tests/rust_x_vless_encryption.sh
 !/tests/rust_x_reality_pqv.sh
 !/tests/byedpi_removed.sh
+!/tests/torrserver_direct_fakeip.sh
 !/tests/whatsapp_real_dns_vm.sh
 !/tests/log_hygiene.sh
 !/tests/urltest_groups.sh
