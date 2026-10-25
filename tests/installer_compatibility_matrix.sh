@@ -80,8 +80,8 @@ interactive_terminal_available() { return 1; }
 SING_BOX_INSTALL_VARIANT=""
 sing_box_is_present() { return 1; }
 select_sing_box_installation >/dev/null
-[ "$SING_BOX_INSTALL_VARIANT" = "x" ] ||
-  fail_test "fresh non-interactive installation must select sing-box X"
+[ "$SING_BOX_INSTALL_VARIANT" = "rust-x" ] ||
+  fail_test "fresh non-interactive installation must select Xrust"
 
 SING_BOX_INSTALL_VARIANT="sentinel"
 sing_box_is_present() { return 0; }

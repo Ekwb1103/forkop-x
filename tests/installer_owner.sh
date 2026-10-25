@@ -125,19 +125,17 @@ for action in install_stable install_extended install_extended_compressed; do
 done
 grep -Fq 'sing_box_is_present' "$INSTALLER" ||
   fail "installer must detect an existing sing-box before showing the build choice"
-grep -Fq 'singbox extended (если нужен xhttp)' "$INSTALLER" ||
-  fail "extended sing-box choice must explain that it is needed for xhttp"
 grep -Fq 'Устанавливаю русский пакет интерфейса; язык LuCI не изменится.' "$INSTALLER" ||
   fail "Russian LuCI language must enable the Russian interface package without a prompt"
-grep -Fq 'SING_BOX_INSTALL_VARIANT="x"' "$INSTALLER" ||
-  fail "fresh installation must default to sing-box X"
-grep -Fq 'msg "sing-box is not installed; sing-box X will be installed from the Forkop mirror"' "$INSTALLER" ||
-  fail "fresh installation must announce the automatic sing-box X plan"
+grep -Fq 'SING_BOX_INSTALL_VARIANT="rust-x"' "$INSTALLER" ||
+  fail "fresh installation must default to Xrust"
+grep -Fq 'msg "No proxy core is installed; Xrust will be installed from the Forkop mirror"' "$INSTALLER" ||
+  fail "fresh installation must announce the automatic Xrust plan"
 select_sing_box_block="$WORK_DIR/select-sing-box.sh"
 sed -n '/^select_sing_box_installation()/,/^}/p' "$INSTALLER" > "$select_sing_box_block"
 [ -s "$select_sing_box_block" ] || fail "failed to extract sing-box selection helper"
 
-# A: an absent sing-box must select X without an interactive build chooser.
+# A: an absent core must select Xrust without an interactive build chooser.
 fresh_variant="$(
   legacy_binary_managed_sing_box_present() { return 1; }
   sing_box_is_present() { return 1; }
@@ -147,11 +145,11 @@ fresh_variant="$(
   select_sing_box_installation
   printf '%s' "$SING_BOX_INSTALL_VARIANT"
 )"
-[ "$fresh_variant" = "x" ] || fail "absent sing-box must select sing-box X automatically"
+[ "$fresh_variant" = "rust-x" ] || fail "absent core must select Xrust automatically"
 eval "$(sed -n '/^select_sing_box_for_release()/,/^}/p' "$INSTALLER")"
 legacy_variant="$(
   msg() { :; }
-  SING_BOX_INSTALL_VARIANT=x
+  SING_BOX_INSTALL_VARIANT=rust-x
   FORKOP_RELEASE_TAG=1.14.6
   select_sing_box_for_release
   printf '%s' "$SING_BOX_INSTALL_VARIANT"
@@ -163,6 +161,9 @@ fi
 grep -Fq 'tiny)
             action="install_tiny"' "$INSTALLER" ||
   fail "automatic tiny selection must install the tiny component action"
+grep -Fq 'rust-x)
+            action="install_rust_x"' "$INSTALLER" ||
+  fail "automatic Xrust selection must install the Xrust component action"
 
 # B: a supported installed package must be preserved and its component action skipped.
 existing_variant="$(

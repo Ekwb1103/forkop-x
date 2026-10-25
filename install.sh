@@ -1,8 +1,6 @@
 #!/bin/sh
 # shellcheck shell=dash
 
-REPO_OWNER="Screamshow"
-REPO_NAME="forkop"
 MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.51343.ru}"
 
 APK_WORLD_FILE="${FORKOP_APK_WORLD_FILE:-/etc/apk/world}"
@@ -26,10 +24,9 @@ FORKOP_WAS_RUNNING=0
 FORKOP_LEGACY_DETECTED=0
 LEGACY_CLEANUP_DONE=0
 LEGACY_CLEANUP_STARTED=0
-FORKOP_I18N_REQUESTED=1
 INSTALLER_LANG="en"
 SING_BOX_INSTALL_VARIANT=""
-SING_BOX_X_SPACE_KB=0
+CORE_PACKAGE_SPACE_KB=0
 
 FORKOP_RELEASE_JSON=""
 FORKOP_RELEASE_TAG=""
@@ -88,9 +85,9 @@ Installs or updates Forkop packages:
   - luci-app-forkop
   - luci-i18n-forkop-ru (available when Russian is selected in LuCI)
 
-sing-box policy:
-  - preserve the currently installed sing-box variant
-  - install sing-box X from the Forkop mirror when sing-box is absent
+Proxy core policy:
+  - preserve the currently installed core (Xrust or a sing-box variant)
+  - install Xrust from the Forkop mirror when no core is installed
   - run without interactive questions; stop if storage is insufficient
 
 Options:
@@ -1615,17 +1612,21 @@ function asset_matches(name, kind, ext, version) {
     return false;
 }
 
-function sing_box_x_plan(arch, format, base) {
+// Mirror catalog of a core package (rust-x or sing-box-x) -> download plan.
+function core_package_plan(name, arch, format, base) {
+    if (name != "rust-x" && name != "sing-box-x")
+        exit(1);
     let catalog = read_stdin_json();
-    if (catalog?.schema != 1 || catalog?.name != "sing-box-x" ||
+    if (catalog?.schema != 1 || catalog?.name != name ||
         match(as_string(catalog.version), /^[0-9]+[.][0-9]+[.][0-9]+$/) == null)
         exit(1);
     for (let asset in catalog.assets || []) {
-        if (asset.package != "sing-box-x" || asset.format != format ||
+        if (asset.package != name || asset.format != format ||
             (asset.architecture != arch && !(format == "apk" && arch == "aarch64" && asset.architecture == "aarch64_cortex-a53")))
             continue;
-        if (match(as_string(asset.name), /^sing-box-x_[A-Za-z0-9_.+-]+[.](apk|ipk)$/) == null ||
-            asset.url != base + "/forkop/sing-box-x/releases/" + catalog.version + "/" + asset.name ||
+        if (index(as_string(asset.name), name + "_") != 0 ||
+            match(as_string(asset.name), /^[a-z-]+_[A-Za-z0-9_.+-]+[.](apk|ipk)$/) == null ||
+            asset.url != base + "/forkop/" + name + "/releases/" + catalog.version + "/" + asset.name ||
             match(as_string(asset.sha256), /^[a-f0-9]{64}$/) == null || int(asset.installed_size) <= 0 || int(asset.size) <= 0)
             exit(1);
         print(asset.url, "\t", asset.sha256, "\t", asset.size, "\t", asset.installed_size, "\n");
@@ -1723,8 +1724,8 @@ else if (mode == "installer-stop-current")
     exit(installer_stop_old_forkop(INSTALLER_FORKOP_INIT) ? 0 : 1);
 else if (mode == "managed-upgrade-sing-box-marker")
     managed_upgrade_sing_box_marker(ARGV[1]);
-else if (mode == "sing-box-x-plan")
-    sing_box_x_plan(ARGV[1], ARGV[2], ARGV[3]);
+else if (mode == "core-package-plan")
+    core_package_plan(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "sing-box-exe-path-fixture")
     exit(sing_box_exe_path(ARGV[1]) ? 0 : 1);
 else
@@ -1935,6 +1936,14 @@ commit_package_mirror_transaction() {
     MIRROR_TRANSACTION_ACTIVE=0
 }
 
+normalize_mirror_base_url() {
+    case "$MIRROR_BASE_URL" in
+        https://*|http://*) ;;
+        *) fail "Invalid Forkop mirror URL: $MIRROR_BASE_URL" ;;
+    esac
+    MIRROR_BASE_URL="${MIRROR_BASE_URL%/}"
+}
+
 configure_apk_mirror() {
     distfeeds="$APK_DISTFEEDS_FILE"
     mirror_key="/etc/apk/keys/forkop-mirror.pem"
@@ -1942,11 +1951,7 @@ configure_apk_mirror() {
     [ "$PKG_IS_APK" -eq 1 ] || return 0
     [ -s "$distfeeds" ] || fail "$distfeeds is missing or empty"
 
-    case "$MIRROR_BASE_URL" in
-        https://*|http://*) ;;
-        *) fail "Invalid Forkop mirror URL: $MIRROR_BASE_URL" ;;
-    esac
-    MIRROR_BASE_URL="${MIRROR_BASE_URL%/}"
+    normalize_mirror_base_url
 
     mkdir -p /etc/apk/keys || fail "Failed to create /etc/apk/keys"
     mirror_key_tmp="$TMP_DIR/forkop-mirror.pem"
@@ -1979,11 +1984,7 @@ configure_opkg_mirror() {
     command_exists opkg || fail "OpenWrt opkg package manager is required"
     [ -s "$distfeeds" ] || fail "$distfeeds is missing or empty"
 
-    case "$MIRROR_BASE_URL" in
-        https://*|http://*) ;;
-        *) fail "Invalid Forkop mirror URL: $MIRROR_BASE_URL" ;;
-    esac
-    MIRROR_BASE_URL="${MIRROR_BASE_URL%/}"
+    normalize_mirror_base_url
 
     begin_package_mirror_transaction
     rewrite_package_repository_file "$distfeeds"
@@ -2200,7 +2201,7 @@ forkop_install_required_space_kb() {
         done < "$UPDATE_ROLLBACK_MANIFEST"
     fi
     [ "$target_kb" -ge "$rollback_kb" ] || target_kb="$rollback_kb"
-    printf '%s\n' "$((target_kb + 256 + ${SING_BOX_X_SPACE_KB:-0}))"
+    printf '%s\n' "$((target_kb + 256 + ${CORE_PACKAGE_SPACE_KB:-0}))"
 }
 
 legacy_binary_managed_sing_box_present() {
@@ -2438,10 +2439,7 @@ installer_text() {
         case "$key" in
             i18n_installed) printf '%s\n' "Русский пакет интерфейса уже установлен и будет обновлен." ;;
             i18n_default) printf '%s\n' "Устанавливаю русский пакет интерфейса; язык LuCI не изменится." ;;
-            sing_box_tiny) printf '%s\n' "singbox tiny (совместимость)" ;;
-            sing_box_stable) printf '%s\n' "singbox stable" ;;
-            sing_box_extended) printf '%s\n' "singbox extended (если нужен xhttp)" ;;
-            sing_box_skip_msg) printf '%s\n' "Пропускаю установку sing-box." ;;
+            sing_box_skip_msg) printf '%s\n' "Прокси-ядро уже установлено; оставляю его." ;;
             legacy_backup_ready) printf '%s\n' "Резервная копия legacy-конфигурации создана" ;;
             legacy_cleanup_start) printf '%s\n' "Удаляю legacy-пакеты и начинаю миграцию конфигурации" ;;
             *) printf '%s\n' "$key" ;;
@@ -2452,10 +2450,7 @@ installer_text() {
     case "$key" in
         i18n_installed) printf '%s\n' "The Russian interface package is already installed and will be updated." ;;
         i18n_default) printf '%s\n' "Installing the Russian interface package; the LuCI language will not change." ;;
-        sing_box_tiny) printf '%s\n' "singbox tiny (legacy)" ;;
-        sing_box_stable) printf '%s\n' "singbox stable" ;;
-        sing_box_extended) printf '%s\n' "singbox extended (if xhttp is needed)" ;;
-        sing_box_skip_msg) printf '%s\n' "Skipping sing-box installation." ;;
+        sing_box_skip_msg) printf '%s\n' "A proxy core is already installed; keeping it." ;;
         legacy_backup_ready) printf '%s\n' "Legacy configuration backup created" ;;
         legacy_cleanup_start) printf '%s\n' "Removing legacy packages and starting configuration migration" ;;
         *) printf '%s\n' "$key" ;;
@@ -2503,6 +2498,15 @@ mirror_asset_url() {
     esac
 }
 
+# Sets RELEASE_ASSET_URL and RELEASE_ASSET_SHA256 for one package of the
+# resolved release; the release must contain it.
+resolve_release_asset() {
+    RELEASE_ASSET_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url "$1" "$asset_ext" 2>/dev/null)"
+    [ -n "$RELEASE_ASSET_URL" ] || fail "The Forkop release does not contain a $2 .$asset_ext package"
+    RELEASE_ASSET_URL="$(mirror_asset_url "$RELEASE_ASSET_URL")"
+    RELEASE_ASSET_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 "$1" "$asset_ext" 2>/dev/null)"
+}
+
 resolve_forkop_release() {
     asset_ext="ipk"
 
@@ -2512,30 +2516,23 @@ resolve_forkop_release() {
     FORKOP_RELEASE_TAG="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-tag 2>/dev/null)"
     [ -n "$FORKOP_RELEASE_TAG" ] || fail "Failed to detect the Forkop release tag"
 
-    FORKOP_BACKEND_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url backend "$asset_ext" 2>/dev/null)"
-    [ -n "$FORKOP_BACKEND_URL" ] || fail "The Forkop release does not contain a forkop .$asset_ext package"
-    FORKOP_BACKEND_URL="$(mirror_asset_url "$FORKOP_BACKEND_URL")"
-    FORKOP_BACKEND_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 backend "$asset_ext" 2>/dev/null)"
-
-    FORKOP_APP_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url app "$asset_ext" 2>/dev/null)"
-    [ -n "$FORKOP_APP_URL" ] || fail "The Forkop release does not contain a luci-app-forkop .$asset_ext package"
-    FORKOP_APP_URL="$(mirror_asset_url "$FORKOP_APP_URL")"
-    FORKOP_APP_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 app "$asset_ext" 2>/dev/null)"
-
+    resolve_release_asset backend forkop
+    FORKOP_BACKEND_URL="$RELEASE_ASSET_URL"
+    FORKOP_BACKEND_SHA256="$RELEASE_ASSET_SHA256"
     FORKOP_BACKEND_NAME="$(basename "$FORKOP_BACKEND_URL")"
+
+    resolve_release_asset app luci-app-forkop
+    FORKOP_APP_URL="$RELEASE_ASSET_URL"
+    FORKOP_APP_SHA256="$RELEASE_ASSET_SHA256"
     FORKOP_APP_NAME="$(basename "$FORKOP_APP_URL")"
+
+    # The Russian package is always installed; LuCI keeps its own language.
+    resolve_release_asset i18n luci-i18n-forkop-ru
+    FORKOP_I18N_URL="$RELEASE_ASSET_URL"
+    FORKOP_I18N_SHA256="$RELEASE_ASSET_SHA256"
+    FORKOP_I18N_NAME="$(basename "$FORKOP_I18N_URL")"
+
     FORKOP_PACKAGE_VERSION="$(printf '%s\n' "$FORKOP_BACKEND_NAME" | sed 's/^forkop_//;s/\.ipk$//;s/\.apk$//')"
-
-    FORKOP_I18N_URL=""
-    FORKOP_I18N_NAME=""
-
-    if [ "$FORKOP_I18N_REQUESTED" -eq 1 ]; then
-        FORKOP_I18N_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url i18n "$asset_ext" 2>/dev/null)"
-        [ -n "$FORKOP_I18N_URL" ] || fail "The Forkop release does not contain a luci-i18n-forkop-ru .$asset_ext package"
-        FORKOP_I18N_URL="$(mirror_asset_url "$FORKOP_I18N_URL")"
-        FORKOP_I18N_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 i18n "$asset_ext" 2>/dev/null)"
-        FORKOP_I18N_NAME="$(basename "$FORKOP_I18N_URL")"
-    fi
 }
 
 sing_box_is_present() {
@@ -2559,46 +2556,50 @@ select_sing_box_installation() {
         return 0
     fi
 
-    SING_BOX_INSTALL_VARIANT="x"
-    msg "sing-box is not installed; sing-box X will be installed from the Forkop mirror"
+    SING_BOX_INSTALL_VARIANT="rust-x"
+    msg "No proxy core is installed; Xrust will be installed from the Forkop mirror"
 }
 
-prepare_sing_box_x_plan() {
-    [ "$SING_BOX_INSTALL_VARIANT" = x ] || return 0
+# Check the mirror catalog of the core package the backend will install and
+# reserve its flash space. The backend downloads the package itself and
+# verifies its hash and size against the same catalog.
+prepare_core_package_plan() {
+    case "$SING_BOX_INSTALL_VARIANT" in
+        rust-x) core_package=rust-x; core_label=Xrust ;;
+        x) core_package=sing-box-x; core_label="sing-box X" ;;
+        *) return 0 ;;
+    esac
     format=ipk
     [ "$PKG_IS_APK" -eq 0 ] || format=apk
-    http_get "$MIRROR_BASE_URL/forkop/sing-box-x/latest.json" > "$TMP_DIR/sing-box-x-catalog.json" ||
-        fail "Cannot read sing-box X mirror catalog"
-    install_json_ucode sing-box-x-plan "$(read_openwrt_release_value DISTRIB_ARCH)" "$format" "$MIRROR_BASE_URL" \
-        < "$TMP_DIR/sing-box-x-catalog.json" > "$TMP_DIR/sing-box-x-plan.tsv" ||
-        fail "sing-box X is unavailable for this architecture in the Forkop mirror"
-    IFS="$(printf '\t')" read -r x_url x_hash x_archive_bytes x_installed_bytes < "$TMP_DIR/sing-box-x-plan.tsv"
-    download_with_retry "$x_url" "$TMP_DIR/sing-box-x.$format" "sing-box X preflight package" ||
-        fail "Cannot download sing-box X before Forkop installation"
-    [ "$(sha256sum "$TMP_DIR/sing-box-x.$format" | cut -d ' ' -f 1)" = "$x_hash" ] ||
-        fail "sing-box X package hash mismatch"
-    [ "$(wc -c < "$TMP_DIR/sing-box-x.$format")" -eq "$x_archive_bytes" ] ||
-        fail "sing-box X package size mismatch"
-    # The extracted package retains its UPX binary on flash. The plain binary
-    # size describes runtime memory, not installed storage.
-    SING_BOX_X_SPACE_KB="$(package_payload_size_kb "$TMP_DIR/sing-box-x.$format")" ||
-        fail "Cannot measure sing-box X package payload"
-    SING_BOX_X_SPACE_KB=$((SING_BOX_X_SPACE_KB + 256))
-    x_tmp_free="$(temporary_available_space_kb)" || fail "Unable to determine temporary memory"
-    # The downloaded archive already occupies tmpfs; reserve only workspace.
-    [ "$x_tmp_free" -ge 8192 ] ||
-        fail "Not enough temporary memory for sing-box X installation"
+    http_get "$MIRROR_BASE_URL/forkop/$core_package/latest.json" > "$TMP_DIR/core-catalog.json" ||
+        fail "Cannot read the $core_label mirror catalog"
+    install_json_ucode core-package-plan "$core_package" "$(read_openwrt_release_value DISTRIB_ARCH)" "$format" "$MIRROR_BASE_URL" \
+        < "$TMP_DIR/core-catalog.json" > "$TMP_DIR/core-plan.tsv" ||
+        fail "$core_label is unavailable for this architecture in the Forkop mirror"
+    IFS="$(printf '\t')" read -r core_url core_hash core_archive_bytes core_installed_bytes < "$TMP_DIR/core-plan.tsv"
+    CORE_PACKAGE_SPACE_KB=$(((core_installed_bytes + 1023) / 1024 + 256))
+    core_tmp_free="$(temporary_available_space_kb)" || fail "Unable to determine temporary memory"
+    # The backend downloads the archive into tmpfs and needs workspace too.
+    core_tmp_need=$(((core_archive_bytes + 1023) / 1024 + 8192))
+    [ "$core_tmp_free" -ge "$core_tmp_need" ] ||
+        fail "Not enough temporary memory for $core_label installation: need ${core_tmp_need} KiB, have ${core_tmp_free} KiB"
 }
 
 select_sing_box_for_release() {
-    [ "$SING_BOX_INSTALL_VARIANT" = x ] || return 0
-    release_major="${FORKOP_RELEASE_TAG%%.*}"
-    case "$release_major" in ''|*[!0-9]*) fail "Invalid Forkop release version" ;; esac
-    # The shared installer also serves older stable releases whose backend
-    # does not implement install_x. Preserve their supported clean-install path.
+    case "$SING_BOX_INSTALL_VARIANT" in rust-x|x) ;; *) return 0 ;; esac
+    release_version="${FORKOP_RELEASE_TAG%%-*}"
+    release_major="${release_version%%.*}"
+    release_minor="${release_version#*.}"
+    release_minor="${release_minor%%.*}"
+    case "$release_major:$release_minor" in *[!0-9:]*|:*|*:) fail "Invalid Forkop release version" ;; esac
+    # The shared installer also serves older releases: install_rust_x exists
+    # since 2.2.0 and install_x since 2.0.0. Use the newest action they have.
     if [ "$release_major" -lt 2 ]; then
         SING_BOX_INSTALL_VARIANT=tiny
         msg "Selected Forkop release predates X integration; using its supported Tiny component action"
+    elif [ "$SING_BOX_INSTALL_VARIANT" = rust-x ] && [ "$release_major" -eq 2 ] && [ "$release_minor" -lt 2 ]; then
+        SING_BOX_INSTALL_VARIANT=x
+        msg "Selected Forkop release predates Xrust integration; installing sing-box X instead"
     fi
 }
 
@@ -2607,6 +2608,9 @@ install_selected_sing_box() {
     output_file="$TMP_DIR/sing-box-component-action.json"
 
     case "$SING_BOX_INSTALL_VARIANT" in
+        rust-x)
+            action="install_rust_x"
+            ;;
         x)
             action="install_x"
             ;;
@@ -2632,10 +2636,10 @@ install_selected_sing_box() {
     esac
 
     [ -x /usr/bin/forkop ] || fail "forkop backend must be installed before sing-box component action"
-    msg "Installing selected sing-box variant through Forkop ucode backend"
+    msg "Installing the selected proxy core through the Forkop backend"
     if ! /usr/bin/forkop component_action sing_box "$action" >"$output_file" 2>&1; then
         cat "$output_file" >&2 2>/dev/null || true
-        fail "Failed to install selected sing-box variant"
+        fail "Failed to install the selected proxy core"
     fi
 }
 
@@ -2767,7 +2771,6 @@ remove_legacy_backup() {
 
 decide_i18n_installation() {
     detect_installer_language
-    FORKOP_I18N_REQUESTED=1
 
     if pkg_is_installed "luci-i18n-forkop-ru"; then
         msg "$(installer_text i18n_installed)"
@@ -2890,7 +2893,7 @@ main() {
     select_sing_box_for_release
     msg "Downloading Forkop X packages before making system changes"
     download_forkop_packages
-    prepare_sing_box_x_plan
+    prepare_core_package_plan
 
     confirm_legacy_migration
     prepare_current_config_backup
@@ -2923,7 +2926,7 @@ main() {
     if [ "$FORKOP_CONFIG_READY" -eq 1 ]; then
         warn "Open LuCI and review your rules before enabling Forkop"
     else
-        warn "sing-box was installed, but Forkop was not enabled because its configuration is incomplete"
+        warn "Forkop was installed but not enabled because its configuration is incomplete"
         warn "Reason: $FORKOP_CONFIG_VALIDATION_ERROR"
     fi
 }

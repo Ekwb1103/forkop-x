@@ -12,7 +12,7 @@ TMP_DIR="$work"
 legacy_binary_managed_sing_box_present() { return 1; }
 sing_box_is_present() { return 1; }
 select_sing_box_installation
-[ "$SING_BOX_INSTALL_VARIANT" = x ] || fail 'fresh install did not select X'
+[ "$SING_BOX_INSTALL_VARIANT" = rust-x ] || fail 'fresh install did not select Xrust'
 sing_box_is_present() { return 0; }
 select_sing_box_installation
 [ -z "$SING_BOX_INSTALL_VARIANT" ] || fail 'installed variant changed'
@@ -34,7 +34,7 @@ FORKOP_APP_FILE=""
 FORKOP_I18N_FILE=""
 UPDATE_ROLLBACK_MANIFEST="$work/rollback.tsv"
 printf 'forkop\t1\t%s\n' "$work/rollback.ipk" >"$UPDATE_ROLLBACK_MANIFEST"
-SING_BOX_X_SPACE_KB=0
+CORE_PACKAGE_SPACE_KB=0
 [ "$(forkop_install_required_space_kb)" = 276 ] || fail 'rollback counted twice or payload underestimated'
 available_flash_space_kb() { echo "$flash"; }
 df() { printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\ntest 99999 0 %s 0%% /tmp\n' "$memory"; }

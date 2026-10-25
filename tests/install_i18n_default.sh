@@ -6,7 +6,7 @@ installer="${1:-install.sh}"
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 # Load the actual installer functions without executing its main workflow.
-functions="$(sed -n '/^decide_i18n_installation() {/,/^}/p; /^resolve_forkop_release() {/,/^}/p; /^download_forkop_packages() {/,/^}/p; /^install_ui_packages() {/,/^}/p' "$installer")"
+functions="$(sed -n '/^decide_i18n_installation() {/,/^}/p; /^resolve_release_asset() {/,/^}/p; /^resolve_forkop_release() {/,/^}/p; /^download_forkop_packages() {/,/^}/p; /^install_ui_packages() {/,/^}/p' "$installer")"
 [ -n "$functions" ] || fail 'installer functions not found'
 eval "$functions"
 
@@ -35,11 +35,9 @@ for mode in clean update; do
     for lang in en ru; do
         MOCK_LUCI_LANG="$lang"
         MOCK_I18N_INSTALLED=0
-        FORKOP_I18N_REQUESTED=0
         INSTALL_MODE="$mode"
         MESSAGE=""
         decide_i18n_installation
-        [ "$FORKOP_I18N_REQUESTED" -eq 1 ] || fail "$mode/$lang omitted Russian package"
         [ "$INSTALLER_LANG" = "$lang" ] || fail "$mode/$lang changed installer language"
         [ "$MESSAGE" = i18n_default ] || fail "$mode/$lang default message"
     done
