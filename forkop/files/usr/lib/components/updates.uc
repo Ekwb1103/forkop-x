@@ -1312,10 +1312,6 @@ function update_due_status(now_value, last_run_value, interval_value, subscripti
     return 0;
 }
 
-function update_is_due(now_value, last_run_value, interval_value) {
-    exit(update_due_status(now_value, last_run_value, interval_value));
-}
-
 function duration_to_seconds_value(value) {
     let rest = as_string(value);
     if (rest == "")
@@ -1350,14 +1346,6 @@ function duration_to_seconds_value(value) {
     return int(total + 0.5);
 }
 
-function duration_to_seconds(value) {
-    let seconds = duration_to_seconds_value(value);
-    if (seconds == null)
-        exit(1);
-
-    print(seconds, "\n");
-}
-
 function due_check_cron_schedule_text(value) {
     let seconds = arg_number(value);
 
@@ -1380,53 +1368,6 @@ function due_check_cron_schedule_text(value) {
     }
 
     return "* * * * *";
-}
-
-function due_check_cron_schedule(value) {
-    print(due_check_cron_schedule_text(value), "\n");
-}
-
-function update_cron_job(interval, command, bin, marker) {
-    let seconds = duration_to_seconds_value(interval);
-    if (seconds == null)
-        exit(1);
-
-    print(due_check_cron_schedule_text(seconds), " ", as_string(bin), " ", as_string(command), " ", as_string(marker), "\n");
-}
-
-function subscription_update_cron_job(min_interval_seconds, bin, marker) {
-    let seconds = arg_number(min_interval_seconds);
-    if (seconds <= 0)
-        exit(1);
-
-    print(due_check_cron_schedule_text(seconds), " ", as_string(bin), " subscription_update_if_due ", as_string(marker), "\n");
-}
-
-function subscription_update_interval_plan() {
-    let min_interval = 0;
-
-    for (let line in split(read_stdin(), "\n")) {
-        line = as_string(line);
-        if (line == "")
-            continue;
-
-        let separator = index(line, "\t");
-        let section = separator >= 0 ? substr(line, 0, separator) : line;
-        let interval = separator >= 0 ? substr(line, separator + 1) : "";
-        if (interval == "")
-            continue;
-
-        let seconds = duration_to_seconds_value(interval);
-        if (seconds == null) {
-            print("error\t", section, "\t", interval, "\n");
-            continue;
-        }
-
-        if (min_interval == 0 || seconds < min_interval)
-            min_interval = seconds;
-    }
-
-    print("min\t", min_interval, "\n");
 }
 
 function list_has_remote_references(value) {
@@ -1543,10 +1484,6 @@ function filter_cron_markers_text(data, markers) {
     return result;
 }
 
-function filter_cron_markers(markers) {
-    print(filter_cron_markers_text(read_stdin(), markers));
-}
-
 function cron_refresh_plan_rows(settings, sections, bin, list_marker, subscription_marker, component_marker) {
     let status = 0;
     let rows = [];
@@ -1613,17 +1550,6 @@ function cron_refresh_plan_rows(settings, sections, bin, list_marker, subscripti
         status,
         rows
     };
-}
-
-function print_cron_refresh_plan(result) {
-    result = object_or_empty(result);
-    for (let row in result.rows)
-        print(row, "\n");
-    exit(int(result.status || 0));
-}
-
-function cron_refresh_plan(settings, sections, bin, list_marker, subscription_marker, component_marker) {
-    print_cron_refresh_plan(cron_refresh_plan_rows(settings, sections, bin, list_marker, subscription_marker, component_marker));
 }
 
 function cron_refresh_apply_result(settings, sections, existing_crontab, bin, list_marker, subscription_marker, component_marker) {
@@ -1778,22 +1704,6 @@ function json_length(path) {
         print("0\n");
 }
 
-function job_pid(path) {
-    let value = read_json_file(path);
-    if (type(value) == "object" && value.pid != null)
-        print(as_string(value.pid), "\n");
-}
-
-function subscription_job_state_path(job_dir, job_id) {
-    job_dir = as_string(job_dir);
-    job_id = as_string(job_id);
-
-    if (job_id == "" || job_id == "." || job_id == ".." || match(job_id, /[^A-Za-z0-9._-]/) != null)
-        exit(1);
-
-    print(job_dir, "/", job_id, ".json\n");
-}
-
 function subscription_job_json_response(success, job_id, message) {
     write_json({
         success: arg_bool(success),
@@ -1815,10 +1725,6 @@ function subscription_running_job_state_value(section, source_index, started_at)
         updated_at: null,
         exit_code: null
     };
-}
-
-function subscription_running_job_state(section, source_index, started_at) {
-    write_json(subscription_running_job_state_value(section, source_index, started_at));
 }
 
 function job_started_at_within_grace(value, now, grace_seconds) {
@@ -1851,23 +1757,6 @@ function set_subscription_running_job_pid(path, pid) {
     return false;
 }
 
-function subscription_job_refresh_plan(path, now, grace_seconds) {
-    let value = read_json_file(path);
-    if (type(value) != "object" || value.running !== true) {
-        print("skip\n");
-        return;
-    }
-
-    let within_grace = job_started_at_within_grace(value.started_at, now, grace_seconds);
-    let pid = as_string(value.pid || "");
-    if (!job_pid_valid(pid)) {
-        print(within_grace ? "skip\n" : "stale\n");
-        return;
-    }
-
-    print("pid\t", pid, "\t", within_grace ? "0" : "1", "\n");
-}
-
 function subscription_finished_job_state_value(success, message, exit_code, updated_at, section, source_index, started_at) {
     return {
         success: arg_bool(success),
@@ -1883,10 +1772,6 @@ function subscription_finished_job_state_value(success, message, exit_code, upda
     };
 }
 
-function subscription_finished_job_state(success, message, exit_code, updated_at, section, source_index, started_at) {
-    write_json(subscription_finished_job_state_value(success, message, exit_code, updated_at, section, source_index, started_at));
-}
-
 function subscription_stale_job_state_value(updated_at, section, source_index, started_at) {
     return {
         success: false,
@@ -1900,10 +1785,6 @@ function subscription_stale_job_state_value(updated_at, section, source_index, s
         exit_code: null,
         updated_at: arg_number(updated_at)
     };
-}
-
-function subscription_stale_job_state(updated_at, section, source_index, started_at) {
-    write_json(subscription_stale_job_state_value(updated_at, section, source_index, started_at));
 }
 
 function subscription_status_error(message) {
@@ -4566,56 +4447,12 @@ function fixture_section_list(data, type_name) {
     return type(plural) == "array" ? plural : [];
 }
 
-function fixture_cron_refresh_plan(path, bin, list_marker, subscription_marker, component_marker) {
-    let data = object_or_empty(read_json_file(path));
-    connections.set_item_sections_from_data(data);
-    cron_refresh_plan(
-        object_or_empty(data.settings),
-        fixture_section_list(data),
-        bin,
-        list_marker,
-        subscription_marker,
-        component_marker
-    );
-}
-
-function fixture_cron_refresh_apply(path, existing_crontab_path, bin, list_marker, subscription_marker, component_marker) {
-    let data = object_or_empty(read_json_file(path));
-    connections.set_item_sections_from_data(data);
-    let result = cron_refresh_apply_result(
-        object_or_empty(data.settings),
-        fixture_section_list(data),
-        fs.readfile(as_string(existing_crontab_path)) || "",
-        bin,
-        list_marker,
-        subscription_marker,
-        component_marker
-    );
-
-    write_json({
-        crontab: result.crontab,
-        logs: result.logs
-    });
-    exit(result.status);
-}
-
 function fixture_section_by_name(data, target_name) {
     target_name = as_string(target_name);
     for (let section in fixture_section_list(data))
         if (section_name(section) == target_name)
             return section;
     return {};
-}
-
-function uci_cron_refresh_plan(bin, list_marker, subscription_marker, component_marker) {
-    cron_refresh_plan(
-        uci_settings(),
-        uci_sections("section"),
-        bin,
-        list_marker,
-        subscription_marker,
-        component_marker
-    );
 }
 
 function uci_refresh_cron(bin, list_marker, subscription_marker, component_marker) {
@@ -4632,14 +4469,6 @@ function uci_refresh_cron(bin, list_marker, subscription_marker, component_marke
     );
 }
 
-function uci_list_update_due_status(timestamp_path, now) {
-    list_update_due_status(uci_settings(), timestamp_path, now);
-}
-
-function uci_subscription_update_section_due_status(section_name, timestamp_path, now) {
-    subscription_update_section_due_status(object_or_empty(uci_core.get_all(CONFIG_NAME, section_name)), timestamp_path, now);
-}
-
 function fixture_list_update_due_status(path, timestamp_path, now) {
     let data = object_or_empty(read_json_file(path));
     connections.set_item_sections_from_data(data);
@@ -4652,41 +4481,12 @@ function fixture_subscription_update_section_due_status(path, section_name_value
     subscription_update_section_due_status(fixture_section_by_name(data, section_name_value), timestamp_path, now);
 }
 
-function print_builtin_subnet_urls(service) {
-    for (let url in array_or_empty(BUILTIN_SUBNET_URLS[as_string(service)]))
-        print(url, "\n");
-}
-
 let mode = ARGV[0] || "";
 
 if (mode == "json-length")
     json_length(ARGV[1]);
-else if (mode == "update-is-due")
-    update_is_due(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "duration-to-seconds")
-    duration_to_seconds(ARGV[1]);
-else if (mode == "builtin-subnet-urls")
-    print_builtin_subnet_urls(ARGV[1]);
-else if (mode == "jsdelivr-fallback-url")
-    print(jsdelivr_fallback_url(ARGV[1]), "\n");
-else if (mode == "github-raw-fallback-url")
-    print(github_raw_fallback_url(ARGV[1]), "\n");
-else if (mode == "due-check-cron-schedule")
-    due_check_cron_schedule(ARGV[1]);
-else if (mode == "list-update-cron-job")
-    update_cron_job(ARGV[1], "list_update_if_due", ARGV[2], ARGV[3]);
-else if (mode == "subscription-update-cron-job")
-    subscription_update_cron_job(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "subscription-update-interval-plan")
-    subscription_update_interval_plan();
-else if (mode == "cron-refresh-plan")
-    uci_cron_refresh_plan(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-else if (mode == "cron-refresh-plan-fixture")
-    fixture_cron_refresh_plan(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]);
 else if (mode == "refresh-cron-from-uci")
     uci_refresh_cron(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-else if (mode == "refresh-cron-fixture")
-    fixture_cron_refresh_apply(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]);
 else if (mode == "remove-cron-jobs")
     remove_cron_jobs(ARGV[1], ARGV[2], ARGV[3]);
 else if (mode == "list-update")
@@ -4727,38 +4527,14 @@ else if (mode == "invalidate-list-cache")
     exit(invalidate_persistent_list_cache(ARGV[1] == "preserve-runtime") ? 0 : 1);
 else if (mode == "stop-list-update")
     stop_list_update();
-else if (mode == "list-update-due-status")
-    uci_list_update_due_status(ARGV[1], ARGV[2]);
 else if (mode == "list-update-due-status-fixture")
     fixture_list_update_due_status(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "subscription-update-section-due-status")
-    uci_subscription_update_section_due_status(ARGV[1], ARGV[2], ARGV[3]);
 else if (mode == "subscription-update-section-due-status-fixture")
     fixture_subscription_update_section_due_status(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "file-first-line")
     file_first_line(ARGV[1]);
 else if (mode == "stdin-first-ipv4-line")
     stdin_first_ipv4_line();
-else if (mode == "filter-cron-markers")
-    filter_cron_markers([ARGV[1], ARGV[2]]);
-else if (mode == "job-pid")
-    job_pid(ARGV[1]);
-else if (mode == "subscription-job-state-path")
-    subscription_job_state_path(ARGV[1], ARGV[2]);
-else if (mode == "subscription-job-json-response")
-    subscription_job_json_response(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "subscription-running-job-state")
-    subscription_running_job_state(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "subscription-job-refresh-plan")
-    subscription_job_refresh_plan(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "subscription-finished-job-state")
-    subscription_finished_job_state(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]);
-else if (mode == "subscription-stale-job-state")
-    subscription_stale_job_state(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-else if (mode == "subscription-status-error")
-    subscription_status_error(ARGV[1]);
-else if (mode == "subscription-cleanup-jobs")
-    subscription_cleanup_jobs();
 else if (mode == "subscription-update-worker")
     subscription_update_worker(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "subscription-update")

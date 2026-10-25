@@ -1,6 +1,5 @@
 #!/usr/bin/env ucode
 
-let fs = require("fs");
 let uci = require("core.uci");
 let dns_reload = require("dns.reload");
 

@@ -4,7 +4,6 @@ let fs = require("fs");
 let common = require("core.common");
 
 let as_string = common.as_string;
-let array_or_empty = common.array_or_empty;
 let object_or_empty = common.object_or_empty;
 
 const COUNTRY_IS_URL = getenv("FORKOP_COUNTRY_IS_URL") || "https://api.country.is/";

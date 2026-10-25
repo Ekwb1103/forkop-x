@@ -29,16 +29,6 @@ function read_stdin() {
     return data == null ? "" : data;
 }
 
-function read_stdin_json() {
-    let data = read_stdin();
-    try {
-        return json(data);
-    }
-    catch (e) {
-        return null;
-    }
-}
-
 function read_json_file(path) {
     let data = fs.readfile(as_string(path));
     if (data == null)
@@ -256,15 +246,6 @@ function safe_rm_rf(path) {
     return run_args([ "rm", "-rf", path ]);
 }
 
-function first_line_field_from_text(data, field_index) {
-    let newline = index(as_string(data), "\n");
-    let line = newline >= 0 ? substr(data, 0, newline) : data;
-    let fields = split(trim(as_string(line)), /[ \t\r\n]+/);
-
-    field_index = int(field_index || 0);
-    return field_index > 0 && field_index <= length(fields) ? as_string(fields[field_index - 1]) : "";
-}
-
 function first_line_last_field(data) {
     let newline = index(as_string(data), "\n");
     let line = newline >= 0 ? substr(data, 0, newline) : data;
@@ -336,10 +317,6 @@ function constant_value(constants, name) {
     return as_string(object_or_empty(constants)[name]);
 }
 
-function uci_show_list_value(value) {
-    return trim(replace(as_string(value), /['"]/g, ""));
-}
-
 function stdin_first_line_field(field_index) {
     let data = read_stdin();
     let newline = index(data, "\n");
@@ -354,14 +331,6 @@ function stdin_first_line_field(field_index) {
 function country_code_valid(value) {
     value = uc(as_string(value));
     return match(value, /^[A-Z][A-Z]$/) != null;
-}
-
-function enum_valid(value, start_index) {
-    value = as_string(value);
-    for (let i = start_index; i < length(ARGV); i++)
-        if (value == as_string(ARGV[i]))
-            return true;
-    return false;
 }
 
 function regex_valid(pattern) {
@@ -431,16 +400,6 @@ function plain_domain_ip_list_reference_valid(reference) {
         absolute_reference_with_extension(reference, ".lst", null);
 }
 
-function valid_outbound() {
-    let value = read_stdin_json();
-    return type(value) == "object" && type(value.type) == "string";
-}
-
-function valid_inbound() {
-    let value = read_stdin_json();
-    return type(value) == "object" && type(value.type) == "string";
-}
-
 function bool_flag(value) {
     value = as_string(value);
     return value == "1" || value == "true";
@@ -454,29 +413,6 @@ function outbound_detour_source_action(action) {
 function outbound_detour_target_action(action) {
     action = as_string(action);
     return connections.is_connections_action(action);
-}
-
-function outbound_detour_rows() {
-    let rows = [];
-
-    for (let line in split(read_stdin(), "\n")) {
-        line = replace(as_string(line), /\r/g, "");
-        if (trim(line) == "")
-            continue;
-
-        let fields = split(line, "\t");
-        let row = {
-            section: as_string(fields[0]),
-            enabled: bool_flag(fields[1]),
-            action: as_string(fields[2]),
-            detour_enabled: bool_flag(fields[3]),
-            detour_section: as_string(fields[4])
-        };
-
-        push(rows, row);
-    }
-
-    return rows;
 }
 
 function outbound_detour_rows_by_section(rows) {
@@ -564,30 +500,6 @@ function validate_outbound_detours_rows(rows) {
     }
 }
 
-function validate_outbound_detours() {
-    validate_outbound_detours_rows(outbound_detour_rows());
-}
-
-function basic_rule_rows() {
-    let rows = [];
-
-    for (let line in split(read_stdin(), "\n")) {
-        line = replace(as_string(line), /\r/g, "");
-        if (trim(line) == "")
-            continue;
-
-        let fields = split(line, "\t");
-        push(rows, {
-            section: as_string(fields[0]),
-            enabled: bool_flag(fields[1]),
-            action: as_string(fields[2]),
-            has_sources: bool_flag(fields[3])
-        });
-    }
-
-    return rows;
-}
-
 function download_section_action_available(action, zapret_installed, zapret2_installed) {
     action = as_string(action);
     if (connections.is_connections_action(action))
@@ -642,10 +554,6 @@ function validate_download_section_rows(target_section, zapret_installed, zapret
             "' is enabled, but that Connection rule has no proxy source. Add a subscription, manual proxy link, interface, or JSON outbound, or disable download-through-section. Aborted.");
 }
 
-function validate_download_section(target_section, zapret_installed, zapret2_installed) {
-    validate_download_section_rows(target_section, zapret_installed, zapret2_installed, basic_rule_rows());
-}
-
 function dhcp_has_https_dns_proxy_options(path) {
     let data = fs.readfile(as_string(path));
     if (data == null)
@@ -654,51 +562,6 @@ function dhcp_has_https_dns_proxy_options(path) {
     return index(data, "doh_backup_noresolv") >= 0 ||
         index(data, "doh_backup_server") >= 0 ||
         index(data, "doh_server") >= 0;
-}
-
-function dhcp_has_https_dns_proxy_options_exit(path) {
-    let result = dhcp_has_https_dns_proxy_options(path);
-    exit(result == null ? 2 : (result ? 0 : 1));
-}
-
-function mwan3_has_enabled_interface_text(data) {
-    let prefix = "mwan3.";
-    let sections = {};
-    let enabled = {};
-
-    for (let line in split(as_string(data), "\n")) {
-        let equals = index(as_string(line), "=");
-        if (equals < 0)
-            continue;
-
-        let key = substr(line, 0, equals);
-        let value = uci_show_list_value(substr(line, equals + 1));
-        if (!string_starts_with(key, prefix))
-            continue;
-
-        let rest = substr(key, length(prefix));
-        if (index(rest, ".") < 0) {
-            if (value == "interface")
-                sections[key] = true;
-            continue;
-        }
-
-        let option_dot = rindex(key, ".");
-        let section = substr(key, 0, option_dot);
-        let option = substr(key, option_dot + 1);
-        if (option == "enabled")
-            enabled[section] = value;
-    }
-
-    for (let section, _ in sections)
-        if (enabled[section] == "1")
-            return true;
-
-    return false;
-}
-
-function mwan3_has_enabled_interface() {
-    return mwan3_has_enabled_interface_text(read_stdin());
 }
 
 function mwan3_has_enabled_interface_from_sections() {
@@ -1709,10 +1572,6 @@ function sing_box_compressed_marker_set(ctx) {
     return sing_box_variant_marker(ctx, "extended-compressed");
 }
 
-function sing_box_extended_marker_set(ctx) {
-    return sing_box_variant_marker(ctx, "extended");
-}
-
 function sing_box_version_state(ctx) {
     let path = as_string(ctx.sing_box_version_state_file);
     if (path == "")
@@ -1724,53 +1583,6 @@ function sing_box_version_state(ctx) {
 
     let newline = index(data, "\n");
     return newline >= 0 ? substr(data, 0, newline) : as_string(data);
-}
-
-function get_sing_box_version(ctx) {
-    if (!command_exists("sing-box"))
-        return "";
-
-    if (sing_box_compressed_marker_set(ctx))
-        return sing_box_version_state(ctx);
-
-    return first_line_last_field(command_output_from_args([ "sing-box", "version" ]));
-}
-
-function sing_box_version_is_extended(version) {
-    return index(as_string(version), "extended") >= 0;
-}
-
-function sing_box_is_extended(ctx, version) {
-    if (as_string(version) == "" && command_exists("sing-box") &&
-        (sing_box_compressed_marker_set(ctx) || sing_box_extended_marker_set(ctx)))
-        return true;
-
-    return sing_box_version_is_extended(version != null ? version : get_sing_box_version(ctx));
-}
-
-function sing_box_output_has_build_tag(output, tag) {
-    tag = as_string(tag);
-    if (tag == "")
-        return false;
-
-    for (let token in split(replace(as_string(output), /[,: \t\r\n]+/g, " "), " "))
-        if (token == tag)
-            return true;
-
-    return false;
-}
-
-function sing_box_supports_tailscale(ctx, version, version_output) {
-    if (command_exists("sing-box") && sing_box_compressed_marker_set(ctx))
-        return true;
-
-    if (sing_box_is_extended(ctx, version))
-        return true;
-
-    if (as_string(version_output) == "")
-        version_output = command_output_from_args([ "sing-box", "version" ]);
-
-    return sing_box_output_has_build_tag(version_output, "with_tailscale");
 }
 
 function managed_sing_box_service_script(marker) {
@@ -2024,34 +1836,6 @@ let mode = ARGV[0] || "";
 
 if (mode == "stdin-first-line-field")
     stdin_first_line_field(ARGV[1]);
-else if (mode == "country-code-valid")
-    exit(country_code_valid(ARGV[1]) ? 0 : 1);
-else if (mode == "enum-valid")
-    exit(enum_valid(ARGV[1], 2) ? 0 : 1);
-else if (mode == "regex-valid")
-    exit(regex_valid(ARGV[1]) ? 0 : 1);
-else if (mode == "combined-domain-valid")
-    exit(combined_domain_valid(ARGV[1]) ? 0 : 1);
-else if (mode == "combined-domain-text-valid")
-    exit(combined_domain_text_valid(ARGV[1]) ? 0 : 1);
-else if (mode == "community-service-valid")
-    exit(community_service_valid(ARGV[1], ARGV[2]) ? 0 : 1);
-else if (mode == "ruleset-reference-valid")
-    exit(ruleset_reference_valid(ARGV[1], ARGV[2]) ? 0 : 1);
-else if (mode == "plain-domain-ip-list-reference-valid")
-    exit(plain_domain_ip_list_reference_valid(ARGV[1]) ? 0 : 1);
-else if (mode == "valid-outbound")
-    exit(valid_outbound() ? 0 : 1);
-else if (mode == "valid-inbound")
-    exit(valid_inbound() ? 0 : 1);
-else if (mode == "validate-outbound-detours")
-    validate_outbound_detours();
-else if (mode == "validate-download-section")
-    validate_download_section(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "dhcp-has-https-dns-proxy-options")
-    dhcp_has_https_dns_proxy_options_exit(ARGV[1]);
-else if (mode == "mwan3-has-enabled-interface")
-    exit(mwan3_has_enabled_interface() ? 0 : 1);
 else if (mode == "mwan3-is-active")
     exit(mwan3_is_active() ? 0 : 1);
 else if (mode == "check-requirements")

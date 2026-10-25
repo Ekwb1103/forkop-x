@@ -392,15 +392,6 @@ function select_fixture(state_path, alive_path, kind, recovery) {
     common.write_json(selected);
 }
 
-function confirmation_fixture(threshold, attempts) {
-    let failures = { main: 0 };
-    let result = [];
-    let selected = { index: 1, alive: true };
-    for (let i = 0; i < int(attempts); i++)
-        push(result, failover_confirmed(failures, "main", 0, selected, int(threshold)));
-    common.write_json(result);
-}
-
 let mode = ARGV[0] || "";
 
 if (mode == "start-runtime")
@@ -415,8 +406,6 @@ else if (mode == "commit-state")
     exit(commit_state(ARGV[1]) ? 0 : 1);
 else if (mode == "select-fixture")
     select_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-else if (mode == "confirmation-fixture")
-    confirmation_fixture(ARGV[1], ARGV[2]);
 else if (mode == "verification-plan-fixture")
     common.write_json(verification_plan(common.read_json_file(ARGV[1]), common.read_json_file(ARGV[2])));
 else {

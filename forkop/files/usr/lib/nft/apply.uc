@@ -215,47 +215,6 @@ function csv_to_json_array(value) {
     write_compact_string_array(split(value, ","));
 }
 
-function csv_list_contains(value, needle) {
-    needle = as_string(needle);
-    if (needle == "")
-        return false;
-
-    for (let item in split(as_string(value), ",")) {
-        if (item == needle)
-            return true;
-    }
-
-    return false;
-}
-
-function cache_key_is_safe(value) {
-    value = as_string(value);
-    return value != "" && match(value, /^[A-Za-z0-9_]+$/) != null;
-}
-
-function cache_path(enabled, cache_dir, namespace, section, key, kind) {
-    if (as_string(enabled) != "1")
-        exit(1);
-
-    cache_dir = as_string(cache_dir);
-    if (cache_dir == "")
-        exit(1);
-
-    if (!cache_key_is_safe(namespace) || !cache_key_is_safe(section) ||
-        !cache_key_is_safe(key) || !cache_key_is_safe(kind))
-        exit(1);
-
-    print(cache_dir, "/", namespace, "_", section, "_", key, "_", kind, "\n");
-}
-
-function valid_ipv4(value) {
-    return core_ip.valid_ipv4(value, false, false);
-}
-
-function valid_ipv4_cidr(value) {
-    return core_ip.valid_ipv4_cidr(value, false);
-}
-
 function nft_ip_or_cidr(value) {
     return core_ip.nft_ip_or_cidr(value);
 }
@@ -282,71 +241,8 @@ function normalize_domain_subnet_value(value, kind) {
     exit(1);
 }
 
-function filter_domain_subnet_values(values, kind) {
-    let result = [];
-    kind = as_string(kind);
-
-    if (kind != "domains" && kind != "subnets")
-        exit(1);
-
-    for (let value in values) {
-        let normalized = normalize_domain_subnet_value(value, kind);
-        if (normalized != null)
-            push(result, normalized);
-    }
-
-    return result;
-}
-
-function combined_domain_text_csv(value, requested_kind) {
-    let result = rule_config.combined_domain_text_csv_value(value, requested_kind);
-    if (result != "")
-        print(result, "\n");
-}
-
-function combined_domain_csv(value, requested_kind) {
-    let result = rule_config.combined_domain_csv_value(value, requested_kind);
-    if (result != "")
-        print(result, "\n");
-}
-
-function list_value_csv(value) {
-    value = as_string(value);
-    if (value != "")
-        print(replace(value, / /g, ","), "\n");
-}
-
-function legacy_condition_csv_value(kind, text_mode, conditions_text_mode, text_value, list_value) {
-    return rule_config.legacy_condition_csv_value(kind, text_mode, conditions_text_mode, text_value, list_value);
-}
-
 function rule_condition_csv_value(key, kind, text_mode, conditions_text_mode, text_value, list_value, combined_text_value, combined_list_value) {
     return rule_config.rule_condition_csv_value(key, kind, text_mode, conditions_text_mode, text_value, list_value, combined_text_value, combined_list_value);
-}
-
-function rule_condition_csv(key, kind, text_mode, conditions_text_mode, text_value, list_value, combined_text_value, combined_list_value) {
-    let value = rule_condition_csv_value(key, kind, text_mode, conditions_text_mode, text_value, list_value, combined_text_value, combined_list_value);
-
-    if (value != "")
-        print(value, "\n");
-}
-
-function legacy_condition_csv(kind, text_mode, conditions_text_mode, text_value, list_value) {
-    let value = legacy_condition_csv_value(kind, text_mode, conditions_text_mode, text_value, list_value);
-    if (value != "")
-        print(value, "\n");
-}
-
-function domain_subnet_text_csv(value, kind) {
-    print_csv(filter_domain_subnet_values(text_list_values(value, "comma-space"), kind));
-}
-
-function domain_subnet_file_csv(path, kind) {
-    let data = fs.readfile(path);
-    if (data == null)
-        exit(1);
-
-    print_csv(filter_domain_subnet_values(domain_subnet_line_values(data), kind));
 }
 
 function split_domain_subnet_file(path, domains_path, subnets_path) {
@@ -379,25 +275,12 @@ function normalize_port_condition_value(value) {
     return rule_config.normalize_port_condition_value(value);
 }
 
-function normalize_port_condition_for_nft(value) {
-    let normalized = normalize_port_condition_value(value);
-    if (normalized == null)
-        exit(1);
-    print(normalized, "\n");
-}
-
 function normalize_port_range_value(value) {
     return rule_config.normalize_port_range_value(value);
 }
 
 function rule_ports_csv_value(list_values, text_value) {
     return rule_config.rule_ports_csv_value(list_values, text_value);
-}
-
-function rule_ports_csv(list_values, text_value) {
-    let value = rule_ports_csv_value(list_values, text_value);
-    if (value != "")
-        print(value, "\n");
 }
 
 function rule_port_values(csv) {
@@ -428,11 +311,6 @@ function rule_port_ranges(csv) {
     }
 
     return result;
-}
-
-function csv_to_lines_file(csv, path) {
-    if (!fs.writefile(path, replace(as_string(csv) + "\n", /,/g, "\n")))
-        exit(1);
 }
 
 function nft_create_table(name) {
@@ -1212,19 +1090,6 @@ function nft_build_chunks_from_values(values, kind, ports_csv, chunk_size_text, 
     };
 }
 
-function nft_build_chunks(path, kind, ports_csv, chunk_size_text) {
-    return nft_build_chunks_from_values(nft_trimmed_lines(path), kind, ports_csv, chunk_size_text, 0);
-}
-
-function nft_prepare_chunks(path, kind, ports_csv, chunk_size_text, chunks_path, invalid_path) {
-    let prepared = nft_build_chunks(path, kind, ports_csv, chunk_size_text);
-
-    if (!write_text_file(chunks_path, length(prepared.chunks) > 0 ? join("\n", prepared.chunks) + "\n" : ""))
-        exit(1);
-    if (!write_text_file(invalid_path, length(prepared.invalid) > 0 ? join("\n", prepared.invalid) + "\n" : ""))
-        exit(1);
-}
-
 function nft_log_invalid_elements(invalid) {
     for (let item in invalid) {
         let separator = index(item, "\t");
@@ -1484,10 +1349,6 @@ function ensure_bridge_netfilter_disabled() {
         run_args([ "sysctl", "-w", "net.bridge.bridge-nf-call-ip6tables=0" ]);
 }
 
-function community_service_has_subnet_list(value) {
-    return rule_config.community_service_has_subnet_list(value);
-}
-
 function filter_community_subnet_lists_value(value) {
     return rule_config.filter_community_subnet_lists_value(value);
 }
@@ -1696,13 +1557,6 @@ function nft_rebuild_runtime_from_uci(rt_table, table, localv4_set, common_set, 
         return false;
 
     return nft_create_full_runtime_from_uci(rt_table, table, localv4_set, common_set, port_set, ip_port_set, interface_set, fakeip_mark, outbound_mark, fakeip_range, tproxy_port, zapret_bin, zapret_route_mark_base, zapret_queue_base, zapret_desync_mark, zapret_desync_mark_postnat, zapret2_bin, zapret2_route_mark_base, zapret2_queue_base, zapret2_desync_mark, zapret2_desync_mark_postnat, localv6_set, common6_set, ip_port6_set, fakeip6_range, tproxy6_address);
-}
-
-function nft_runtime_signature_from_uci() {
-    return print_nft_runtime_signature_from_settings_and_sections(
-        uci_settings(),
-        uci_sections("section")
-    );
 }
 
 function fixture_section(path, section_name) {
@@ -2000,10 +1854,6 @@ function nft_add_community_subnet_file_for_uci_section(section_name, service, fi
     return nft_add_community_subnet_file_for_section(uci_section(section_name), service, filepath, table, common_set, ip_port_set, interface_set, discord_set, mark, chunk_size_text, common6_set, ip_port6_set, discord6_set);
 }
 
-function nft_add_subnet_file_for_fixture_section(fixture_path, section_name, filepath, table, common_set, ip_port_set, chunk_size_text, common6_set, ip_port6_set) {
-    return nft_add_subnet_file_for_section(fixture_section(fixture_path, section_name), filepath, table, common_set, ip_port_set, chunk_size_text, common6_set, ip_port6_set);
-}
-
 function nft_add_json_ruleset_subnets_for_fixture_section(fixture_path, section_name, json_path, label, table, common_set, ip_port_set, unscoped_path, scoped_path, chunk_size_text, common6_set, ip_port6_set) {
     return nft_add_json_ruleset_subnets_for_section(fixture_section(fixture_path, section_name), json_path, label, table, common_set, ip_port_set, unscoped_path, scoped_path, chunk_size_text, common6_set, ip_port6_set);
 }
@@ -2035,64 +1885,24 @@ function nft_populate_runtime_sets_from_uci(populate_enabled, deferred_section_n
     return nft_populate_runtime_sets_from_sections(uci_sections("section"), populate_enabled, deferred_section_names, table, common_set, port_set, ip_port_set, interface_set, localv4_set, mark, common6_set, ip_port6_set, localv6_set);
 }
 
-function nft_populate_runtime_sets_fixture(path, populate_enabled, deferred_section_names, table, common_set, port_set, ip_port_set, interface_set, localv4_set, mark, common6_set, ip_port6_set, localv6_set) {
-    let data = object_or_empty(common_read_json_file(path));
-    connections.set_item_sections_from_data(data);
-    return nft_populate_runtime_sets_from_sections(fixture_section_list(data, "section"), populate_enabled, deferred_section_names, table, common_set, port_set, ip_port_set, interface_set, localv4_set, mark, common6_set, ip_port6_set, localv6_set);
-}
-
 let mode = ARGV[0] || "";
 
 if (mode == "text-list-to-csv")
     text_list_to_csv(ARGV[1], ARGV[2]);
 else if (mode == "csv-to-json-array")
     csv_to_json_array(ARGV[1]);
-else if (mode == "cache-path")
-    cache_path(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]);
-else if (mode == "list-value-to-csv")
-    list_value_csv(ARGV[1]);
-else if (mode == "csv-list-contains")
-    exit(csv_list_contains(ARGV[1], ARGV[2]) ? 0 : 1);
-else if (mode == "domain-subnet-text-csv")
-    domain_subnet_text_csv(ARGV[1], ARGV[2]);
-else if (mode == "combined-domain-text-csv")
-    combined_domain_text_csv(ARGV[1], ARGV[2]);
-else if (mode == "combined-domain-csv")
-    combined_domain_csv(ARGV[1], ARGV[2]);
-else if (mode == "rule-condition-csv")
-    rule_condition_csv(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8]);
-else if (mode == "legacy-condition-csv")
-    legacy_condition_csv(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]);
-else if (mode == "domain-subnet-file-csv")
-    domain_subnet_file_csv(ARGV[1], ARGV[2]);
 else if (mode == "split-domain-subnet-file")
     split_domain_subnet_file(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "normalize-port-condition-for-nft")
-    normalize_port_condition_for_nft(ARGV[1]);
-else if (mode == "rule-ports-csv")
-    rule_ports_csv(ARGV[1], ARGV[2]);
-else if (mode == "csv-to-lines-file")
-    csv_to_lines_file(ARGV[1], ARGV[2]);
 else if (mode == "nft-create-runtime-base")
     exit(nft_create_runtime_base(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13], ARGV[14], ARGV[15], ARGV[16], ARGV[17]) ? 0 : 1);
-else if (mode == "nft-create-runtime-base-from-uci")
-    exit(nft_create_runtime_base_from_uci(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13], ARGV[14], ARGV[15]) ? 0 : 1);
 else if (mode == "nft-create-runtime-output-rules")
     exit(nft_create_runtime_output_rules(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11]) ? 0 : 1);
-else if (mode == "nft-create-provider-output-rules-from-uci")
-    exit(nft_create_provider_output_rules_from_uci(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]) ? 0 : 1);
-else if (mode == "nft-create-provider-output-rules-fixture")
-    exit(nft_create_provider_output_rules_from_sections(fixture_section_list(object_or_empty(common_read_json_file(ARGV[1])), "section"), ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8]) ? 0 : 1);
 else if (mode == "nft-add-section-priority-rules-fixture")
     exit(nft_add_section_priority_rules_from_sections(fixture_section_list(object_or_empty(common_read_json_file(ARGV[1])), "section"), ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8]) ? 0 : 1);
-else if (mode == "nft-create-full-runtime-from-uci")
-    exit(nft_create_full_runtime_from_uci(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13], ARGV[14], ARGV[15], ARGV[16], ARGV[17], ARGV[18], ARGV[19], ARGV[20], ARGV[21], ARGV[22], ARGV[23], ARGV[24], ARGV[25], ARGV[26]) ? 0 : 1);
 else if (mode == "nft-rebuild-runtime-from-uci")
     exit(nft_rebuild_runtime_from_uci(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13], ARGV[14], ARGV[15], ARGV[16], ARGV[17], ARGV[18], ARGV[19], ARGV[20], ARGV[21], ARGV[22], ARGV[23], ARGV[24], ARGV[25], ARGV[26]) ? 0 : 1);
 else if (mode == "nft-apply-candidate-batch")
     exit(nft_apply_candidate_batch(ARGV[1]) ? 0 : 1);
-else if (mode == "nft-prepare-chunks")
-    nft_prepare_chunks(ARGV[1], ARGV[2], ARGV[3] || "", ARGV[4], ARGV[5], ARGV[6]);
 else if (mode == "nft-add-file-chunks-to-set")
     exit(nft_add_file_chunks_to_set(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5] || "", ARGV[6]) ? 0 : 1);
 else if (mode == "nft-add-subnet-file-for-uci-section")
@@ -2101,34 +1911,22 @@ else if (mode == "nft-add-json-ruleset-subnets-for-uci-section")
     exit(nft_add_json_ruleset_subnets_for_uci_section(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11]) ? 0 : 1);
 else if (mode == "nft-add-community-subnet-file-for-uci-section")
     exit(nft_add_community_subnet_file_for_uci_section(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13]) ? 0 : 1);
-else if (mode == "nft-add-subnet-file-for-section-fixture")
-    exit(nft_add_subnet_file_for_fixture_section(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9]) ? 0 : 1);
 else if (mode == "nft-add-json-ruleset-subnets-for-section-fixture")
     exit(nft_add_json_ruleset_subnets_for_fixture_section(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12]) ? 0 : 1);
 else if (mode == "nft-add-community-subnet-file-for-section-fixture")
     exit(nft_add_community_subnet_file_for_fixture_section(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13], ARGV[14]) ? 0 : 1);
 else if (mode == "nft-populate-runtime-sets-from-uci")
     exit(nft_populate_runtime_sets_from_uci(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12]) ? 0 : 1);
-else if (mode == "nft-populate-runtime-sets-fixture")
-    exit(nft_populate_runtime_sets_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12], ARGV[13]) ? 0 : 1);
-else if (mode == "nft-runtime-signature")
-    exit(nft_runtime_signature_from_uci() ? 0 : 1);
 else if (mode == "nft-add-direct-quic-rules-fixture")
     exit(nft_add_direct_quic_rules(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]) ? 0 : 1);
 else if (mode == "nft-runtime-signature-fixture")
     exit(nft_runtime_signature_from_fixture(ARGV[1]) ? 0 : 1);
-else if (mode == "nft-table-present-fixture")
-    exit(nft_table_present(ARGV[1]) ? 0 : 1);
 else if (mode == "ensure-tproxy-route-rule")
     exit(ensure_tproxy_route_rule(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
-else if (mode == "tproxy-route-present")
-    exit(tproxy_route_present(ARGV[1]) ? 0 : 1);
 else if (mode == "tproxy-route4-present")
     exit(tproxy_route4_present(ARGV[1]) ? 0 : 1);
 else if (mode == "tproxy-route6-present")
     exit(tproxy_route6_present(ARGV[1]) ? 0 : 1);
-else if (mode == "tproxy-marking-rule-present")
-    exit(tproxy_marking_rule_present(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "tproxy-marking-rule4-present")
     exit(tproxy_marking_rule4_present(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "tproxy-marking-rule6-present")

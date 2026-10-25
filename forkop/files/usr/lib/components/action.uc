@@ -19,7 +19,6 @@ const START_FAILURE_FILE = getenv("FORKOP_START_FAILURE_FILE") || RUNTIME_STATE_
 const GITHUB_BACKOFF_FILE = RUNTIME_STATE_DIR + "/github-api-backoff.json";
 const MANAGED_UPGRADE_SING_BOX_MARKER = getenv("FORKOP_MANAGED_UPGRADE_SING_BOX_MARKER") || "/tmp/forkop-managed-upgrade-sing-box";
 const PACKAGE_UPGRADE_STATE = getenv("FORKOP_PACKAGE_UPGRADE_STATE") || "/tmp/forkop-package-was-running";
-const PACKAGE_UPGRADE_QUIESCE_FILE = getenv("FORKOP_PACKAGE_UPGRADE_QUIESCE_FILE") || RUNTIME_STATE_DIR + "/package-upgrade.quiesce";
 const FORKOP_UPGRADE_IDLE_WAIT_SECONDS = int(getenv("FORKOP_UPGRADE_IDLE_WAIT_SECONDS") || "180");
 const COMPRESSED_UPGRADE_BACKUP = "/tmp/forkop-compressed-upgrade";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
@@ -820,38 +819,6 @@ function sing_box_existing_writable_bytes(previous) {
 function sing_box_rollback_growth_bytes(previous_bytes, writable_bytes, dependency_bytes) {
     let growth = previous_bytes > writable_bytes ? previous_bytes - writable_bytes : 0;
     return growth + dependency_bytes;
-}
-
-function opkg_sing_box_dependencies_to_install(target) {
-    if (is_apk())
-        return [];
-
-    let simulation = command_from_args([
-        "opkg", "--noaction", "--force-space", "install", "--force-overwrite", "--force-downgrade", target.path
-    ]);
-    if (!run_logged("Checking sing-box package dependencies", simulation)) {
-        let pending = "";
-        let missing = [];
-        for (let line in split(last_logged_output, "\n")) {
-            line = trim(line);
-            if (match(line, /^[A-Za-z0-9][A-Za-z0-9._+-]*:$/) != null)
-                pending = replace(line, /:$/, "");
-            if (match(line, /masked in: --no-network/) != null && pending != "") {
-                if (!array_has(missing, pending))
-                    push(missing, pending);
-                pending = "";
-            }
-        }
-        return length(missing) > 0 ? missing : null;
-    }
-
-    let dependencies = [];
-    for (let line in split(last_logged_output, "\n")) {
-        let parsed = match(trim(line), /^Installing ([A-Za-z0-9][A-Za-z0-9._+-]*) \(/);
-        if (parsed != null && parsed[1] != target.name && !array_has(dependencies, parsed[1]))
-            push(dependencies, parsed[1]);
-    }
-    return dependencies;
 }
 
 function sing_box_package_preflight(target, previous, tmp_backup_bytes) {
@@ -3364,8 +3331,6 @@ else if (mode == "github-json-fixture") {
     print(fetch_github_json("https://api.github.com/repos/fixture/fixture/releases"));
     cleanup_tmp_dir();
 }
-else if (mode == "latest-forkop-release-json")
-    print(latest_forkop_release_json());
 else if (mode == "latest-forkop-version")
     print(latest_forkop_version(), "\n");
 else if (mode == "forkop-release-metadata")
@@ -3389,23 +3354,6 @@ else if (mode == "forkop-package-version-fixture")
     write_json({ package_version: forkop_package_version(ARGV[1]), release_version: forkop_release_version(ARGV[2]) });
 else if (mode == "forkop-package-space-fixture") {
     let error = forkop_package_space_error(int(ARGV[1]), int(ARGV[2]), int(ARGV[3]), int(ARGV[4]));
-    if (error != "") {
-        warn(error, "\n");
-        exit(1);
-    }
-    print("ok\n");
-}
-else if (mode == "forkop-package-preflight-fixture") {
-    init_tmp_dir();
-    let rollback = [];
-    for (let item in [ [ ARGV[5], "forkop" ], [ ARGV[6], "luci-app-forkop" ],
-        [ ARGV[7], "luci-i18n-forkop-ru" ] ]) {
-        if (as_string(item[0]) == "") continue;
-        let info = staged_package_info(item[0], item[1], "");
-        if (info == null) exit(1);
-        push(rollback, info);
-    }
-    let error = forkop_package_preflight(ARGV[2], ARGV[3], ARGV[4], rollback, ARGV[1]);
     if (error != "") {
         warn(error, "\n");
         exit(1);
@@ -3447,19 +3395,6 @@ else if (mode == "sing-box-writable-path-fixture")
     print(sing_box_writable_path(ARGV[1], ARGV[2] == "1", ARGV[3] == "1"), "\n");
 else if (mode == "sing-box-writable-file-size-fixture")
     print(sing_box_writable_file_bytes(ARGV[1]), "\n");
-else if (mode == "sing-box-archive-select-fixture") {
-    let input = fs.open("/dev/stdin", "r");
-    let asset = sing_box_archive_asset(json(input.read("all")), ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-    input.close();
-    if (asset == null) exit(1);
-    write_json(asset);
-}
-else if (mode == "sing-box-archive-stage-fixture") {
-    init_tmp_dir();
-    let info = stage_archived_sing_box_package(ARGV[1], ARGV[2]);
-    if (info == null) exit(1);
-    write_json(info);
-}
 else if (mode == "sing-box-previous-release-tag-fixture")
     print(previous_sing_box_extended_tag(ARGV[1]), "\n");
 else if (mode == "sing-box-previous-release-fixture") {
@@ -3482,17 +3417,6 @@ else if (mode == "repository-package-stage-fixture") {
         exit(1);
     }
     write_json(info);
-}
-else if (mode == "sing-box-package-preflight-fixture") {
-    init_tmp_dir();
-    let target = staged_package_info(ARGV[1], ARGV[2], ARGV[3]);
-    let previous = ARGV[4] == "" ? null : staged_package_info(ARGV[4], ARGV[5], ARGV[6]);
-    let error = sing_box_package_preflight(target, previous, int(ARGV[7] || "0"));
-    if (error != "") {
-        warn(error, "\n");
-        exit(1);
-    }
-    print("ok\n");
 }
 else if (mode == "sing-box-space-fixture") {
     let error = sing_box_space_error(int(ARGV[1]), int(ARGV[2]), int(ARGV[3]),

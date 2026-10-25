@@ -393,54 +393,6 @@ function service_action_expected_running(action) {
         exit(1);
 }
 
-function running_service_action(action, source, started_at) {
-    write_json({
-        success: true,
-        running: true,
-        kind: "service",
-        action: as_string(action),
-        source: as_string(source),
-        message: "Service action is running",
-        pid: null,
-        started_at: arg_number(started_at),
-        updated_at: null,
-        exit_code: null
-    });
-}
-
-function running_latency_action(latency_type, section, tag, started_at) {
-    write_json({
-        success: true,
-        running: true,
-        kind: "latency",
-        latency_type: as_string(latency_type),
-        section: as_string(section),
-        tag: as_string(tag),
-        message: "Latency test is running",
-        pid: null,
-        started_at: arg_number(started_at),
-        updated_at: null,
-        exit_code: null
-    });
-}
-
-function set_running_job_pid(path, pid) {
-    let value = object_or_empty(read_json_file(path));
-    if (value.running === true)
-        value.pid = as_string(pid);
-    write_json(value);
-}
-
-function finished_action_state(path, success, message, exit_code, updated_at) {
-    let value = object_or_empty(read_json_file(path));
-    value.success = arg_bool(success);
-    value.running = false;
-    value.message = as_string(message);
-    value.exit_code = as_string(exit_code) == "" ? null : arg_number(exit_code);
-    value.updated_at = arg_number(updated_at);
-    write_json(value);
-}
-
 function stale_action_state(path, message, updated_at) {
     let value = object_or_empty(read_json_file(path));
     if (value.running === true) {
@@ -450,13 +402,6 @@ function stale_action_state(path, message, updated_at) {
         value.exit_code = null;
         value.updated_at = arg_number(updated_at);
     }
-    write_json(value);
-}
-
-function ack_action_state(path, acked_at) {
-    let value = object_or_empty(read_json_file(path));
-    if (value.running === false)
-        value.acked_at = arg_number(acked_at);
     write_json(value);
 }
 
@@ -1682,32 +1627,18 @@ else if (mode == "get-ui-state")
     current_ui_state_json();
 else if (mode == "service-status-text")
     print_service_status_text(ARGV[1], ARGV[2]);
-else if (mode == "action-start-response")
-    action_start_response(ARGV[1], ARGV[2], ARGV[3]);
 else if (mode == "service-action-valid")
     exit(service_action_valid(ARGV[1]) ? 0 : 1);
 else if (mode == "package-upgrade-transition-active")
     exit(package_upgrade_transition_active() ? 0 : 1);
-else if (mode == "package-upgrade-quiesce-owned")
-    exit(package_upgrade_quiesce_owned(ARGV[1]) ? 0 : 1);
 else if (mode == "clear-package-upgrade-quiesce-if-owner")
     exit(clear_package_upgrade_quiesce_if_owner(ARGV[1]) ? 0 : 1);
 else if (mode == "latency-type-valid")
     exit(latency_type_valid(ARGV[1]) ? 0 : 1);
 else if (mode == "service-action-expected-running")
     service_action_expected_running(ARGV[1]);
-else if (mode == "running-service-action")
-    running_service_action(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "running-latency-action")
-    running_latency_action(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-else if (mode == "set-running-job-pid")
-    set_running_job_pid(ARGV[1], ARGV[2]);
-else if (mode == "finished-action-state")
-    finished_action_state(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]);
 else if (mode == "stale-action-state")
     stale_action_state(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "ack-action-state")
-    ack_action_state(ARGV[1], ARGV[2]);
 else if (mode == "action-ack-expired")
     action_ack_expired(ARGV[1], ARGV[2], ARGV[3]);
 else if (mode == "json-file-field")

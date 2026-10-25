@@ -394,10 +394,6 @@ function populate_subscription_links(subscription) {
     return changed;
 }
 
-function shell_quote(value) {
-    return "'" + replace(as_string(value), /'/g, "'\\''") + "'";
-}
-
 function populate_subscription_file(path) {
     path = as_string(path);
     let data = fs.readfile(path);

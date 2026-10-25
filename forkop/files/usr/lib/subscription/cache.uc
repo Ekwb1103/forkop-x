@@ -42,11 +42,6 @@ function as_string(value) {
     return value == null ? "" : "" + value;
 }
 
-function read_stdin() {
-    let data = fs.readfile("/dev/stdin");
-    return data == null ? "" : data;
-}
-
 function read_json(path) {
     if (path == null || path == "" || path == "-")
         return null;
@@ -93,19 +88,6 @@ function file_first_line_value(path) {
     return newline >= 0 ? substr(data, 0, newline) : data;
 }
 
-function file_has_exact_line(path, needle) {
-    let data = fs.readfile(path);
-    if (data == null)
-        return false;
-
-    needle = as_string(needle);
-    for (let line in split(data, "\n"))
-        if (as_string(line) == needle)
-            return true;
-
-    return false;
-}
-
 function whitespace_values(value) {
     let result = [];
     for (let item in split(trim(as_string(value)), /[ \t\r\n]+/))
@@ -124,18 +106,6 @@ function state_list_contains(list, value) {
             return true;
 
     return false;
-}
-
-function append_state_list_once(list, value) {
-    list = trim(as_string(list));
-    value = as_string(value);
-
-    if (value == "" || state_list_contains(list, value)) {
-        print(list, "\n");
-        return;
-    }
-
-    print(list, list != "" ? " " : "", value, "\n");
 }
 
 function object_or_empty(value) {
@@ -396,47 +366,8 @@ function keep_names_for_path(path, keep, tmp_dir, persistent_dir, section_cache_
     return "";
 }
 
-function stale_cache_delete_paths(sections, tmp_dir, persistent_dir, section_cache_dir, links_dir, metadata_dir, outbound_metadata_dir) {
-    let keep = cache_keep_sets(sections);
-
-    for (let path in split(read_stdin(), "\n")) {
-        path = as_string(path);
-        if (path == "")
-            continue;
-
-        let cache_name = cache_name_from_file(path);
-        if (cache_name == "")
-            continue;
-
-        let keep_names = keep_names_for_path(path, keep, tmp_dir, persistent_dir, section_cache_dir, links_dir, metadata_dir, outbound_metadata_dir);
-        if (state_list_contains(keep_names, cache_name))
-            continue;
-
-        print(path, "\n");
-    }
-}
-
-function fixture_section_list(data) {
-    data = object_or_empty(data);
-    if (type(data.section) == "array")
-        return data.section;
-    if (type(data.section) == "object")
-        return [ data.section ];
-    if (type(data.sections) == "array")
-        return data.sections;
-    return [];
-}
-
 function uci_sections() {
     return uci_core.section_objects(CONFIG_NAME, "section");
-}
-
-function maintenance_plan(sections, section_cache_dir) {
-    let keep = cache_keep_sets(sections);
-    print("sections\t", keep.sections, "\n");
-    print("sources\t", keep.sources, "\n");
-    print("all\t", keep.all, "\n");
-    print("missing\t", runtime_cache_missing(sections, section_cache_dir) ? "1" : "0", "\n");
 }
 
 let forkop_version = as_string(constants.FORKOP_VERSION);
@@ -877,10 +808,6 @@ function section_current_usable_cache(section, tmp_dir, persistent_dir, default_
     return false;
 }
 
-function uci_section(section_name_value) {
-    return object_or_empty(uci_core.get_all(CONFIG_NAME, section_name_value));
-}
-
 function uci_named_section(section_name_value) {
     return object_or_empty(uci_core.get_all(CONFIG_NAME, section_name_value));
 }
@@ -1022,40 +949,6 @@ function prune_stale_subscription_caches_for_sections(sections) {
         if (!state_list_contains(keep_names, cache_name))
             unlink_path(path);
     }
-}
-
-function append_user_agent_candidate(result, seen, candidate, default_user_agent) {
-    candidate = as_string(candidate);
-    if (!user_agent_supported(candidate, default_user_agent) || seen[candidate])
-        return;
-
-    seen[candidate] = true;
-    push(result, candidate);
-}
-
-function write_user_agent_candidates(path, configured_user_agent, preferred_user_agent, default_user_agent) {
-    path = as_string(path);
-    configured_user_agent = as_string(configured_user_agent);
-    preferred_user_agent = as_string(preferred_user_agent);
-    default_user_agent = as_string(default_user_agent);
-
-    if (configured_user_agent != "") {
-        if (!write_file(path, configured_user_agent + "\n"))
-            exit(1);
-        return;
-    }
-
-    let result = [];
-    let seen = {};
-    let candidates = [ auto_user_agent_profiles[0], preferred_user_agent, default_user_agent ];
-    for (let profile in auto_user_agent_profiles)
-        push(candidates, profile);
-
-    for (let candidate in candidates)
-        append_user_agent_candidate(result, seen, candidate, default_user_agent);
-
-    if (!write_file(path, length(result) > 0 ? join("\n", result) + "\n" : ""))
-        exit(1);
 }
 
 function write_empty_outbound_metadata() {
@@ -2701,90 +2594,19 @@ let mode = ARGV[0] || "";
 if (mode == "file-first-line") {
     file_first_line(ARGV[1]);
 }
-else if (mode == "file-has-exact-line") {
-    exit(file_has_exact_line(ARGV[1], ARGV[2]) ? 0 : 1);
-}
-else if (mode == "state-list-contains") {
-    exit(state_list_contains(ARGV[1], ARGV[2]) ? 0 : 1);
-}
-else if (mode == "append-state-list-once") {
-    append_state_list_once(ARGV[1], ARGV[2]);
-}
-else if (mode == "maintenance-plan") {
-    maintenance_plan(uci_sections(), ARGV[1]);
-}
-else if (mode == "maintenance-plan-fixture") {
-    let data = object_or_empty(read_json(ARGV[1]));
-    connections.set_item_sections_from_data(data);
-    maintenance_plan(fixture_section_list(data), ARGV[2]);
-}
 else if (mode == "runtime-cache-needs-rebuild") {
     exit(runtime_cache_missing(uci_sections(), ARGV[1]) ? 0 : 1);
-}
-else if (mode == "runtime-cache-needs-rebuild-fixture") {
-    let data = object_or_empty(read_json(ARGV[1]));
-    connections.set_item_sections_from_data(data);
-    exit(runtime_cache_missing(fixture_section_list(data), ARGV[2]) ? 0 : 1);
-}
-else if (mode == "prepared-runtime-cache-should-skip-fixture") {
-    let data = object_or_empty(read_json(ARGV[1]));
-    connections.set_item_sections_from_data(data);
-    exit(prepared_runtime_cache_should_skip(fixture_section_list(data), ARGV[2], ARGV[3], ARGV[4]) ? 0 : 1);
 }
 else if (mode == "ensure-runtime-dirs") {
     ensure_runtime_dirs();
 }
-else if (mode == "clear-runtime-cache") {
-    clear_subscription_runtime_cache();
-}
 else if (mode == "ensure-runtime-cache-format") {
     ensure_runtime_cache_format();
-}
-else if (mode == "stale-cache-delete-paths") {
-    stale_cache_delete_paths(uci_sections(), ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]);
-}
-else if (mode == "stale-cache-delete-paths-fixture") {
-    let data = object_or_empty(read_json(ARGV[1]));
-    connections.set_item_sections_from_data(data);
-    stale_cache_delete_paths(fixture_section_list(data), ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]);
-}
-else if (mode == "section-current-usable-cache") {
-    exit(section_current_usable_cache(uci_section(ARGV[1]), ARGV[2], ARGV[3], ARGV[4]) ? 0 : 1);
 }
 else if (mode == "restore-persistent-source") {
     let expected_hwid = ARGV[7] == null ? "" : ARGV[6];
     let default_user_agent = ARGV[7] == null ? ARGV[6] : ARGV[7];
     exit(restore_persistent_subscription_cache(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], expected_hwid, default_user_agent) ? 0 : 1);
-}
-else if (mode == "persist-source-cache") {
-    let effective_hwid = ARGV[6] == null ? "" : ARGV[5];
-    let metadata_path = ARGV[6] == null ? ARGV[5] : ARGV[6];
-    exit(persist_subscription_cache(ARGV[1], ARGV[2], ARGV[3], ARGV[4], effective_hwid, metadata_path) ? 0 : 1);
-}
-else if (mode == "section-current-usable-cache-fixture") {
-    let data = object_or_empty(read_json(ARGV[1]));
-    connections.set_item_sections_from_data(data);
-    let target = as_string(ARGV[2]);
-    let selected = {};
-    for (let section in fixture_section_list(data)) {
-        if (section_name(section) == target) {
-            selected = section;
-            break;
-        }
-    }
-    exit(section_current_usable_cache(selected, ARGV[3], ARGV[4], ARGV[5]) ? 0 : 1);
-}
-else if (mode == "user-agent-supported") {
-    exit(user_agent_supported(ARGV[1], ARGV[2]) ? 0 : 1);
-}
-else if (mode == "user-agent-matches-config") {
-    exit(user_agent_matches_config(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
-}
-else if (mode == "write-user-agent-candidates") {
-    write_user_agent_candidates(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-}
-else if (mode == "source-id") {
-    print(source_id(ARGV[1], int(ARGV[2] || 0)), "\n");
 }
 else if (mode == "subscription-metadata-path") {
     let path = subscription_metadata_path(ARGV[1]);
@@ -2798,17 +2620,8 @@ else if (mode == "outbound-metadata-path") {
         exit(1);
     print(path, "\n");
 }
-else if (mode == "section-is-subscription-proxy") {
-    exit(section_is_subscription_proxy(uci_section(ARGV[1])) ? 0 : 1);
-}
 else if (mode == "update-due-status-fixture") {
     exit(update_due_status(ARGV[1], ARGV[2], ARGV[3]));
-}
-else if (mode == "update-source") {
-    exit(update_subscription_source(ARGV[1], ARGV[2], ARGV[3], ARGV[4] || "runtime", ARGV[5] || ""));
-}
-else if (mode == "update-section") {
-    exit(subscription_update_section(find_section(uci_sections(), ARGV[1] || ""), as_string(ARGV[2] || "0") == "1"));
 }
 else if (mode == "update-request") {
     subscription_update_request(ARGV[1] || "0", ARGV[2] || "", ARGV[3] || "");
@@ -2819,9 +2632,6 @@ else if (mode == "prepare-caches") {
 else if (mode == "run-deferred-bootstrap") {
     run_deferred_subscription_bootstrap(ARGV[1] || "");
 }
-else if (mode == "start-deferred-bootstrap-worker") {
-    start_deferred_subscription_bootstrap_retry_worker(ARGV[1] || "");
-}
 else if (mode == "stop-deferred-bootstrap-worker") {
     stop_deferred_subscription_bootstrap_retry_worker();
 }
@@ -2831,41 +2641,14 @@ else if (mode == "deferred-bootstrap-worker") {
 else if (mode == "json-length") {
     json_length(ARGV[1]);
 }
-else if (mode == "subscription-import-stats") {
-    print(subscription_import_stats_text(ARGV[1]), "\n");
-}
-else if (mode == "subscription-source-summary") {
-    print(subscription_source_summary(ARGV[1], ARGV[2], ARGV[3], ARGV[4]), "\n");
-}
 else if (mode == "download-subscription-fixture") {
     exit(download_subscription(ARGV[1], ARGV[2], ARGV[3] || "", ARGV[4] || "", ARGV[5] || "", ARGV[6] || ""));
-}
-else if (mode == "object-has-extra-keys") {
-    exit(object_has_extra_keys(ARGV[1]) ? 0 : 1);
 }
 else if (mode == "write-outbound-metadata") {
     let cache_dir = ARGV[1], format_version = ARGV[2], section = ARGV[3];
     if (!safe_section(section))
         exit(1);
     write_outbound_metadata(cache_dir, format_version, section, ARGV[4], ARGV[5], ARGV[6]);
-}
-else if (mode == "write-subscription-metadata") {
-    let cache_dir = ARGV[1], format_version = ARGV[2], section = ARGV[3];
-    if (!safe_section(section))
-        exit(1);
-    write_subscription_metadata(cache_dir, format_version, section, ARGV[4]);
-}
-else if (mode == "append-metadata-file") {
-    append_metadata_file(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
-}
-else if (mode == "append-cached-metadata") {
-    append_cached_metadata(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]);
-}
-else if (mode == "write-source-metadata") {
-    let cache_dir = ARGV[1], format_version = ARGV[2], section = ARGV[3];
-    if (!safe_section(section))
-        exit(1);
-    write_source_metadata(cache_dir, format_version, section, ARGV[4], ARGV[5], ARGV[6], ARGV[7]);
 }
 else if (mode == "get-outbound-metadata") {
     let cache_dir = ARGV[1], section = ARGV[2];

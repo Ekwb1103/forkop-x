@@ -94,10 +94,6 @@ const SB_SERVICE_MIXED_INBOUND_ADDRESS = constant_value("SB_SERVICE_MIXED_INBOUN
 const SB_SERVICE_MIXED_INBOUND_PORT = constant_value("SB_SERVICE_MIXED_INBOUND_PORT", "4534");
 const SB_VARIANT_STATE_FILE = constant_value("SB_VARIANT_STATE_FILE", "/etc/forkop/sing-box-variant");
 const SB_VERSION_STATE_FILE = constant_value("SB_VERSION_STATE_FILE", "/etc/forkop/sing-box-version");
-const SRS_FALLBACK_MAIN_URL = constant_value("SRS_FALLBACK_MAIN_URL", "https://github.com/itdoginfo/allow-domains/releases/latest/download");
-const SRS_FALLBACK_ADS_HAGEZI_PRO_URL = constant_value("SRS_FALLBACK_ADS_HAGEZI_PRO_URL", "https://github.com/zxc-rv/ad-filter/releases/latest/download/adlist.srs");
-const SRS_FALLBACK_SUPERCELL_URL = constant_value("SRS_FALLBACK_SUPERCELL_URL", "https://raw.githubusercontent.com/ushan0v/sing-box-supercell-ruleset/main/supercell.srs");
-const SRS_FALLBACK_GITHUB_URL = constant_value("SRS_FALLBACK_GITHUB_URL", "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/github.srs");
 
 const ZAPRET_PROVIDER_NFQWS_BIN = constant_value("ZAPRET_PROVIDER_NFQWS_BIN", "/opt/zapret/nfq/nfqws");
 const ZAPRET_ROUTE_MARK_BASE = constant_value("ZAPRET_ROUTE_MARK_BASE", "0x01000000");
@@ -186,10 +182,6 @@ function read_json_file(path) {
     }
 }
 
-function write_json(value) {
-    print(sprintf("%J", value), "\n");
-}
-
 function command_success(command) {
     return command_status(command + " >/dev/null 2>&1") == 0;
 }
@@ -204,10 +196,6 @@ function command_output_from_args(args) {
 
 function command_success_from_args(args) {
     return command_status(command_from_args(args) + " >/dev/null 2>&1") == 0;
-}
-
-function command_start_without_procd_lock(args) {
-    return command_status(command_from_args(args) + " >/dev/null 2>&1 1000>&- &") == 0;
 }
 
 function external_config_fingerprint() {
@@ -2255,18 +2243,10 @@ else if (mode == "enable")
     status = enable_service();
 else if (mode == "disable")
     status = disable_service();
-else if (mode == "selector-state-from-proxies-fixture") {
-    write_json(selector_state_from_proxies_payload(read_json_file(ARGV[1])));
-    status = 0;
-}
 else if (mode == "save-selector-state")
     status = save_selector_state(ARGV[1]);
 else if (mode == "restore-selector-state")
     status = restore_saved_selector_state(ARGV[1]);
-else if (mode == "selector-restore-pairs-fixture") {
-    write_json(selector_restore_pairs(read_json_file(ARGV[1]), read_json_file(ARGV[2])));
-    status = 0;
-}
 else if (mode == "dnsmasq-restore" || mode == "restore-dnsmasq")
     status = dnsmasq_restore_fail_safe();
 else if (mode == "uninstall")

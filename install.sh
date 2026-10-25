@@ -1615,14 +1615,6 @@ function asset_matches(name, kind, ext, version) {
     return false;
 }
 
-function github_message() {
-    let value = read_stdin_json();
-    if (value == null)
-        exit(2);
-    if (type(value) == "object" && value.message != null)
-        print(as_string(value.message), "\n");
-}
-
 function sing_box_x_plan(arch, format, base) {
     let catalog = read_stdin_json();
     if (catalog?.schema != 1 || catalog?.name != "sing-box-x" ||
@@ -1682,9 +1674,7 @@ function release_asset_sha256(kind, ext) {
 
 let mode = ARGV[0] || "";
 
-if (mode == "github-message")
-    github_message();
-else if (mode == "release-tag")
+if (mode == "release-tag")
     release_tag();
 else if (mode == "release-asset-url")
     release_asset_url(ARGV[1], ARGV[2]);
@@ -2490,30 +2480,6 @@ get_luci_main_lang() {
     command_exists ucode || return 0
     ucode -e 'require("fs"); require("uci");' >/dev/null 2>&1 || return 0
     install_json_ucode uci-get luci.main.lang 2>/dev/null || true
-}
-
-fetch_github_latest_release_json() {
-    owner="$1"
-    repo="$2"
-    response=""
-    message=""
-    url="https://api.github.com/repos/${owner}/${repo}/releases/latest"
-
-    response="$(http_get "$url" 2>/dev/null || true)"
-    [ -n "$response" ] || fail "Failed to query GitHub latest release metadata for ${owner}/${repo}"
-
-    message="$(printf '%s' "$response" | install_json_ucode github-message 2>/dev/null)" ||
-        fail "GitHub returned an invalid latest release response for ${owner}/${repo}"
-    case "$message" in
-        *"API rate limit"*|*"rate limit exceeded"*)
-            fail "GitHub API rate limit reached. Try again later."
-            ;;
-        "Not Found")
-            fail "No published latest release found for ${owner}/${repo}"
-            ;;
-    esac
-
-    printf '%s' "$response"
 }
 
 fetch_forkop_latest_release_json() {

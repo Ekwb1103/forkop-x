@@ -139,8 +139,4 @@ if (mode == "status") print(sprintf("%J\n", status()));
 else if (mode == "reconcile") exit(reconcile());
 else if (mode == "remove") { remove_rule(); exit(0); }
 else if (mode == "worker") worker();
-else if (mode == "rule-output-active") {
-    let info = { available: 1, cgroup: ARGV[1] || "" };
-    exit(rule_output_active(read("/dev/stdin"), info) ? 0 : 1);
-}
 else exit(1);

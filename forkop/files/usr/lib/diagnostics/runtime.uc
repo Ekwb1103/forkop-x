@@ -14,14 +14,11 @@ const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "";
 const FORKOP_CONFIG = getenv("FORKOP_CONFIG") || constants.FORKOP_CONFIG || "/etc/config/" + CONFIG_NAME;
 const FORKOP_SERVICE_NAME = getenv("FORKOP_SERVICE_NAME") || constants.FORKOP_SERVICE_NAME || "forkop";
-const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "Screamshow/forkop-x";
 const FORKOP_LUCI_VIEW_DIR = getenv("FORKOP_LUCI_VIEW_DIR") || constants.FORKOP_LUCI_VIEW_DIR || "/www/luci-static/resources/view/forkop";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
 const SYSTEM_INFO_CACHE_TTL = int(getenv("FORKOP_SYSTEM_INFO_CACHE_TTL") || "3600");
 const TMP_SING_BOX_FOLDER = getenv("TMP_SING_BOX_FOLDER") || constants.TMP_SING_BOX_FOLDER || "/tmp/sing-box";
-const TMP_RULESET_FOLDER = getenv("TMP_RULESET_FOLDER") || constants.TMP_RULESET_FOLDER || TMP_SING_BOX_FOLDER + "/rulesets";
-const TMP_SUBSCRIPTION_FOLDER = getenv("TMP_SUBSCRIPTION_FOLDER") || constants.TMP_SUBSCRIPTION_FOLDER || TMP_SING_BOX_FOLDER + "/subscriptions";
 const SECTION_CACHE_DIR = getenv("FORKOP_SECTION_CACHE_DIR") || RUNTIME_STATE_DIR + "/section-cache";
 const CHECK_PROXY_IP_DOMAIN = getenv("CHECK_PROXY_IP_DOMAIN") || constants.CHECK_PROXY_IP_DOMAIN || "ip.podkop.fyi";
 const FAKEIP_TEST_DOMAIN = getenv("FAKEIP_TEST_DOMAIN") || constants.FAKEIP_TEST_DOMAIN || "fakeip.podkop.fyi";
@@ -38,7 +35,6 @@ const SB_DNS_INBOUND_ADDRESS = getenv("SB_DNS_INBOUND_ADDRESS") || constants.SB_
 const SB_TPROXY_INBOUND6_ADDRESS = getenv("SB_TPROXY_INBOUND6_ADDRESS") || constants.SB_TPROXY_INBOUND6_ADDRESS || "::1";
 const SB_TPROXY_INBOUND_PORT = getenv("SB_TPROXY_INBOUND_PORT") || constants.SB_TPROXY_INBOUND_PORT || "1602";
 const SB_CLASH_API_CONTROLLER_PORT = getenv("SB_CLASH_API_CONTROLLER_PORT") || constants.SB_CLASH_API_CONTROLLER_PORT || "9090";
-const SB_VARIANT_STATE_FILE = getenv("SB_VARIANT_STATE_FILE") || constants.SB_VARIANT_STATE_FILE || "/etc/forkop/sing-box-variant";
 const SING_BOX_BIN_PATH = getenv("FORKOP_DIAGNOSTICS_SING_BOX_BIN_PATH") || "/usr/bin/sing-box";
 const CLOUDFLARE_OCTETS = getenv("CLOUDFLARE_OCTETS") || constants.CLOUDFLARE_OCTETS || "8.47 162.159 188.114";
 const ZAPRET_LEGACY_DEFAULT_NFQWS_OPT = getenv("ZAPRET_LEGACY_DEFAULT_NFQWS_OPT") || constants.ZAPRET_LEGACY_DEFAULT_NFQWS_OPT || "";
@@ -55,17 +51,14 @@ const AUTOMATIC_LATENCY_PENDING_FORMAT = "1";
 const AUTOMATIC_LATENCY_RETRY_BASE_SECONDS = int(getenv("FORKOP_AUTOMATIC_LATENCY_RETRY_BASE_SECONDS") || "300");
 const AUTOMATIC_LATENCY_MAX_FAILURES = int(getenv("FORKOP_AUTOMATIC_LATENCY_MAX_FAILURES") || "5");
 const AUTOMATIC_LATENCY_CLASH_READY_ATTEMPTS = int(getenv("FORKOP_AUTOMATIC_LATENCY_CLASH_READY_ATTEMPTS") || "15");
-const PACKAGE_UPGRADE_QUIESCE_FILE = getenv("FORKOP_PACKAGE_UPGRADE_QUIESCE_FILE") || RUNTIME_STATE_DIR + "/package-upgrade.quiesce";
 
 const STATUS_UC = LIB_DIR + "/diagnostics/status.uc";
 const HELPERS_UC = LIB_DIR + "/core/helpers.uc";
-const PACKAGES_UC = LIB_DIR + "/core/packages.uc";
 const DNS_APPLY_UC = LIB_DIR + "/dns/apply.uc";
 const SERVICE_STATE_UC = getenv("FORKOP_SERVICE_STATE_UC") || LIB_DIR + "/service/state.uc";
 const DIAGNOSTICS_RUNTIME_UC = getenv("FORKOP_DIAGNOSTICS_RUNTIME_UC") || LIB_DIR + "/diagnostics/runtime.uc";
 const SERVICE_UI_UC = LIB_DIR + "/service/ui.uc";
 const SUBSCRIPTION_CACHE_UC = LIB_DIR + "/subscription/cache.uc";
-const PROVIDERS_STATUS_UC = LIB_DIR + "/providers/status.uc";
 const SINGBOX_RUNTIME_UC = LIB_DIR + "/singbox/runtime.uc";
 const ZAPRET_RUNTIME_UC = LIB_DIR + "/providers/zapret/runtime.uc";
 const ZAPRET2_RUNTIME_UC = LIB_DIR + "/providers/zapret2/runtime.uc";
@@ -342,10 +335,6 @@ function network_show_data() {
     return uci_show_data("network", "/etc/config/network");
 }
 
-function firewall_show_data() {
-    return uci_show_data("firewall", "/etc/config/firewall");
-}
-
 function file_exists(path) {
     return fs.stat(as_string(path)) != null;
 }
@@ -395,52 +384,6 @@ function valid_ipv4(value) {
     return core_ip.valid_ipv4(value, true, false);
 }
 
-function valid_public_ipv4(value) {
-    value = as_string(value);
-    if (!valid_ipv4(value))
-        return false;
-
-    let parts = split(value, ".");
-    let a = int(parts[0], 10);
-    let b = int(parts[1], 10);
-
-    if (a == 0 || a == 10 || a == 127 || a >= 224)
-        return false;
-    if (a == 169 && b == 254)
-        return false;
-    if (a == 192 && (b == 168 || b == 0 || b == 2))
-        return false;
-    if (a == 198 && (b == 18 || b == 19 || b == 51))
-        return false;
-    if (a == 203 && b == 0)
-        return false;
-    if (a == 100 && b >= 64 && b <= 127)
-        return false;
-    if (a == 172 && b >= 16 && b <= 31)
-        return false;
-
-    return true;
-}
-
-function valid_public_ipv6(value) {
-    value = lc(as_string(value));
-    if (!core_ip.valid_ipv6(value))
-        return false;
-    if (value == "::" || value == "::1")
-        return false;
-    if (substr(value, 0, 4) == "fe80" || substr(value, 0, 2) == "ff")
-        return false;
-    if (substr(value, 0, 2) == "fc" || substr(value, 0, 2) == "fd")
-        return false;
-    if (substr(value, 0, 4) == "2001" && index(value, "2001:db8") == 0)
-        return false;
-    return true;
-}
-
-function valid_public_ip(value) {
-    return valid_public_ipv4(value) || valid_public_ipv6(value);
-}
-
 function words(value) {
     value = trim(as_string(value));
     return value == "" ? [] : split(value, /[ \t\r\n]+/);
@@ -455,85 +398,11 @@ function allowed_ips_default_routes(value) {
     return result;
 }
 
-function push_unique(result, seen, value) {
-    value = as_string(value);
-    if (value == "" || seen[value])
-        return;
-    seen[value] = true;
-    push(result, value);
-}
-
-function network_status_ip_addresses(data, key) {
-    let value = parse_json_or_null(data);
-    let addresses = type(value) == "object" ? value[key] : null;
-    let result = [];
-    let seen = {};
-    if (type(addresses) == "array") {
-        for (let item in addresses) {
-            if (type(item) == "object")
-                push_unique(result, seen, item.address || "");
-        }
-    }
-    return result;
-}
-
 function helper_output(mode, args) {
     let full = [ mode ];
     for (let arg in args)
         push(full, arg);
     return replace(module_output(HELPERS_UC, full), /[\r\n]+$/g, "");
-}
-
-function server_required_inbound_proto(protocol) {
-    protocol = as_string(protocol);
-    if (protocol == "json_inbound")
-        return "";
-    return protocol == "hysteria2" ? "udp" : "tcp";
-}
-
-function server_runtime_type_for_protocol(protocol) {
-    protocol = as_string(protocol);
-    if (protocol == "json_inbound")
-        return "";
-    if (protocol == "mtproto")
-        return "mtproxy";
-    return protocol;
-}
-
-function server_listen_requires_firewall(listen, wan_ip) {
-    listen = as_string(listen);
-    if (listen == "0.0.0.0" || listen == "::" || valid_public_ip(listen))
-        return true;
-    for (let ip in words(wan_ip))
-        if (ip == listen)
-            return true;
-    return false;
-}
-
-function firewall_required_protocols_open(port, required_proto) {
-    let firewall = firewall_show_data();
-    return status_success([ "firewall-required-protocols-open", port, required_proto ], firewall);
-}
-
-function server_required_port_conflict_owners(listen, port, required_proto) {
-    return replace(status_output(
-        [ "server-required-port-conflict-owners", listen, port, required_proto ],
-        command_output_from_args([ "netstat", "-lnp" ])
-    ), /[\r\n]+$/g, "");
-}
-
-function server_required_ports_listening(listen, port, required_proto) {
-    return status_success(
-        [ "server-required-ports-listening", listen, port, required_proto ],
-        command_output_from_args([ "netstat", "-ln" ])
-    );
-}
-
-function public_host_flags(public_host, public_host_ips, wan_ip, wan_public) {
-    return replace(status_output(
-        [ "public-host-flags", public_host, public_host_ips, wan_ip, wan_public ],
-        null
-    ), /[\r\n]+$/g, "");
 }
 
 function cleanup_check_proxy_dir(dir) {
@@ -695,13 +564,6 @@ function check_sing_box_logs() {
         return 1;
     }
     return 0;
-}
-
-function forkop_logs_fixture() {
-    let rendered = status_capture([ "forkop-logs" ], read_stdin());
-    if (rendered.output != "")
-        print(rendered.output);
-    return rendered.status;
 }
 
 function show_sing_box_config(visibility) {
@@ -1369,10 +1231,6 @@ function sing_box_standard_ports_listening(netstat_data) {
         SB_TPROXY_INBOUND_PORT,
         core_ip.ipv6_tproxy_enabled() ? SB_TPROXY_INBOUND6_ADDRESS : ""
     );
-}
-
-function sing_box_standard_ports_listening_fixture() {
-    exit(sing_box_standard_ports_listening(read_stdin()) ? 0 : 1);
 }
 
 function check_sing_box() {
@@ -2315,16 +2173,12 @@ else if (mode == "check-nft-rules")
     exit(check_nft_rules());
 else if (mode == "check-sing-box")
     exit(check_sing_box());
-else if (mode == "sing-box-standard-ports-listening-fixture")
-    sing_box_standard_ports_listening_fixture();
 else if (mode == "automatic-latency-proxy-tags-fixture")
     automatic_latency_proxy_tags_fixture();
 else if (mode == "check-logs")
     exit(check_logs());
 else if (mode == "check-sing-box-logs")
     exit(check_sing_box_logs());
-else if (mode == "forkop-logs-fixture")
-    exit(forkop_logs_fixture());
 else if (mode == "check-fakeip")
     exit(check_fakeip());
 else if (mode == "fakeip-public-ip-comparison-available-fixture")

@@ -13,7 +13,6 @@ const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const DEFAULT_PENDING_RELOAD_FILE = getenv("FORKOP_PENDING_RELOAD_FILE") || "/var/run/forkop/reload.pending";
 const DEFAULT_SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || "/etc/init.d/forkop";
-const PACKAGE_UPGRADE_QUIESCE_FILE = getenv("FORKOP_PACKAGE_UPGRADE_QUIESCE_FILE") || "/var/run/forkop/package-upgrade.quiesce";
 const SING_BOX_INIT = getenv("FORKOP_SING_BOX_INIT") || "/etc/init.d/sing-box";
 const ZAPRET_DEFAULT_NFQWS_OPT = getenv("ZAPRET_DEFAULT_NFQWS_OPT") || "";
 const ZAPRET2_DEFAULT_NFQWS2_OPT = getenv("ZAPRET2_DEFAULT_NFQWS2_OPT") || "";
@@ -33,16 +32,6 @@ function read_stdin() {
     let data = input.read("all");
     input.close();
     return data == null ? "" : data;
-}
-
-function read_stdin_json() {
-    let data = read_stdin();
-    try {
-        return json(data);
-    }
-    catch (e) {
-        return null;
-    }
 }
 
 function read_json_file(path) {
@@ -148,22 +137,6 @@ function read_state_value(path, needle) {
             return;
         }
     }
-}
-
-function state_has_key(path, needle) {
-    let data = fs.readfile(path);
-    if (data == null)
-        return false;
-
-    needle = as_string(needle);
-    for (let line in split(data, "\n")) {
-        let equals = index(line, "=");
-        let key = equals >= 0 ? substr(line, 0, equals) : line;
-        if (key == needle)
-            return true;
-    }
-
-    return false;
 }
 
 const RELOAD_STATE_FIELDS = [
@@ -418,25 +391,6 @@ function clear_reload_state(path, snapshot_path) {
     cleanup_reload_state_snapshots(path);
 }
 
-function remove_file(path) {
-    unlink_file(path);
-}
-
-function reload_state_values_from_args(offset) {
-    let values = {};
-    offset = int(offset || 0);
-
-    for (let i = 0; i < length(RELOAD_STATE_FIELDS); i++)
-        values[RELOAD_STATE_FIELDS[i]] = ARGV[i + offset];
-
-    return values;
-}
-
-function response_success() {
-    let value = read_stdin_json();
-    return type(value) == "object" && value.success === true;
-}
-
 function stdin_first_field() {
     let data = read_stdin();
     let newline = index(data, "\n");
@@ -457,12 +411,6 @@ function sing_box_service_pid_from_value(value) {
     }
 
     return 0;
-}
-
-function sing_box_service_pid() {
-    let pid = sing_box_service_pid_from_value(read_stdin_json());
-    if (pid > 0)
-        print(pid, "\n");
 }
 
 function sing_box_service_pid_runtime() {
@@ -571,24 +519,6 @@ function process_age_seconds(pid) {
 
     let current_ticks = process_start_ticks(command_output_from_args([ "cat", "/proc/self/stat" ]));
     return process_age_seconds_from_ticks(start_ticks, current_ticks);
-}
-
-function sing_box_pid_replaced(previous_pid, current_pid, current_is_sing_box) {
-    previous_pid = int(previous_pid || 0);
-    current_pid = int(current_pid || 0);
-    current_is_sing_box = lc(as_string(current_is_sing_box));
-    let executable_matches = current_is_sing_box == "1" || current_is_sing_box == "true" ||
-        current_is_sing_box == "yes" || current_is_sing_box == "on";
-    return current_pid > 0 && executable_matches &&
-        (previous_pid <= 0 || current_pid != previous_pid);
-}
-
-function sing_box_reload_previous_pid(previous_pid, config_hash_before, config_hash_after) {
-    previous_pid = as_string(previous_pid);
-    if (as_string(config_hash_before) == as_string(config_hash_after) ||
-        match(previous_pid, /^[0-9]+$/) == null || int(previous_pid) <= 0)
-        return 0;
-    return int(previous_pid);
 }
 
 function arg_bool(value) {
@@ -1158,14 +1088,6 @@ function list_has_remote_references(value) {
     return false;
 }
 
-function community_service_has_subnet_list(value) {
-    return rule_config.community_service_has_subnet_list(value);
-}
-
-function filter_community_subnet_lists(value) {
-    print(rule_config.filter_community_subnet_lists_value(value), "\n");
-}
-
 function has_community_subnet_list(value) {
     return rule_config.has_community_subnet_list(value);
 }
@@ -1195,10 +1117,6 @@ function rule_has_nft_list_update_source(enabled, action, community_lists, remot
         as_string(rule_set_with_subnets) != "" ||
         list_has_remote_references(domain_ip_lists)
     );
-}
-
-function rule_has_subscription_update_source(is_subscription_proxy, subscription_update_interval) {
-    return arg_bool(is_subscription_proxy) && as_string(subscription_update_interval) != "";
 }
 
 function duration_to_seconds_value(value) {
@@ -1662,10 +1580,6 @@ function urltest_enabled_sections_value(sections) {
     return join(" ", result);
 }
 
-function print_urltest_enabled_sections(sections) {
-    print(urltest_enabled_sections_value(sections), "\n");
-}
-
 function sing_box_signature_has_remote_ruleset_sources(sections) {
     for (let section in sections) {
         section = object_or_empty(section);
@@ -1977,20 +1891,6 @@ function mwan3_active() {
         command_success_from_args([ "/etc/init.d/mwan3", "enabled" ]);
 }
 
-function has_remote_sing_box_ruleset_sources_from_sections(sections) {
-    for (let section in sections) {
-        if (!bool_option(section, "enabled", true))
-            continue;
-
-        if (length(connections.community_lists(section)) > 0 ||
-            list_has_remote_references(connections.rule_sets_value(section)) ||
-            list_has_remote_references(connections.rule_sets_with_subnets_value(section)))
-            return true;
-    }
-
-    return false;
-}
-
 function has_nft_list_update_sources_from_sections(sections) {
     for (let section in sections)
         if (rule_has_nft_list_update_source(
@@ -2004,22 +1904,6 @@ function has_nft_list_update_sources_from_sections(sections) {
             return true;
 
     return false;
-}
-
-function has_subscription_update_sources_from_sections(sections) {
-    for (let section in sections) {
-        section = object_or_empty(section);
-        if (section_is_subscription_proxy(section) && section_subscription_update_interval(section) != "")
-            return true;
-    }
-
-    return false;
-}
-
-function fixture_sections(path) {
-    let data = object_or_empty(read_json_file(path));
-    connections.set_item_sections_from_data(data);
-    return fixture_section_list(data);
 }
 
 function fixture_data(path) {
@@ -2046,10 +1930,6 @@ function fixture_mwan3_active(data) {
 
 function uci_settings() {
     return object_or_empty(uci_core.get_all(CONFIG_NAME, "settings"));
-}
-
-function uci_section(section_name) {
-    return object_or_empty(uci_core.get_all(CONFIG_NAME, section_name));
 }
 
 function uci_dnsmasq() {
@@ -2136,10 +2016,6 @@ if (mode == "file-first-line")
     file_first_line(ARGV[1]);
 else if (mode == "get")
     read_state_value(ARGV[1], ARGV[2]);
-else if (mode == "has-key")
-    exit(state_has_key(ARGV[1], ARGV[2]) ? 0 : 1);
-else if (mode == "time-sync-needed")
-    exit(time_sync_needed(ARGV[1]) ? 0 : 1);
 else if (mode == "sync-time-if-needed")
     sync_time_if_needed();
 else if (mode == "mark-pending-reload")
@@ -2172,28 +2048,18 @@ else if (mode == "single-ready-sing-box-runtime")
     exit(single_ready_sing_box_runtime() ? 0 : 1);
 else if (mode == "clear-reload-state")
     clear_reload_state(ARGV[1], ARGV[2]);
-else if (mode == "remove-file")
-    remove_file(ARGV[1]);
 else if (mode == "capture-reload-state")
     capture_reload_state(ARGV[1], ARGV[2] || "1");
 else if (mode == "write-current-reload-state-clean")
     write_current_reload_state_clean(ARGV[1], ARGV[2] || "1", ARGV[3]);
 else if (mode == "write-captured-reload-state")
     write_captured_reload_state(ARGV[1], ARGV[2], ARGV[3] || "1", ARGV[4], ARGV[5], ARGV[6]);
-else if (mode == "write-reload-state")
-    write_reload_state(ARGV[1], reload_state_values_from_args(2));
-else if (mode == "write-current-reload-state")
-    write_reload_state(ARGV[1], current_reload_state_values(ARGV[2] || "1"));
 else if (mode == "reload-state-text-fixture") {
     let data = fixture_data(ARGV[1]);
     print(reload_state_text(fixture_reload_state_values(data, ARGV[2] || "1")));
 }
-else if (mode == "response-success")
-    exit(response_success() ? 0 : 1);
 else if (mode == "stdin-first-field")
     stdin_first_field();
-else if (mode == "sing-box-service-pid")
-    sing_box_service_pid();
 else if (mode == "sing-box-service-runtime-pid") {
     let pid = sing_box_service_pid_runtime();
     if (pid <= 0)
@@ -2240,18 +2106,6 @@ else if (mode == "wait-managed-upgrade-sing-box-exit")
     exit(wait_managed_upgrade_sing_box_exit(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
 else if (mode == "sing-box-service-stable")
     exit(sing_box_service_stable(ARGV[1]) ? 0 : 1);
-else if (mode == "process-age-seconds-fixture") {
-    let age = process_age_seconds_from_ticks(ARGV[1], ARGV[2]);
-    if (age == null)
-        exit(1);
-    print(age, "\n");
-}
-else if (mode == "sing-box-pid-replaced-fixture")
-    exit(sing_box_pid_replaced(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
-else if (mode == "sing-box-reload-previous-pid-fixture")
-    print(sing_box_reload_previous_pid(ARGV[1], ARGV[2], ARGV[3]), "\n");
-else if (mode == "sing-box-runtime-reload-needed-fixture")
-    exit(sing_box_runtime_reload_needed(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
 else if (mode == "forkop-running")
     exit(forkop_running(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
 else if (mode == "forkop-stably-running")
@@ -2260,113 +2114,13 @@ else if (mode == "wait-forkop-stable-start")
     exit(wait_forkop_stable_start(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]) ? 0 : 1);
 else if (mode == "list-has-remote-references" || mode == "list-has-remote-sing-box-rulesets")
     exit(list_has_remote_references(ARGV[1]) ? 0 : 1);
-else if (mode == "community-service-has-subnet-list")
-    exit(community_service_has_subnet_list(ARGV[1]) ? 0 : 1);
-else if (mode == "filter-community-subnet-lists")
-    filter_community_subnet_lists(ARGV[1]);
-else if (mode == "rule-has-list-update-source")
-    exit(rule_has_list_update_source(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]) ? 0 : 1);
-else if (mode == "rule-has-nft-list-update-source")
-    exit(rule_has_nft_list_update_source(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]) ? 0 : 1);
-else if (mode == "rule-has-subscription-update-source")
-    exit(rule_has_subscription_update_source(ARGV[1], ARGV[2]) ? 0 : 1);
-else if (mode == "service-trigger-signature")
-    exit(print_signature_hash(service_trigger_signature_body(uci_settings())) ? 0 : 1);
-else if (mode == "service-trigger-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(service_trigger_signature_body(fixture_settings(data))) ? 0 : 1);
-}
-else if (mode == "dnsmasq-signature")
-    exit(print_signature_hash(dnsmasq_signature_body(uci_settings(), uci_dnsmasq(), uci_exists("dhcp.forkop"))) ? 0 : 1);
-else if (mode == "dnsmasq-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(dnsmasq_signature_body(fixture_settings(data), fixture_dnsmasq(data), fixture_legacy_dnsmasq_present(data))) ? 0 : 1);
-}
-else if (mode == "sing-box-signature")
-    exit(print_signature_hash(sing_box_signature_body(uci_settings(), uci_sections("section"), mwan3_active())) ? 0 : 1);
 else if (mode == "sing-box-signature-fixture") {
     let data = fixture_data(ARGV[1]);
     exit(print_signature_hash(sing_box_signature_body(fixture_settings(data), fixture_section_list(data), fixture_mwan3_active(data))) ? 0 : 1);
 }
-else if (mode == "sing-box-signature-body-fixture") {
-    let data = fixture_data(ARGV[1]);
-    print(sing_box_signature_body(fixture_settings(data), fixture_section_list(data), fixture_mwan3_active(data)));
-}
-else if (mode == "nft-signature")
-    exit(print_signature_hash(nft_runtime_signature_body(uci_settings(), uci_sections("section"))) ? 0 : 1);
 else if (mode == "nft-signature-fixture") {
     let data = fixture_data(ARGV[1]);
     exit(print_signature_hash(nft_runtime_signature_body(fixture_settings(data), fixture_section_list(data))) ? 0 : 1);
-}
-else if (mode == "zapret-queue-signature")
-    exit(print_signature_hash(action_queue_signature_body(uci_sections("section"), "zapret", "zapret_queue.section")) ? 0 : 1);
-else if (mode == "zapret-queue-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(action_queue_signature_body(fixture_section_list(data), "zapret", "zapret_queue.section")) ? 0 : 1);
-}
-else if (mode == "zapret-runtime-signature")
-    exit(print_signature_hash(zapret_runtime_signature_body(uci_sections("section"))) ? 0 : 1);
-else if (mode == "zapret-runtime-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(zapret_runtime_signature_body(fixture_section_list(data))) ? 0 : 1);
-}
-else if (mode == "zapret2-queue-signature")
-    exit(print_signature_hash(action_queue_signature_body(uci_sections("section"), "zapret2", "zapret2_queue.section")) ? 0 : 1);
-else if (mode == "zapret2-queue-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(action_queue_signature_body(fixture_section_list(data), "zapret2", "zapret2_queue.section")) ? 0 : 1);
-}
-else if (mode == "zapret2-runtime-signature")
-    exit(print_signature_hash(zapret2_runtime_signature_body(uci_sections("section"))) ? 0 : 1);
-else if (mode == "zapret2-runtime-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(zapret2_runtime_signature_body(fixture_section_list(data))) ? 0 : 1);
-}
-else if (mode == "dont-touch-dhcp")
-    print(dont_touch_dhcp_value(uci_settings()), "\n");
-else if (mode == "dont-touch-dhcp-fixture") {
-    let data = fixture_data(ARGV[1]);
-    print(dont_touch_dhcp_value(fixture_settings(data)), "\n");
-}
-else if (mode == "settings-update-interval")
-    print(settings_update_interval(uci_settings()), "\n");
-else if (mode == "settings-update-interval-fixture") {
-    let data = fixture_data(ARGV[1]);
-    print(settings_update_interval(fixture_settings(data)), "\n");
-}
-else if (mode == "remote-ruleset-update-interval") {
-    let update_interval = settings_update_interval(uci_settings());
-    print(update_interval != "" ? update_interval : as_string(ARGV[1]), "\n");
-}
-else if (mode == "subscription-update-interval")
-    print(section_subscription_update_interval(uci_section(ARGV[1])), "\n");
-else if (mode == "subscription-update-interval-fixture") {
-    let data = fixture_data(ARGV[1]);
-    let sections = fixture_section_list(data);
-    let name = as_string(ARGV[2]);
-    for (let section in sections) {
-        section = object_or_empty(section);
-        if (section_name(section) == name) {
-            print(section_subscription_update_interval(section), "\n");
-            exit(0);
-        }
-    }
-    print("\n");
-}
-else if (mode == "urltest-check-interval")
-    print(section_urltest_check_interval(uci_section(ARGV[1])), "\n");
-else if (mode == "urltest-check-interval-fixture") {
-    let data = fixture_data(ARGV[1]);
-    let sections = fixture_section_list(data);
-    let name = as_string(ARGV[2]);
-    for (let section in sections) {
-        section = object_or_empty(section);
-        if (section_name(section) == name) {
-            print(section_urltest_check_interval(section), "\n");
-            exit(0);
-        }
-    }
-    print("\n");
 }
 else if (mode == "list-update-signature")
     exit(print_signature_hash(list_update_signature_body(uci_sections("section"))) ? 0 : 1);
@@ -2376,36 +2130,10 @@ else if (mode == "list-update-signature-fixture") {
 }
 else if (mode == "cron-signature")
     exit(print_signature_hash(cron_signature_body(uci_settings(), uci_sections("section"))) ? 0 : 1);
-else if (mode == "cron-signature-fixture") {
-    let data = fixture_data(ARGV[1]);
-    exit(print_signature_hash(cron_signature_body(fixture_settings(data), fixture_section_list(data))) ? 0 : 1);
-}
-else if (mode == "cron-signature-body-fixture") {
-    let data = fixture_data(ARGV[1]);
-    print(cron_signature_body(fixture_settings(data), fixture_section_list(data)));
-}
-else if (mode == "urltest-enabled-sections")
-    print_urltest_enabled_sections(uci_sections("section"));
-else if (mode == "urltest-enabled-sections-fixture") {
-    let data = fixture_data(ARGV[1]);
-    print_urltest_enabled_sections(fixture_section_list(data));
-}
-else if (mode == "has-remote-sing-box-ruleset-sources")
-    exit(has_remote_sing_box_ruleset_sources_from_sections(uci_sections("section")) ? 0 : 1);
-else if (mode == "has-remote-sing-box-ruleset-sources-fixture")
-    exit(has_remote_sing_box_ruleset_sources_from_sections(fixture_sections(ARGV[1])) ? 0 : 1);
 else if (mode == "has-list-update-sources")
     exit(has_list_update_sources_from_sections(uci_sections("section")) ? 0 : 1);
-else if (mode == "has-list-update-sources-fixture")
-    exit(has_list_update_sources_from_sections(fixture_sections(ARGV[1])) ? 0 : 1);
-else if (mode == "has-subscription-update-sources")
-    exit(has_subscription_update_sources_from_sections(uci_sections("section")) ? 0 : 1);
-else if (mode == "has-subscription-update-sources-fixture")
-    exit(has_subscription_update_sources_from_sections(fixture_sections(ARGV[1])) ? 0 : 1);
 else if (mode == "has-nft-list-update-sources")
     exit(has_nft_list_update_sources_from_sections(uci_sections("section")) ? 0 : 1);
-else if (mode == "has-nft-list-update-sources-fixture")
-    exit(has_nft_list_update_sources_from_sections(fixture_sections(ARGV[1])) ? 0 : 1);
 else {
     warn("Usage: service/state.uc <operation> ...\n");
     exit(1);

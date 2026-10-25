@@ -664,19 +664,6 @@ function restart_service(owner_pid) {
     return status;
 }
 
-function stop_plan(owner_pid, bin_ok) {
-    let job_id = begin_external_service_action("stop", "initd", owner_pid);
-    bin_ok = bin_ok == null ? file_executable(BIN_PATH) : bool_text(bin_ok);
-
-    if (!bin_ok) {
-        restore_dnsmasq_failsafe();
-        finish_external_service_action("stop", job_id, 1);
-    }
-
-    shell_assignment("INITD_UI_JOB_ID", job_id);
-    shell_assignment("INITD_BIN_OK", bin_ok ? "1" : "0");
-}
-
 function stop_finish(job_id, status) {
     status = int(status || 0);
     // Exit 2 means lifecycle refused an ambiguous process owner before any
@@ -757,14 +744,6 @@ function reload_begin_value(reason, owner_pid, runtime_running_value, service_en
     return { action: "run", job_id };
 }
 
-function reload_begin(reason, owner_pid, runtime_running_value, service_enabled_value) {
-    let plan = reload_begin_value(reason, owner_pid, runtime_running_value, service_enabled_value, null);
-    shell_assignment("INITD_RELOAD_ACTION", plan.action);
-    if (plan.action == "run")
-        shell_assignment("INITD_UI_JOB_ID", plan.job_id);
-    return 0;
-}
-
 function reload_finish_value(reason, job_id, status) {
     status = int(status || 0);
     finish_external_service_action("reload", job_id, status);
@@ -839,8 +818,6 @@ let mode = ARGV[0] || "";
 
 if (mode == "restore-dnsmasq-failsafe")
     exit(restore_dnsmasq_failsafe());
-else if (mode == "runtime-running")
-    exit(runtime_is_running() ? 0 : 1);
 else if (mode == "status-service")
     exit(status_service());
 else if (mode == "retry-start-on-wan-up")
@@ -851,8 +828,6 @@ else if (mode == "retry-start-on-wan-up-action")
     print(retry_start_on_wan_up_action(ARGV[1], ARGV[2], ARGV[3]), "\n");
 else if (mode == "wan-up-action")
     print(wan_up_action(ARGV[1], ARGV[2], ARGV[3], ARGV[4]), "\n");
-else if (mode == "service-enabled")
-    exit(service_is_enabled() ? 0 : 1);
 else if (mode == "mark-start-retry")
     exit(mark_start_retry(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "clear-start-retry")
@@ -865,13 +840,6 @@ else if (mode == "schedule-start-retry")
     exit(schedule_start_retry(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "cancel-scheduled-start-retry")
     cancel_scheduled_start_retry(ARGV[1]);
-else if (mode == "begin-action") {
-    let job_id = begin_external_service_action(ARGV[1], ARGV[2] || "initd", ARGV[3]);
-    if (job_id != "")
-        print(job_id, "\n");
-}
-else if (mode == "finish-action")
-    exit(finish_external_service_action(ARGV[1], ARGV[2], ARGV[3]));
 else if (mode == "start-plan")
     start_plan(ARGV[1], ARGV[2], uci_settings(), null);
 else if (mode == "start-service")
@@ -884,18 +852,10 @@ else if (mode == "start-plan-fixture") {
     };
     start_plan(ARGV[1], ARGV[5] || "0", settings, ARGV[6] == null ? "1" : ARGV[6]);
 }
-else if (mode == "stop-plan")
-    stop_plan(ARGV[1], null);
-else if (mode == "stop-plan-fixture")
-    stop_plan(ARGV[1] || "0", ARGV[2] == null ? "1" : ARGV[2]);
-else if (mode == "stop-finish")
-    exit(stop_finish(ARGV[1], ARGV[2]));
 else if (mode == "stop-service")
     exit(stop_service(ARGV[1]));
 else if (mode == "restart-service")
     exit(restart_service(ARGV[1]));
-else if (mode == "reload-begin")
-    exit(reload_begin(ARGV[1], ARGV[2], null, null));
 else if (mode == "reload-begin-fixture") {
     let plan = reload_begin_value(ARGV[1], ARGV[2] || "0", ARGV[3], ARGV[4], ARGV[5]);
     shell_assignment("INITD_RELOAD_ACTION", plan.action);
@@ -903,8 +863,6 @@ else if (mode == "reload-begin-fixture") {
         shell_assignment("INITD_UI_JOB_ID", plan.job_id);
     exit(plan.action == "run" ? 0 : 1);
 }
-else if (mode == "reload-finish")
-    exit(reload_finish(ARGV[1], ARGV[2], ARGV[3]));
 else if (mode == "reload-service")
     exit(reload_service(ARGV[1], ARGV[2]));
 else if (mode == "reload-release")
@@ -925,8 +883,6 @@ else if (mode == "initd-should-ignore-config-change-reload")
     exit(initd_should_ignore_config_change_reload(ARGV[1], ARGV[2], ARGV[3], ARGV[4]) ? 0 : 1);
 else if (mode == "initd-should-queue-config-change-reload")
     exit(initd_should_queue_config_change_reload(ARGV[1], ARGV[2], ARGV[3], ARGV[4]) ? 0 : 1);
-else if (mode == "initd-should-sync-service-triggers")
-    exit(initd_should_sync_service_triggers(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
 else {
     warn("Usage: service/initd.uc <operation> ...\n");
     exit(1);

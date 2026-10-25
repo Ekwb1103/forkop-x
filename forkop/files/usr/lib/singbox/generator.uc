@@ -59,7 +59,6 @@ let url_strip_fragment_value = runtime_url.strip_fragment;
 let url_host = runtime_url.host;
 let url_port = runtime_url.port;
 let url_userinfo = runtime_url.userinfo;
-let url_path = runtime_url.path;
 let url_query_params = runtime_url.query_params;
 
 const CONFIG_NAME = "forkop";
@@ -3590,14 +3589,6 @@ function enabled_sections(deferred_sections) {
     return result;
 }
 
-function section_by_name(sections, name) {
-    name = as_string(name);
-    for (let section in sections)
-        if (as_string(section[".name"]) == name)
-            return section;
-    return null;
-}
-
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
     runtime_prunable_outbounds = {};
     runtime_skipped_protocol_outbounds = {};
@@ -3685,29 +3676,8 @@ function generate_config_fixture(fixture_path, output_path, service_address, mwa
     generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version);
 }
 
-function stdin_length() {
-    let value = read_stdin_json();
-    if (type(value) == "array" || type(value) == "object")
-        print(length(value), "\n");
-    else
-        print("0\n");
-}
-
 function stdin_contains(needle) {
     return index(read_stdin(), as_string(needle)) >= 0;
-}
-
-function stdin_regex_matches(pattern) {
-    pattern = as_string(pattern);
-    if (pattern == "")
-        return false;
-
-    try {
-        return match(read_stdin(), regexp(pattern)) != null;
-    }
-    catch (e) {
-        return false;
-    }
 }
 
 function ip_addr_first_inet4() {
@@ -3722,40 +3692,6 @@ function ip_addr_first_inet4() {
     }
 }
 
-function stdin_first_dns_a_address() {
-    for (let line in split(read_stdin(), "\n")) {
-        line = as_string(line);
-        if (match(line, /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) != null) {
-            print(line, "\n");
-            return;
-        }
-    }
-}
-
-function stdin_first_dns_aaaa_address() {
-    for (let line in split(read_stdin(), "\n")) {
-        line = as_string(line);
-        if (match(line, /^[0-9A-Fa-f:]+$/) != null) {
-            print(line, "\n");
-            return;
-        }
-    }
-}
-
-function stdin_first_nslookup_address() {
-    for (let line in split(read_stdin(), "\n")) {
-        line = as_string(line);
-        if (match(line, /^Address[ \t]*[0-9]*:[ \t]*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) == null &&
-            match(line, /^Address[ \t]*[0-9]*:[ \t]*[0-9A-Fa-f:]+$/) == null)
-            continue;
-
-        let fields = split(trim(line), /[ \t]+/);
-        if (length(fields) > 0)
-            print(fields[length(fields) - 1], "\n");
-        return;
-    }
-}
-
 function stdin_first_field() {
     let data = read_stdin();
     let newline = index(data, "\n");
@@ -3766,31 +3702,8 @@ function stdin_first_field() {
         print(fields[0], "\n");
 }
 
-function array_append_string(value) {
-    let result = array_or_empty(read_stdin_json());
-    push(result, as_string(value));
-    write_json(result);
-}
-
 function normalized_country_list() {
     write_json(runtime_urltest.normalized_country_list(read_stdin_json()));
-}
-
-function urltest_filter(mode, tags_path, names_path, countries_path, names_filter_path, regex_tags_path, countries_filter_path) {
-    write_json(runtime_urltest.filter_array(
-        mode,
-        read_json_file(tags_path),
-        read_json_file(names_path),
-        read_json_file(countries_path),
-        read_json_file(names_filter_path),
-        read_json_file(regex_tags_path),
-        read_json_file(countries_filter_path)
-    ));
-}
-
-function object_nonempty_stdin() {
-    let value = read_stdin_json();
-    return (type(value) == "array" || type(value) == "object") && length(value) > 0;
 }
 
 function service_route_check_section_fixture() {
@@ -3805,32 +3718,14 @@ if (mode == "generate-config")
     generate_config(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5] || "", ARGV[6] || "");
 else if (mode == "generate-config-fixture")
     generate_config_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6] || "", ARGV[7] || "");
-else if (mode == "stdin-length")
-    stdin_length();
 else if (mode == "stdin-contains")
     exit(stdin_contains(ARGV[1]) ? 0 : 1);
-else if (mode == "stdin-regex-matches")
-    exit(stdin_regex_matches(ARGV[1]) ? 0 : 1);
 else if (mode == "csv-to-json-array")
     csv_to_json_array(ARGV[1]);
 else if (mode == "ip-addr-first-inet4")
     ip_addr_first_inet4();
-else if (mode == "stdin-first-dns-a-address")
-    stdin_first_dns_a_address();
-else if (mode == "stdin-first-dns-aaaa-address")
-    stdin_first_dns_aaaa_address();
-else if (mode == "stdin-first-nslookup-address")
-    stdin_first_nslookup_address();
 else if (mode == "stdin-first-field")
     stdin_first_field();
-else if (mode == "array-append-string")
-    array_append_string(ARGV[1]);
-else if (mode == "normalized-country-list")
-    normalized_country_list();
-else if (mode == "urltest-filter")
-    urltest_filter(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]);
-else if (mode == "object-nonempty")
-    exit(object_nonempty_stdin() ? 0 : 1);
 else if (mode == "service-route-check-section-fixture")
     service_route_check_section_fixture();
 else {
