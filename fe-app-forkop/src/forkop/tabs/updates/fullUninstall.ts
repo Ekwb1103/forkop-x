@@ -55,7 +55,7 @@ function confirmRemoval() {
             }
             if (status.state === 'complete') {
               progress.textContent = _(
-                'Forkop X and sing-box have been removed. Original repositories have been restored.',
+                'Forkop X has been removed. Original repositories have been restored.',
               );
               cancel.textContent = _('Open LuCI');
               cancel.disabled = false;
@@ -97,7 +97,7 @@ function confirmRemoval() {
         'p',
         {},
         _(
-          'Remove Forkop X, sing-box, their settings and cache, and restore the original device repositories?',
+          'Remove Forkop X with its settings and cache, and restore the original device repositories?',
         ),
       ),
       E(
@@ -126,7 +126,7 @@ export function renderFullUninstall(disabled: boolean) {
       'p',
       {},
       _(
-        'Remove Forkop X and sing-box with their settings and restore the original device repositories.',
+        'Remove Forkop X with its settings and restore the original device repositories.',
       ),
     ),
     renderButton({
