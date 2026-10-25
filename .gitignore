@@ -51,6 +51,7 @@ ops/deployed-nginx/
 !/tests/subscription_protocol_compatibility.sh
 !/tests/subscription_protocol_compatibility.uc
 !/tests/rust_x_tls12_fingerprints.sh
+!/tests/rust_x_vless_encryption.sh
 !/tests/byedpi_removed.sh
 !/tests/whatsapp_real_dns_vm.sh
 !/tests/log_hygiene.sh

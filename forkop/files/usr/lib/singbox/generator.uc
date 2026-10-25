@@ -33,6 +33,7 @@ let runtime_supports_certificate_pins = false;
 let runtime_supports_dns_response_matching = false;
 let runtime_supports_legacy_protocols = true;
 let runtime_supports_tls12_fingerprints = true;
+let runtime_supports_vless_encryption = true;
 let runtime_skipped_protocol_outbounds = {};
 let runtime_prunable_outbounds = {};
 
@@ -578,6 +579,18 @@ function outbound_excluded_protocol(outbound) {
     return RUST_X_EXCLUDED_OUTBOUND_TYPES[t] ? t : "";
 }
 
+// Xrust has no VLESS encryption layer and refuses any encryption other than
+// "none" at check time; such a node would otherwise run as plain VLESS.
+function outbound_unsupported_vless_encryption(outbound) {
+    if (runtime_supports_vless_encryption || type(outbound) != "object" ||
+        lc(as_string(outbound.type || "")) != "vless")
+        return "";
+    let encryption = as_string(outbound.encryption || "");
+    if (encryption == "" || encryption == "none")
+        return "";
+    return split(encryption, ".")[0];
+}
+
 function remember_skipped_protocol_outbound(section_name, protocol) {
     section_name = as_string(section_name);
     let counts = runtime_skipped_protocol_outbounds[section_name] || {};
@@ -626,6 +639,9 @@ function ensure_explicit_outbound_supported(outbound, source, name) {
     let excluded = outbound_excluded_protocol(outbound);
     if (excluded != "")
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses protocol " + excluded + ", which is not included in Xrust; remove it or use a VLESS or Hysteria2 connection");
+    let encryption = outbound_unsupported_vless_encryption(outbound);
+    if (encryption != "")
+        runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses VLESS encryption " + encryption + ", which Xrust does not support; use a link with encryption=none");
     if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound))
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' requires TLS certificate SHA-256 pinning; use Xrust or a core with verified certificate_sha256 support");
     if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound))
@@ -682,6 +698,12 @@ function compatible_subscription_outbounds(outbounds, section_name) {
         if (excluded != "") {
             warn_skipped_subscription_outbound(section_name, outbound, "protocol " + excluded + " is not included in Xrust");
             remember_skipped_protocol_outbound(section_name, excluded);
+            continue;
+        }
+        let encryption = outbound_unsupported_vless_encryption(outbound);
+        if (encryption != "") {
+            warn_skipped_subscription_outbound(section_name, outbound, "VLESS encryption " + encryption + " is not supported by Xrust");
+            remember_skipped_protocol_outbound(section_name, "vless encryption");
             continue;
         }
         if (!runtime_supports_certificate_pins && outbound_uses_certificate_pins(outbound)) {
@@ -3546,6 +3568,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     // Xrust is built without vmess, trojan, shadowsocks and socks outbounds.
     runtime_supports_legacy_protocols = !rust_x_core_version(sing_box_version);
     runtime_supports_tls12_fingerprints = !rust_x_core_version(sing_box_version);
+    runtime_supports_vless_encryption = !rust_x_core_version(sing_box_version);
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);
