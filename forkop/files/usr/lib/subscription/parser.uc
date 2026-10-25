@@ -1082,6 +1082,7 @@ function process_hysteria2(raw, url) {
         tls.insecure = true;
     if ((url.query.alpn || "") != "")
         tls.alpn = split_csv(url.query.alpn);
+    add_certificate_pins(tls, url.query.pinSHA256);
 
     let outbound = {
         type: "hysteria2",
@@ -2435,6 +2436,7 @@ function convert_xray_hysteria2(outbound, tag) {
         result.tls.server_name = server_name;
     if (is_true(tls_settings.allowInsecure) || is_true(tls_settings.insecure))
         result.tls.insecure = true;
+    add_certificate_pins(result.tls, tls_settings.pinnedPeerCertSha256);
     let alpn = xray_alpn(tls_settings.alpn);
     if (length(alpn) > 0)
         result.tls.alpn = alpn;

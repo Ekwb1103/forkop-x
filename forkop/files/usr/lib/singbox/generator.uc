@@ -1908,7 +1908,11 @@ function apply_link_tls(outbound, scheme, query) {
     }
 
     let tls = { enabled: true };
-    subscription_parser.add_certificate_pins(tls, query.pcs);
+    // Hysteria2 links carry the whole-certificate pin as pinSHA256.
+    let pins = as_string(query.pcs || "");
+    if ((scheme == "hysteria2" || scheme == "hy2") && as_string(query.pinSHA256 || "") != "")
+        pins = pins != "" ? pins + "," + as_string(query.pinSHA256) : as_string(query.pinSHA256);
+    subscription_parser.add_certificate_pins(tls, pins);
     if (as_string(query.sni || "") != "")
         tls.server_name = as_string(query.sni);
     if (bool_query(query.allowInsecure || query.insecure || ""))

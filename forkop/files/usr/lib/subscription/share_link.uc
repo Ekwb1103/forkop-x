@@ -248,6 +248,16 @@ function serialize_socks(outbound) {
     return scheme + "://" + auth + host_port(outbound.server, outbound.server_port) + fragment(outbound);
 }
 
+function certificate_pin_hex(pin) {
+    let bytes = b64dec(as_string(pin));
+    if (bytes == null || length(bytes) != 32)
+        return as_string(pin);
+    let hex = "";
+    for (let i = 0; i < 32; i++)
+        hex += sprintf("%02x", ord(bytes, i));
+    return hex;
+}
+
 function serialize_hysteria2(outbound) {
     let port = hysteria2_server_ports_uri(outbound);
     if (port == "" && outbound.server_port != null)
@@ -264,6 +274,10 @@ function serialize_hysteria2(outbound) {
             add_query(params, "insecure", "1");
         if (type(tls.alpn) == "array" && length(tls.alpn) > 0)
             add_query(params, "alpn", join(",", tls.alpn));
+        let pins = type(tls.certificate_sha256) == "array" ? tls.certificate_sha256 :
+            (tls.certificate_sha256 != null ? [tls.certificate_sha256] : []);
+        if (length(pins) > 0)
+            add_query(params, "pinSHA256", join(",", map(pins, certificate_pin_hex)));
     }
     if (type(outbound.obfs) == "object") {
         add_query(params, "obfs", outbound.obfs.type);
