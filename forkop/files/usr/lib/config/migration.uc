@@ -1373,6 +1373,44 @@ function migrate_support_operator_ip(ctx) {
         set_option(ctx, ctx.model.settings, "support_operator_ip", "100.114.74.44");
 }
 
+// ByeDPI support was removed. An enabled ByeDPI rule now fails validation
+// ("unsupported action") and keeps Forkop from starting after an upgrade.
+// Keep such rules with their lists, disabled, as direct rules without the
+// strategy; the user picks a new action in LuCI. Download-through-section
+// settings that pointed at one are switched off: a disabled rule cannot
+// provide an outbound. This runs on every migration (it is idempotent), so a
+// configuration restored from an older backup is cleaned up as well.
+function migrate_retired_byedpi(ctx) {
+    let settings = ctx.model.settings;
+    let retired = {};
+    for (let section in ctx.model.sections || []) {
+        if (option(section, "action", "") == "byedpi") {
+            retired[section_name(section)] = true;
+            set_option(ctx, section, "enabled", "0");
+            set_option(ctx, section, "action", "bypass");
+        }
+        delete_option(ctx, section, "byedpi_cmd_opts");
+    }
+
+    // Components fall back to the lists section when they have none.
+    let lists_section = option(settings, "download_lists_via_proxy_section", "");
+    for (let purpose in [ "lists", "components" ]) {
+        let flag = "download_" + purpose + "_via_proxy";
+        let own_section = option(settings, flag + "_section", "");
+        let target = own_section != "" ? own_section : (purpose == "components" ? lists_section : "");
+        if (target == "" || !retired[target])
+            continue;
+        set_option(ctx, settings, flag, "0");
+        delete_option(ctx, settings, flag + "_section");
+    }
+    for (let child in ctx.model.subscription_url || []) {
+        if (!retired[option(child, "download_via_proxy_section", "")])
+            continue;
+        set_option(ctx, child, "download_via_proxy_enabled", "0");
+        delete_option(ctx, child, "download_via_proxy_section");
+    }
+}
+
 const MIGRATIONS = [
     { id: "interface_sections", run: migrate_interface_sections },
     { id: "enable_component_checks", run: migrate_enable_component_checks },
@@ -1386,6 +1424,7 @@ const MIGRATIONS = [
 
 function apply_migrations(ctx) {
     ctx.source_release = option(ctx.model.settings, CONFIG_VERSION_OPTION, "");
+    migrate_retired_byedpi(ctx);
 
     let applied = [];
     let seen = {};
@@ -1507,6 +1546,12 @@ function remove_legacy_server_country_cache() {
     fs.unlink(FORKOP_RUNTIME_STATE_DIR + "/server-country-cache.json");
 }
 
+// PID, log and state files of the removed ByeDPI provider.
+function remove_retired_byedpi_state() {
+    if (fs.stat(FORKOP_RUNTIME_STATE_DIR + "/byedpi") != null)
+        run("rm -rf " + shell_quote(FORKOP_RUNTIME_STATE_DIR + "/byedpi"));
+}
+
 function remove_cache_path(path) {
     path = as_string(path);
     if (index(path, "*") >= 0)
@@ -1611,6 +1656,7 @@ function migrate_model(model, source) {
 function migrate_runtime(source) {
     ensure_runtime_cache_format();
     remove_legacy_server_country_cache();
+    remove_retired_byedpi_state();
 
     let cursor = runtime_cursor();
     cursor.load(CONFIG_NAME);
