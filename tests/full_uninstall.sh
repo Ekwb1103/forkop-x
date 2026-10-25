@@ -9,7 +9,7 @@ fixture() {
     ROOT="$WORK/$1"
     mkdir -p "$ROOT/etc/opkg" "$ROOT/usr/bin" "$ROOT/bin" "$ROOT/packages" \
         "$ROOT/etc/forkop" "$ROOT/etc/sing-box" "$ROOT/etc/config" "$ROOT/etc/init.d" \
-        "$ROOT/usr/lib/forkop/torrserver"
+        "$ROOT/usr/lib/forkop/torrserver" "$ROOT/tmp/tachyon-rulesets"
     printf 'original vendor repositories\n' > "$ROOT/etc/opkg/distfeeds.conf.pre-forkop-mirror"
     printf 'https://mirror.51343.ru/openwrt/releases/test\n' > "$ROOT/etc/opkg/distfeeds.conf"
     printf 'wifi configuration\n' > "$ROOT/etc/config/wireless"
@@ -23,7 +23,8 @@ fixture() {
     touch "$ROOT/etc/forkop/secret" "$ROOT/etc/sing-box/config.json" "$ROOT/usr/lib/forkop/test" \
         "$ROOT/usr/lib/forkop/torrserver/direct.uc" "$ROOT/usr/bin/sing-box"
     touch "$ROOT/packages/forkop" "$ROOT/packages/luci-app-forkop" "$ROOT/packages/sing-box" \
-        "$ROOT/packages/sing-box-tiny" "$ROOT/packages/sing-box-extended"
+        "$ROOT/packages/sing-box-tiny" "$ROOT/packages/sing-box-extended" "$ROOT/packages/rust-x" \
+        "$ROOT/tmp/tachyon-rulesets/main-remote-domains-ruleset.tsrs"
     cat > "$ROOT/usr/bin/forkop" <<'SH'
 #!/bin/sh
 printf '%s\n' "$*" >> "$FORKOP_UNINSTALL_ROOT/service-calls"
@@ -91,6 +92,8 @@ grep -qx 'original vendor repositories' "$ROOT/etc/opkg/distfeeds.conf"
 [ ! -e "$ROOT/packages/forkop" ]
 [ ! -e "$ROOT/packages/sing-box" ] && [ ! -e "$ROOT/packages/sing-box-tiny" ] && \
     [ ! -e "$ROOT/packages/sing-box-extended" ]
+# The Rust X core package and its RAM rule-set cache are removed too.
+[ ! -e "$ROOT/packages/rust-x" ] && [ ! -e "$ROOT/tmp/tachyon-rulesets" ]
 [ ! -e "$ROOT/usr/bin/sing-box" ]
 grep -qx 'wifi configuration' "$ROOT/etc/config/wireless"
 [ -e "$ROOT/etc/config/wireless.apk-new" ]
