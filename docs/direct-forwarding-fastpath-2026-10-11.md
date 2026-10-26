@@ -84,7 +84,7 @@ The patched WAN rate was 22.3% above the first baseline and 14.6% above the
 rollback phase. This supports a performance benefit under this workload; it
 does not establish an invariant gain for every device or traffic pattern.
 The router was restored to its original rules, verified without temporary
-codex rules or chains. No installed source file was changed on the router.
+diagnostic rules or chains. No installed source file was changed on the router.
 
 ## Synthetic core routing comparison
 

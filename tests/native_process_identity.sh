@@ -4,7 +4,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 {
   cat <<'UCODE'
 let links = {};
-let fs = { readlink: function(path) { return links[path]; } };
+let cmdline = "sing-box";
+let fs = {
+    readlink: function(path) { return links[path]; },
+    readfile: function(path) { return cmdline; }
+};
 function as_string(value) { return value == null ? "" : "" + value; }
 UCODE
   awk '/^function path_basename\(/ { emit = 1 }
@@ -30,6 +34,10 @@ for (let test in cases) {
 }
 if (pid_is_sing_box("../123") || pid_is_sing_box("123; echo injected") || pid_is_sing_box(""))
     die("Invalid PID accepted\n");
+links = { "/proc/123/exe": "/usr/bin/sing-box" };
+cmdline = "sing-box" + chr(0) + "tailscale-luci" + chr(0);
+if (pid_is_sing_box("123"))
+    die("Tailscale process counted as proxy core\n");
 print("Native executable identity checks passed\n");
 UCODE
 } | ucode -

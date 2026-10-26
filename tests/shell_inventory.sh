@@ -24,7 +24,9 @@ expected_runtime_shell_files="$(printf '%s\n' \
   "$FORKOP_LIB/full-uninstall.sh" \
   "$FORKOP_LIB/support/lite-install.sh" \
   "$FORKOP_LIB/support/ssh-gate.sh" \
-  "$FORKOP_LIB/support/worker.sh" | LC_ALL=C sort)"
+  "$FORKOP_LIB/support/worker.sh" \
+  "$FORKOP_LIB/tailscale/lan.sh" \
+  "$FORKOP_LIB/tailscale/transport.sh" | LC_ALL=C sort)"
 [ "$runtime_shell_files" = "$expected_runtime_shell_files" ] ||
   fail "runtime library contains unexpected shell helpers: $runtime_shell_files"
 
@@ -51,11 +53,14 @@ expected_shell_scripts="$(
     'luci-app-forkop/root/etc/uci-defaults/50_luci-forkop' \
     'forkop/files/etc/init.d/forkop' \
     'forkop/files/etc/init.d/forkop-support' \
+    'forkop/files/etc/init.d/forkop-tailscale' \
     'forkop/files/etc/init.d/forkop-torrserver-direct' \
     'forkop/files/usr/lib/full-uninstall.sh' \
     'forkop/files/usr/lib/support/lite-install.sh' \
     'forkop/files/usr/lib/support/ssh-gate.sh' \
     'forkop/files/usr/lib/support/worker.sh' \
+    'forkop/files/usr/lib/tailscale/lan.sh' \
+    'forkop/files/usr/lib/tailscale/transport.sh' \
     'forkop/files/usr/share/forkop/mirror-migration.sh' \
     'forkop/files/usr/share/forkop/package-init' |
     LC_ALL=C sort
