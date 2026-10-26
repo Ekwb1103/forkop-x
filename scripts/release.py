@@ -284,6 +284,10 @@ class Release:
             archived = public_json(BASE + f'/forkop/rust-x/releases/{self.version}/manifest.json')
             if latest != archived or latest['binary_source_commit'] != self.source:
                 raise ValueError('Xrust mirror manifest mismatch')
+            catalog = public_json(BASE + '/forkop/rust-x/releases.json')
+            entry = next(r for r in catalog['releases'] if r['version'] == self.version)
+            if entry['assets'] != latest['assets']:
+                raise ValueError('Xrust release catalog mismatch')
             local = {a['file']: a for a in manifest['assets']}
             for asset in latest['assets']:
                 if asset['sha256'] != local[asset['file']]['sha256'] or asset['size'] != local[asset['file']]['size']:

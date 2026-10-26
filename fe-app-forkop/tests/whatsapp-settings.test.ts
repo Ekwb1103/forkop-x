@@ -9,12 +9,12 @@ function harness() {
   const meta = { '.name': 'vpn', enabled: '1', action: 'connection', community_lists: ['meta'] };
   const sections: Record<string, unknown>[] = [meta];
   const notify = vi.fn();
-  const guard = new Function('baseclass', 'uci', 'ui', 'E', '_', source)(
+  const guard = new Function('baseclass', 'uci', 'ui', 'E', 'main', source)(
     { extend: (value: unknown) => value },
     { get: () => settings, sections: () => sections },
     { addNotification: notify },
     (_tag: string, _attrs: unknown, text: string) => text,
-    (text: string) => `translated:${text}`,
+    { translateForkop: (text: string) => `translated:${text}` },
   );
   return { settings, meta, sections, notify, guard };
 }
@@ -89,7 +89,7 @@ describe('WhatsApp English and Russian error messages', () => {
     try {
       const prerequisite = getLogErrorMessage('WhatsApp real DNS requires the Meta community list');
       const cache = getLogErrorMessage('WhatsApp real DNS requires downloaded Meta subnet rules');
-      const guard = new Function('baseclass', '_', source)({ extend: (value: unknown) => value }, translate);
+      const guard = new Function('baseclass', 'main', source)({ extend: (value: unknown) => value }, { translateForkop: translate });
       const warning = guard.configurationError({ whatsapp_real_dns: '1' }, []);
       for (const message of [prerequisite, cache, warning, translate('WhatsApp DNS settings need attention')]) {
         expect(message).toMatch(language === 'ru' ? /[А-Яа-я]/ : /[A-Za-z]/);

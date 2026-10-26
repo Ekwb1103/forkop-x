@@ -40,6 +40,28 @@ GitHub cache may delay canary selection; synchronization retries within the
 timeout. The default timeout is 1800 seconds. Signed output is retained in
 `artifacts/signed-releases`.
 
+Rust X publication also rebuilds `/forkop/rust-x/releases.json` from archived
+`releases/*/manifest.json`. The schema-1 catalog contains `name: rust-x` and
+`releases`, sorted by numeric version descending. Each entry includes `version`,
+`manifest_url`, `architectures`, `formats`, and verified `assets` with package
+identity, size, SHA-256 and mirror URL. Clients should select an asset matching
+both architecture and format. Invalid archives are logged and excluded; an empty
+result preserves the previous catalog. Catalog and pointer writes are atomic.
+To rebuild only the catalog on the mirror, without moving latest:
+
+```sh
+python3 publish-rust-x.py /srv/mirror/public/forkop/rust-x /srv/mirror/public/forkop/rust-x --catalog-only
+```
+
+Verified on 2026-10-26: the updated publisher was installed at
+`/usr/local/lib/forkop/publish-rust-x.py` on the existing mirror. Catalog-only
+rebuilding verified all 25 archived releases (100 packages). The public catalog
+returned HTTP 200 with 0.0.26 and 0.0.25 first; latest.json retained SHA-256
+`73ce1add42338233a492eede02c66998d04538e09dc867adef290344d9103fad`.
+All 23 tests in `scripts/tests` passed, including five catalog tests.
+The operator release command uploads the publisher from its own checkout, so
+future publications use this publisher after integration into main.
+
 If signing, uploading or synchronization was interrupted:
 
 ```powershell
