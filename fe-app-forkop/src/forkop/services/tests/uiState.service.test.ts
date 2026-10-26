@@ -419,7 +419,7 @@ describe('applyUiStateToStore', () => {
               running: true,
               job_id: 'sing-box-install',
               component: 'sing_box',
-              action: 'install_extended_compressed',
+              action: 'install_x',
               message: 'Install is running',
               current_version: '',
               latest_version: '',
@@ -448,9 +448,7 @@ describe('applyUiStateToStore', () => {
       zapret_installed: 1,
       zapret2_installed: 1,
     });
-    expect(
-      store.get().updatesActions.singBoxInstallExtendedCompressed.loading,
-    ).toBe(true);
+    expect(store.get().updatesActions.singBoxInstallX.loading).toBe(true);
   });
 
   it('marks the running sing-box install action without pretending it is installed', () => {
@@ -463,7 +461,7 @@ describe('applyUiStateToStore', () => {
               running: true,
               job_id: 'sing-box-install',
               component: 'sing_box',
-              action: 'install_extended',
+              action: 'install_rust_x',
               message: 'Install is running',
               current_version: '',
               latest_version: '',
@@ -486,8 +484,6 @@ describe('applyUiStateToStore', () => {
       sing_box_compressed: 0,
       sing_box_tailscale: 0,
     });
-    expect(store.get().updatesActions.singBoxInstallExtended.loading).toBe(
-      true,
-    );
+    expect(store.get().updatesActions.singBoxInstallRustX.loading).toBe(true);
   });
 });

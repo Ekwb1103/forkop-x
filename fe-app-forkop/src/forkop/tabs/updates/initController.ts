@@ -342,20 +342,6 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
   if (result.component === 'sing_box') {
     nextSystemInfo.sing_box_version = version;
 
-    if (result.action === 'install_extended') {
-      nextSystemInfo.sing_box_extended = 1;
-      nextSystemInfo.sing_box_tiny = 0;
-      nextSystemInfo.sing_box_compressed = 0;
-      nextSystemInfo.sing_box_tailscale = 1;
-    }
-
-    if (result.action === 'install_extended_compressed') {
-      nextSystemInfo.sing_box_extended = 1;
-      nextSystemInfo.sing_box_tiny = 0;
-      nextSystemInfo.sing_box_compressed = 1;
-      nextSystemInfo.sing_box_tailscale = 1;
-    }
-
     if (
       result.action === 'install_stable' ||
       result.action === 'install_x' ||
@@ -834,9 +820,6 @@ function getComponentCards(): ComponentCard[] {
   );
   const torrserverDirectEnabled = Boolean(systemInfo.torrserver_direct_enabled);
   const torrserverDirectActive = Boolean(systemInfo.torrserver_direct_active);
-  const singBoxExtended =
-    Boolean(systemInfo.sing_box_extended) && !systemInfo.sing_box_compressed;
-  const singBoxExtendedCompressed = Boolean(systemInfo.sing_box_compressed);
   const singBoxTiny = Boolean(systemInfo.sing_box_tiny);
   const rustX = Boolean(getRustXVersion(systemInfo.sing_box_version));
   const singBoxX = Boolean(getSingBoxXVersion(systemInfo.sing_box_version));
@@ -846,15 +829,13 @@ function getComponentCards(): ComponentCard[] {
     'forkopCheck',
     'forkopInstall',
   );
+  // A manually installed sing-box-extended (packaged or compressed) keeps
+  // working, but Forkop neither installs nor updates it.
   const singBoxActions = getInstalledUpdateActions(
     'sing_box',
     'singBoxCheck',
     'singBoxInstall',
-    rustX ||
-      singBoxX ||
-      singBoxTiny ||
-      singBoxExtended ||
-      singBoxExtendedCompressed,
+    rustX || singBoxX || singBoxTiny,
   );
 
   if (!rustX) {
@@ -873,24 +854,6 @@ function getComponentCards(): ComponentCard[] {
       icon: renderDownloadIcon24,
       component: 'sing_box',
       action: 'install_x',
-    });
-  }
-  if (!singBoxExtended) {
-    singBoxActions.push({
-      key: 'singBoxInstallExtended',
-      text: 'Extended',
-      icon: renderDownloadIcon24,
-      component: 'sing_box',
-      action: 'install_extended',
-    });
-  }
-  if (!singBoxExtendedCompressed) {
-    singBoxActions.push({
-      key: 'singBoxInstallExtendedCompressed',
-      text: 'Extended compressed',
-      icon: renderDownloadIcon24,
-      component: 'sing_box',
-      action: 'install_extended_compressed',
     });
   }
 

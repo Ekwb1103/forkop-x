@@ -9,7 +9,6 @@ fail() { printf '%s\n' "$*" >&2; exit 1; }
 msg() { :; }
 warn() { :; }
 TMP_DIR="$work"
-legacy_binary_managed_sing_box_present() { return 1; }
 sing_box_is_present() { return 1; }
 select_sing_box_installation
 [ "$SING_BOX_INSTALL_VARIANT" = rust-x ] || fail 'fresh install did not select Xrust'

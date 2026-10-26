@@ -40,26 +40,13 @@ transition install_tiny tiny
 transition install_x x
 transition install_stable stable
 transition install_x x
-snapshot >"$work/before-extended.txt"
-if run install_extended >"$work/install_extended.log" 2>&1; then
-  verify extended
-  echo 'PASS: X -> Extended'
-  transition install_x x
-else
-  grep -q 'Not enough flash space' "$work/install_extended.log" || fail 'unexpected Extended failure'
+# Forkop no longer installs sing-box-extended: both actions are refused and
+# leave X untouched.
+for action in install_extended install_extended_compressed; do
+  if run "$action" >"$work/$action.log" 2>&1; then fail "$action was accepted"; fi
   verify x
-  echo 'PASS: Extended flash shortage preserves X'
-fi
-snapshot >"$work/before-compressed.txt"
-if run install_extended_compressed >"$work/install_extended_compressed.log" 2>&1; then
-  verify extended-compressed
-  echo 'PASS: X -> Extended compressed'
-  transition install_x x
-else
-  grep -Eq 'Not enough flash space|Downloaded sing-box-extended compressed failed validation' "$work/install_extended_compressed.log" || fail 'unexpected compressed failure'
-  verify x
-  echo 'PASS: compressed preflight failure preserves X (see log for reason)'
-fi
+  echo "PASS: $action is refused and X is preserved"
+done
 fi
 if [ "$(variant)" != tiny ]; then
   transition install_tiny tiny

@@ -16,10 +16,11 @@ snapshot() {
   df -Pk /usr/bin /tmp
 }
 packages() { if command -v apk >/dev/null; then apk info -v; else opkg list-installed; fi; }
+sing_box_ref="$work/sing-box.uci"
 verify() {
   [ "$(variant)" = "$1" ] || fail "variant should be $1"
   cmp /etc/config/forkop "$work/forkop.uci" || fail 'Forkop UCI changed'
-  cmp /etc/config/sing-box "$work/sing-box.uci" || fail 'sing-box UCI changed'
+  [ -z "$sing_box_ref" ] || cmp /etc/config/sing-box "$sing_box_ref" || fail 'sing-box UCI changed'
   sing-box check -c /etc/sing-box/config.json >"$work/check.log" 2>&1 || fail 'invalid configuration'
   [ "$(forkop get_status | jsonfilter -e '@.running')" = 1 ] || fail 'runtime not restored'
   [ "$(ucode -L "$lib" "$lib/service/state.uc" sing-box-process-count)" = 1 ] || fail 'runtime process count'
@@ -56,14 +57,40 @@ esac
 exec /bin/df "$@"
 EOF
 chmod 755 "$work/fault-bin/"*
+# Forkop no longer installs sing-box-extended. Install it the way a user does:
+# the package from FORKOP_TEST_EXTENDED_PACKAGE, or the unpackaged binary from
+# FORKOP_TEST_EXTENDED_COMPRESSED_BINARY (Forkop adopts it on start).
+manual_install() {
+  /etc/init.d/forkop stop >/dev/null 2>&1 || true
+  if command -v apk >/dev/null; then apk del sing-box-x; else opkg remove sing-box-x; fi || return 1
+  case "$1" in
+    extended)
+      if command -v apk >/dev/null; then apk add --allow-untrusted "$FORKOP_TEST_EXTENDED_PACKAGE"
+      else opkg install "$FORKOP_TEST_EXTENDED_PACKAGE"; fi || return 1 ;;
+    extended_compressed)
+      rm -f /etc/init.d/sing-box
+      cp "$FORKOP_TEST_EXTENDED_COMPRESSED_BINARY" /usr/bin/sing-box && chmod 0755 /usr/bin/sing-box || return 1 ;;
+  esac
+  /etc/init.d/forkop start >/dev/null 2>&1 || return 1
+  for _ in $(seq 1 60); do
+    [ "$(forkop get_status | jsonfilter -e '@.running')" = 1 ] && return 0
+    sleep 1
+  done
+  return 1
+}
 for mode in extended extended_compressed; do
-  snapshot >"$work/before-$mode.txt"
-  if ! run "install_$mode" >"$work/install-$mode.log" 2>&1; then
-    grep -Eq 'Not enough flash space|Not enough temporary memory|failed validation' "$work/install-$mode.log" || fail "unexpected $mode failure"
-    verify x
-    echo "LIMIT: $mode does not fit this VM; X and UCI preserved"
+  case "$mode" in
+    extended) source_file="${FORKOP_TEST_EXTENDED_PACKAGE:-}" ;;
+    *) source_file="${FORKOP_TEST_EXTENDED_COMPRESSED_BINARY:-}" ;;
+  esac
+  if [ -z "$source_file" ]; then
+    echo "SKIP: $mode (set the FORKOP_TEST_EXTENDED_* variables to a manual build)"
     continue
   fi
+  snapshot >"$work/before-$mode.txt"
+  manual_install "$mode" >"$work/install-$mode.log" 2>&1 || fail "manual $mode installation"
+  cp /etc/config/sing-box "$work/sing-box-$mode.uci"
+  sing_box_ref="$work/sing-box-$mode.uci"
   expected=$(printf '%s' "$mode" | tr _ -)
   verify "$expected"
   sha256sum /usr/bin/sing-box >"$work/binary-before-$mode.sha256"
@@ -76,8 +103,10 @@ for mode in extended extended_compressed; do
   grep -q 'Not enough flash space' "$work/ubifs-failure-$mode.log" || fail 'no authoritative flash rejection'
   grep -q 'previous sing-box variant was restored' "$work/ubifs-failure-$mode.log" || fail 'rollback not confirmed'
   verify "$expected"
-  packages >"$work/packages-after-$mode"
-  cmp "$work/packages-before-$mode" "$work/packages-after-$mode" || fail 'rollback package/dependency revisions differ'
+  # A rollback restores the manual build from local copies of its files; the
+  # sing-box-extended package record itself is not reinstalled.
+  packages | grep -v '^sing-box-extended' >"$work/packages-after-$mode"
+  grep -v '^sing-box-extended' "$work/packages-before-$mode" | cmp - "$work/packages-after-$mode" || fail 'rollback package/dependency revisions differ'
   sha256sum -c "$work/binary-before-$mode.sha256" >/dev/null || fail 'rollback bytes differ'
   echo "PASS: simulated UBIFS / post-removal shortage restores exact $expected and runtime"
   # Use actual df while injecting a package-manager error after removal.
@@ -88,12 +117,13 @@ for mode in extended extended_compressed; do
   [ -e "$FORKOP_TEST_FAULT_ONCE" ] || fail 'installation fault not reached'
   grep -q 'previous sing-box variant was restored' "$work/install-failure-$mode.log" || fail 'rollback not confirmed'
   verify "$expected"
-  packages >"$work/packages-after-$mode"
-  cmp "$work/packages-before-$mode" "$work/packages-after-$mode" || fail 'rollback package/dependency revisions differ'
+  packages | grep -v '^sing-box-extended' >"$work/packages-after-$mode"
+  grep -v '^sing-box-extended' "$work/packages-before-$mode" | cmp - "$work/packages-after-$mode" || fail 'rollback package/dependency revisions differ'
   sha256sum -c "$work/binary-before-$mode.sha256" >/dev/null || fail 'rollback bytes differ'
   mv "$work/df.saved" "$work/fault-bin/df"
   echo "PASS: failed X install restores exact $expected and runtime"
   snapshot >"$work/before-return-x-$mode.txt"
+  sing_box_ref=""
   FORKOP_TEST_DF_POST_SHORTAGE=0 PATH="$work/fault-bin:$PATH" run install_x >"$work/return-x-$mode.log" 2>&1 || fail "return from $expected to X"
   verify x
   echo "PASS: simulated UBIFS / 39716 KiB free: $expected -> X 1.0.2"

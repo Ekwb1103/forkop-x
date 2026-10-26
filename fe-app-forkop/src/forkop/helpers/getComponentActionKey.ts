@@ -8,8 +8,6 @@ const componentActionKeyMap: Record<string, UpdatesActionKey> = {
   'forkop:install': 'forkopInstall',
   'sing_box:check_update': 'singBoxCheck',
   'sing_box:install': 'singBoxInstall',
-  'sing_box:install_extended': 'singBoxInstallExtended',
-  'sing_box:install_extended_compressed': 'singBoxInstallExtendedCompressed',
   'sing_box:install_tiny': 'singBoxInstallTiny',
   'sing_box:install_x': 'singBoxInstallX',
   'sing_box:install_rust_x': 'singBoxInstallRustX',

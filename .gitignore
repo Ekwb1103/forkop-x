@@ -57,6 +57,7 @@ ops/deployed-nginx/
 !/tests/byedpi_removed.sh
 !/tests/torrserver_direct_fakeip.sh
 !/tests/installer_release_dependencies.sh
+!/tests/sing_box_extended_manual_only.sh
 !/tests/whatsapp_real_dns_vm.sh
 !/tests/log_hygiene.sh
 !/tests/urltest_groups.sh
@@ -96,7 +97,6 @@ ops/deployed-nginx/
 !/tests/sing_box_flash_transition_vm.sh
 !/tests/sing_box_storage_low_space_vm.sh
 !/tests/sing_box_tmp_shortage_vm.sh
-!/tests/sing_box_previous_release.sh
 !/tests/sing_box_component_transition_vm.sh
 !/tests/sing_box_x_transition_vm.sh
 !/tests/installer_sing_box_x_plan.sh

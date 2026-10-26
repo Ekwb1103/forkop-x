@@ -203,8 +203,8 @@ describe('ForkopShellMethods.componentAction', () => {
           success: true,
           running: false,
           component: 'sing_box',
-          action: 'install_extended',
-          message: 'sing-box-extended has been installed',
+          action: 'install_rust_x',
+          message: 'Xrust has been installed',
           current_version: '1.13.12-extended-2.3.2',
           latest_version: '1.13.12-extended-2.3.2',
           changed: true,
@@ -253,7 +253,7 @@ describe('ForkopShellMethods.componentAction', () => {
                   success: true,
                   running: true,
                   component: 'sing_box',
-                  action: 'install_extended',
+                  action: 'install_rust_x',
                   message: 'Component action is running',
                   job_id: 'job-1',
                 },
@@ -276,7 +276,7 @@ describe('ForkopShellMethods.componentAction', () => {
     const responsePromise = ForkopShellMethods.waitComponentActionJob(
       'job-1',
       'sing_box',
-      'install_extended',
+      'install_rust_x',
     );
 
     await vi.advanceTimersByTimeAsync(3000);
@@ -287,8 +287,8 @@ describe('ForkopShellMethods.componentAction', () => {
         success: true,
         running: false,
         component: 'sing_box',
-        action: 'install_extended',
-        message: 'sing-box-extended has been installed',
+        action: 'install_rust_x',
+        message: 'Xrust has been installed',
         current_version: '1.13.12-extended-2.3.2',
         latest_version: '1.13.12-extended-2.3.2',
         changed: true,

@@ -507,8 +507,6 @@ export namespace Forkop {
     | 'check_update'
     | 'install'
     | 'remove'
-    | 'install_extended'
-    | 'install_extended_compressed'
     | 'install_tiny'
     | 'install_x'
     | 'install_rust_x'

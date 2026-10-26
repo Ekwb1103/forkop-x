@@ -56,6 +56,5 @@ choice rust-x 2.4.4 rust-x
 choice rust-x 3.0.0 rust-x
 choice x 1.16.4 tiny
 choice x 2.0.0-canary.1 x
-choice extended-compressed 2.0.0-canary.1 extended-compressed
 choice "" 2.4.4 ""
 echo 'Installer core choice by release: OK'

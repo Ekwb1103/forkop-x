@@ -2225,13 +2225,6 @@ forkop_install_required_space_kb() {
     printf '%s\n' "$((target_kb + 256 + ${CORE_PACKAGE_SPACE_KB:-0}))"
 }
 
-legacy_binary_managed_sing_box_present() {
-    [ "$FORKOP_LEGACY_DETECTED" -eq 1 ] &&
-        [ -r /etc/init.d/sing-box ] &&
-        grep -Fq 'managed sing-box service for binary variants' /etc/init.d/sing-box &&
-        [ -x /usr/bin/sing-box ]
-}
-
 package_payload_size_kb() {
     payload_package="$1"
     if [ "$PKG_IS_APK" -eq 1 ]; then
@@ -2566,12 +2559,9 @@ sing_box_is_present() {
 }
 
 select_sing_box_installation() {
-    if legacy_binary_managed_sing_box_present; then
-        SING_BOX_INSTALL_VARIANT="extended-compressed"
-        msg "The legacy binary-managed sing-box variant will be reinstalled for Forkop"
-        return 0
-    fi
-
+    # Any installed core is kept. This includes a sing-box-extended binary
+    # without a package (manual or from a legacy installation): Forkop no
+    # longer installs those builds, and its backend adopts that binary.
     if sing_box_is_present; then
         SING_BOX_INSTALL_VARIANT=""
         return 0
@@ -2644,12 +2634,6 @@ install_selected_sing_box() {
             ;;
         tiny)
             action="install_tiny"
-            ;;
-        extended)
-            action="install_extended"
-            ;;
-        extended-compressed)
-            action="install_extended_compressed"
             ;;
         *)
             fail "Unknown sing-box installation variant: $SING_BOX_INSTALL_VARIANT"

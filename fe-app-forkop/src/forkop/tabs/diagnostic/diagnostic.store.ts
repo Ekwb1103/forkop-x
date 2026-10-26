@@ -127,8 +127,6 @@ export const initialDiagnosticStore: Pick<
     forkopInstall: { loading: false },
     singBoxCheck: { loading: false },
     singBoxInstall: { loading: false },
-    singBoxInstallExtended: { loading: false },
-    singBoxInstallExtendedCompressed: { loading: false },
     singBoxInstallTiny: { loading: false },
     singBoxInstallX: { loading: false },
     singBoxInstallRustX: { loading: false },

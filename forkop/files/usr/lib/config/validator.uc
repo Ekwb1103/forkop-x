@@ -1643,6 +1643,36 @@ function service_exists(service) {
     return file_executable("/etc/init.d/" + as_string(service));
 }
 
+// Forkop no longer installs sing-box-extended. A build placed by hand in
+// /usr/bin/sing-box, or kept from a legacy installation, is the unpackaged
+// (compressed) variant: record it and give it Forkop's managed service when
+// it has none or only another tool's binary-variant service. A service the
+// user wrote is left as it is.
+function adopt_unpackaged_extended_sing_box(ctx, version) {
+    if (sing_box_compressed_marker_set(ctx) || !command_exists("sing-box") ||
+        index(as_string(version), "extended") < 0)
+        return;
+    let service = as_string(fs.readfile("/etc/init.d/sing-box") || "");
+    let foreign_managed = index(service, "managed sing-box service for binary variants") >= 0 &&
+        index(service, as_string(ctx.sing_box_managed_service_marker)) < 0;
+    if (service_exists("sing-box") && !foreign_managed)
+        return;
+    let lib = getenv("FORKOP_LIB") || "/usr/lib/forkop";
+    for (let name in [ "rust-x", "sing-box-x", "sing-box-extended", "sing-box-tiny", "sing-box" ])
+        if (run_args([ "ucode", "-L", lib, lib + "/core/packages.uc", "installed", name ]))
+            return;
+
+    let marker = as_string(ctx.sing_box_variant_state_file) || "/etc/forkop/sing-box-variant";
+    let version_file = as_string(ctx.sing_box_version_state_file) || "/etc/forkop/sing-box-version";
+    if (!run_args([ "mkdir", "-p", replace(marker, /\/[^\/]*$/, ""), replace(version_file, /\/[^\/]*$/, "") ]) ||
+        !fs.writefile(version_file, as_string(version) + "\n") ||
+        !fs.writefile(marker, "extended-compressed\n"))
+        return;
+    if (foreign_managed)
+        fs.unlink("/etc/init.d/sing-box");
+    log_message("Using the manually installed sing-box-extended binary " + as_string(version) + " with the Forkop managed service", "info");
+}
+
 function has_outbound_section(ctx) {
     for (let section in sections_by_type("section")) {
         if (!section_enabled(section))
@@ -1773,11 +1803,12 @@ function check_runtime_requirements() {
         fail_requirement("Package 'sing-box' version (" + sing_box_version + ") is lower than the required minimum (" + ctx.sing_box_required_version + "). Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box. Aborted.", "error");
     }
 
+    adopt_unpackaged_extended_sing_box(ctx, sing_box_version);
     if (!service_exists("sing-box") && sing_box_compressed_marker_set(ctx))
         install_managed_sing_box_service_script(ctx);
 
     if (!service_exists("sing-box"))
-        fail_requirement("Service 'sing-box' is missing. Install a sing-box package or reinstall the compressed sing-box-extended binary variant. Aborted.", "error");
+        fail_requirement("Service 'sing-box' is missing. Install a sing-box package or place a sing-box-extended binary in /usr/bin/sing-box. Aborted.", "error");
 
 
     if (dhcp_has_https_dns_proxy_options("/etc/config/dhcp") === true)

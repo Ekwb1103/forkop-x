@@ -144,19 +144,6 @@ function release_asset_url(name) {
     }
 }
 
-function release_asset_url_by_suffix_from_release(release, suffix) {
-    suffix = as_string(suffix);
-    for (let asset in array_or_empty(release.assets)) {
-        if (type(asset) != "object")
-            continue;
-        let name = as_string(asset.name || "");
-        if (str_endswith(name, suffix))
-            return as_string(asset.browser_download_url || "");
-    }
-
-    return "";
-}
-
 function release_asset_pair(release, expected_name) {
     for (let asset in array_or_empty(release.assets)) {
         if (type(asset) != "object")
@@ -405,18 +392,6 @@ function updates_zip_inner_package_path(component, arch, ext) {
         print(fallback, "\n");
 }
 
-function updates_archive_member_path(member_name) {
-    member_name = as_string(member_name);
-
-    for (let line in split(read_stdin(), "\n")) {
-        let path = trim(as_string(line));
-        if (path != "" && path_basename(path) == member_name) {
-            print(path, "\n");
-            return;
-        }
-    }
-}
-
 function updates_opkg_arch_list() {
     let arches = [];
 
@@ -570,85 +545,6 @@ function updates_arch_candidates(arch_list) {
     print(target, "\t", join(" ", candidates), "\n");
 }
 
-function sing_box_extended_arch_suffix(host_arch, distrib_arch) {
-    host_arch = as_string(host_arch);
-    distrib_arch = as_string(distrib_arch);
-
-    if (str_contains(distrib_arch, "mipsel") || str_contains(distrib_arch, "mipsle"))
-        host_arch = "mipsel";
-    else if (str_contains(distrib_arch, "mips64el") || str_contains(distrib_arch, "mips64le"))
-        host_arch = "mips64el";
-
-    if (host_arch == "aarch64")
-        print("arm64\n");
-    else if (str_startswith(host_arch, "armv7"))
-        print("armv7\n");
-    else if (str_startswith(host_arch, "armv6"))
-        print("armv6\n");
-    else if (host_arch == "x86_64")
-        print("amd64\n");
-    else if (host_arch == "i386" || host_arch == "i686")
-        print("386\n");
-    else if (host_arch == "mips")
-        print("mips-softfloat\n");
-    else if (host_arch == "mipsel" || host_arch == "mipsle")
-        print("mipsle-softfloat\n");
-    else if (host_arch == "mips64")
-        print("mips64\n");
-    else if (host_arch == "mips64el" || host_arch == "mips64le")
-        print("mips64le\n");
-    else if (host_arch == "riscv64")
-        print("riscv64\n");
-    else if (host_arch == "s390x")
-        print("s390x\n");
-    else
-        exit(1);
-}
-
-function sing_box_extended_asset_url(arch_suffix, _unused, compressed) {
-    let release = object_or_empty(read_stdin_json());
-
-    if (as_string(compressed) != "1")
-        exit(1);
-
-    arch_suffix = as_string(arch_suffix);
-    if (arch_suffix == "")
-        exit(1);
-
-    let url = release_asset_url_by_suffix_from_release(release, "linux-" + arch_suffix + "-compressed.tar.gz");
-    if (url != "") {
-        print(url, "\n");
-        return;
-    }
-
-    exit(1);
-}
-
-function sing_box_extended_package_asset_url(distrib_arch, asset_ext) {
-    let release = object_or_empty(read_stdin_json());
-    let suffix;
-
-    distrib_arch = as_string(distrib_arch);
-    asset_ext = as_string(asset_ext);
-    if (distrib_arch == "" || asset_ext == "")
-        exit(1);
-
-    suffix = "_openwrt_" + distrib_arch + "." + asset_ext;
-    for (let asset in array_or_empty(release.assets)) {
-        if (type(asset) != "object")
-            continue;
-
-        let name = as_string(asset.name || "");
-        let url = as_string(asset.browser_download_url || "");
-        if (url != "" && str_startswith(name, "sing-box-extended_") && str_endswith(name, suffix)) {
-            print(url, "\n");
-            return;
-        }
-    }
-
-    exit(1);
-}
-
 function updates_opkg_package_version(package_name) {
     package_name = as_string(package_name);
 
@@ -787,8 +683,6 @@ else if (mode == "forkop-release-version-compare")
     exit(forkop_release_version_compare(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "updates-zip-inner-package-path")
     updates_zip_inner_package_path(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "updates-archive-member-path")
-    updates_archive_member_path(ARGV[1]);
 else if (mode == "updates-opkg-arch-list")
     updates_opkg_arch_list();
 else if (mode == "updates-arch-candidates")
@@ -797,12 +691,6 @@ else if (mode == "string-has-whitespace-field")
     exit(string_has_whitespace_field(ARGV[1]) ? 0 : 1);
 else if (mode == "file-whitespace-list")
     file_whitespace_list(ARGV[1]);
-else if (mode == "sing-box-extended-arch-suffix")
-    sing_box_extended_arch_suffix(ARGV[1], ARGV[2]);
-else if (mode == "sing-box-extended-asset-url")
-    sing_box_extended_asset_url(ARGV[1], ARGV[2], ARGV[3]);
-else if (mode == "sing-box-extended-package-asset-url")
-    sing_box_extended_package_asset_url(ARGV[1], ARGV[2]);
 else if (mode == "updates-opkg-package-version")
     updates_opkg_package_version(ARGV[1]);
 else if (mode == "named-release-select-asset")

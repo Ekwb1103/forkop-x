@@ -43,26 +43,27 @@ baseline="$(sing-box version | head -n 1)"
 cp "$fixture" "$work/fail-start"
 chmod 755 "$work/fail-start"
 
-echo 'Testing repeated Stop, tiny -> compressed -> tiny, then failed start rollback on this VM'
+echo 'Testing repeated Stop, tiny -> X -> tiny, then failed start rollback on this VM'
 /etc/init.d/forkop stop >"$work/stop.txt" 2>&1 || fail 'first Stop failed'
 /etc/init.d/forkop stop >>"$work/stop.txt" 2>&1 || fail 'second Stop failed'
 /etc/init.d/forkop stop >>"$work/stop.txt" 2>&1 || fail 'third Stop failed'
 /etc/init.d/forkop start >"$work/start.txt" 2>&1 || fail 'start after repeated Stop failed'
 verify_tiny
 
-snapshot >"$work/before-compressed.txt"
-run install_extended_compressed >"$work/compressed.txt" 2>&1 || fail 'compressed transition failed'
-[ "$(variant)" = extended-compressed ] || fail 'compressed marker missing'
-wait_running || fail 'compressed Forkop is not running'
-sing-box check -c /etc/sing-box/config.json >"$work/config-check.txt" 2>&1 || fail 'compressed config invalid'
-nslookup example.com 127.0.0.1 >"$work/dns.txt" 2>&1 || fail 'compressed DNS failed'
-snapshot >"$work/compressed-state.txt"
+# Forkop no longer installs sing-box-extended; exercise the transition with X.
+snapshot >"$work/before-x.txt"
+run install_x >"$work/x.txt" 2>&1 || fail 'X transition failed'
+[ "$(variant)" = x ] || fail 'X variant missing'
+wait_running || fail 'X Forkop is not running'
+sing-box check -c /etc/sing-box/config.json >"$work/config-check.txt" 2>&1 || fail 'X config invalid'
+nslookup example.com 127.0.0.1 >"$work/dns.txt" 2>&1 || fail 'X DNS failed'
+snapshot >"$work/x-state.txt"
 run install_tiny >"$work/tiny.txt" 2>&1 || fail 'tiny transition failed'
 verify_tiny
 
 snapshot >"$work/before-fault.txt"
 if FORKOP_SERVICE_INIT="$work/fail-start" FORKOP_TEST_START_FAILURE_MARKER="$work/fault.marker" \
-    run install_extended_compressed >"$work/rollback.txt" 2>&1; then
+    FORKOP_TEST_FAIL_START_VERSION='*-x-*' run install_x >"$work/rollback.txt" 2>&1; then
   fail 'injected startup failure reported success'
 fi
 [ -e "$work/fault.marker" ] || fail 'startup fault was not injected'

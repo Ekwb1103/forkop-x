@@ -119,7 +119,7 @@ grep -Fq 'Forkop configuration recovery or validation failed' "$INSTALLER" ||
 
 grep -Fq '/usr/bin/forkop component_action sing_box "$action"' "$INSTALLER" ||
   fail "selected sing-box install must delegate to forkop component_action"
-for action in install_stable install_extended install_extended_compressed; do
+for action in install_stable install_tiny install_x install_rust_x; do
   grep -Fq "action=\"$action\"" "$INSTALLER" ||
     fail "selected sing-box installer is missing action mapping: $action"
 done
@@ -137,7 +137,6 @@ sed -n '/^select_sing_box_installation()/,/^}/p' "$INSTALLER" > "$select_sing_bo
 
 # A: an absent core must select Xrust without an interactive build chooser.
 fresh_variant="$(
-  legacy_binary_managed_sing_box_present() { return 1; }
   sing_box_is_present() { return 1; }
   msg() { :; }
   SING_BOX_INSTALL_VARIANT=""
@@ -158,6 +157,9 @@ legacy_variant="$(
 if grep -Eq 'select_sing_box_installation\(\).*interactive_terminal_available|interactive_terminal_available.*select_sing_box_installation' "$INSTALLER"; then
   fail "fresh sing-box selection must not use an interactive chooser"
 fi
+if grep -Eq 'install_extended(_compressed)?"' "$INSTALLER"; then
+  fail "installer must not install sing-box-extended builds"
+fi
 grep -Fq 'tiny)
             action="install_tiny"' "$INSTALLER" ||
   fail "automatic tiny selection must install the tiny component action"
@@ -167,7 +169,6 @@ grep -Fq 'rust-x)
 
 # B: a supported installed package must be preserved and its component action skipped.
 existing_variant="$(
-  legacy_binary_managed_sing_box_present() { return 1; }
   sing_box_is_present() { return 0; }
   msg() { :; }
   SING_BOX_INSTALL_VARIANT="unexpected"
