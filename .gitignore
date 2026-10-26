@@ -59,6 +59,7 @@ ops/deployed-nginx/
 !/tests/installer_release_dependencies.sh
 !/tests/sing_box_extended_manual_only.sh
 !/tests/rust_x_release_selection.sh
+!/tests/zapret_manager_web.sh
 !/tests/whatsapp_real_dns_vm.sh
 !/tests/log_hygiene.sh
 !/tests/urltest_groups.sh
