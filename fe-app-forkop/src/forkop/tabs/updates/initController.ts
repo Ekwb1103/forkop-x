@@ -52,7 +52,10 @@ import {
 import { Forkop } from '../../types';
 import { renderFullUninstall } from './fullUninstall';
 import { renderLanguage } from './language';
-import { showReleaseSelector } from './releaseSelector';
+import {
+  RUST_X_RELEASE_SELECTOR,
+  showReleaseSelector,
+} from './releaseSelector';
 
 type UpdateStatus = StoreType['updatesChecks'][Forkop.ComponentName]['status'];
 
@@ -1215,6 +1218,34 @@ function renderComponentCard(card: ComponentCard) {
               version,
             });
           }),
+      }),
+    );
+  }
+
+  if (card.component === 'sing_box') {
+    // Any Xrust release published on the mirror, also from another core.
+    const rustXVersion =
+      getRustXVersion(store.get().diagnosticsSystemInfo.sing_box_version) || '';
+    primaryButtons.push(
+      renderButton({
+        text: _('Xrust version'),
+        disabled:
+          systemInfoLoading || serviceRuntimeActionLoading || anyActionLoading,
+        onClick: () =>
+          void showReleaseSelector(
+            rustXVersion,
+            (version) => {
+              void handleComponentAction({
+                key: 'singBoxInstallRustX',
+                text: _('Xrust (experimental)'),
+                icon: renderDownloadIcon24,
+                component: 'sing_box',
+                action: 'install_rust_x',
+                version,
+              });
+            },
+            RUST_X_RELEASE_SELECTOR,
+          ),
       }),
     );
   }

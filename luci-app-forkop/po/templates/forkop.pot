@@ -365,6 +365,15 @@ msgstr ""
 msgid "Choose Forkop X version"
 msgstr ""
 
+msgid "Choose Xrust version"
+msgstr ""
+
+msgid "Xrust version"
+msgstr ""
+
+msgid "Older Xrust versions may not support all current settings. If the installation fails, the previous core is restored."
+msgstr ""
+
 #: src/forkop/tabs/updates/initController.ts:1242
 msgid "Choose version"
 msgstr ""

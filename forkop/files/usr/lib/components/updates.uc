@@ -2517,8 +2517,12 @@ function component_action_worker(state_file, output_file, component, action, ver
 
 function component_action_async(component, action, version) {
     version = as_string(version);
-    if (version != "" && (component != "forkop" || action != "install" ||
-        match(version, /^[0-9]+[.][0-9]+[.][0-9]+(-canary[.][0-9]+)?$/) == null)) {
+    // An exact version can be chosen for Forkop and for Xrust.
+    let forkop_version = component == "forkop" && action == "install" &&
+        match(version, /^[0-9]+[.][0-9]+[.][0-9]+(-canary[.][0-9]+)?$/) != null;
+    let rust_x_version = component == "sing_box" && action == "install_rust_x" &&
+        match(version, /^[0-9]+[.][0-9]+[.][0-9]+$/) != null;
+    if (version != "" && !forkop_version && !rust_x_version) {
         component_job_json_response(false, "", "Invalid release selection");
         exit(1);
     }

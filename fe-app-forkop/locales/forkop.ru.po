@@ -1937,6 +1937,15 @@ msgstr "Выбрать версию"
 msgid "Choose Forkop X version"
 msgstr "Выбор версии Forkop X"
 
+msgid "Choose Xrust version"
+msgstr "Выбор версии Xrust"
+
+msgid "Xrust version"
+msgstr "Версия Xrust"
+
+msgid "Older Xrust versions may not support all current settings. If the installation fails, the previous core is restored."
+msgstr "Старые версии Xrust могут не поддерживать все текущие настройки. Если установка не удастся, будет восстановлено прежнее ядро."
+
 msgid "Loading available versions…"
 msgstr "Загрузка доступных версий…"
 

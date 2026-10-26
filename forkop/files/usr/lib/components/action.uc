@@ -1853,6 +1853,65 @@ function resolve_sing_box_x_release(version, rust) {
     return null;
 }
 
+// The mirror catalog /forkop/rust-x/releases.json lists every published Xrust
+// release; the package for this router is chosen from its assets by
+// architecture and format, with the same checks as a release manifest.
+function rust_x_catalog_asset(release) {
+    let version = as_string(release?.version);
+    if (match(version, /^[0-9]+[.][0-9]+[.][0-9]+$/) == null)
+        return null;
+    let base = FORKOP_MIRROR_BASE_URL + "/forkop/rust-x/";
+    if (as_string(release.manifest_url) != base + "releases/" + version + "/manifest.json")
+        return null;
+    let arch = read_openwrt_release_value("DISTRIB_ARCH");
+    let format = is_apk() ? "apk" : "ipk";
+    for (let asset in release.assets || []) {
+        // OpenWrt APK uses aarch64 for filogic and accepts cortex-a53 packages.
+        let compatible = asset.architecture == arch ||
+            (is_apk() && arch == "aarch64" && asset.architecture == "aarch64_cortex-a53");
+        if (asset.package != "rust-x" || asset.format != format || !compatible)
+            continue;
+        if (match(as_string(asset.version), is_apk() ? /^[0-9.]+-r[1-9][0-9]*$/ : /^[0-9.]+-[1-9][0-9]*$/) == null ||
+            substr(asset.version, 0, length(version) + 1) != version + "-" ||
+            asset.name != "rust-x_" + asset.version + "_" + asset.architecture + "." + format ||
+            match(as_string(asset.sha256), /^[a-f0-9]{64}$/) == null || int(asset.size) <= 0 ||
+            asset.url != base + "releases/" + version + "/" + asset.name)
+            return null;
+        return { ...asset, build_version: version };
+    }
+    return null;
+}
+
+function rust_x_release_catalog() {
+    if (FORKOP_MIRROR_BASE_URL == "")
+        return [];
+    let catalog = parse_json_object(http_get(FORKOP_MIRROR_BASE_URL + "/forkop/rust-x/releases.json"));
+    if (catalog.schema != 1 || catalog.name != "rust-x" || type(catalog.releases) != "array")
+        return [];
+    let releases = [];
+    for (let release in catalog.releases) {
+        let asset = type(release) == "object" ? rust_x_catalog_asset(release) : null;
+        if (asset != null)
+            push(releases, asset);
+    }
+    return releases;
+}
+
+function rust_x_releases() {
+    let rows = [];
+    for (let release in rust_x_release_catalog())
+        push(rows, { version: release.build_version, channel: "stable" });
+    print(sprintf("%J", { success: length(rows) > 0, releases: rows }), "\n");
+    cleanup_tmp_dir();
+}
+
+function selected_rust_x_release(version) {
+    for (let release in rust_x_release_catalog())
+        if (release.build_version == version)
+            return release;
+    return null;
+}
+
 function stage_sing_box_x_package(release, expected_version) {
     if (release == null || (as_string(expected_version) != "" && release.version != expected_version))
         return null;
@@ -2068,7 +2127,7 @@ function restore_extended_package_files() {
     return restored;
 }
 
-function install_package_sing_box(action, tiny, x, rust) {
+function install_package_sing_box(action, tiny, x, rust, requested_version) {
     x = x || rust;
     let package_name = rust ? "rust-x" : x ? "sing-box-x" : tiny ? "sing-box-tiny" : "sing-box";
     let target_variant = rust ? "rust-x" : x ? "x" : tiny ? "tiny" : "stable";
@@ -2080,7 +2139,12 @@ function install_package_sing_box(action, tiny, x, rust) {
         current_version = binary_version;
     if (current_version == "")
         current_version = binary_version;
-    let release = x ? resolve_sing_box_x_release("", rust) : null;
+    // An exact Xrust version comes from the mirror release catalog.
+    requested_version = rust && action == "install_rust_x" ? as_string(requested_version) : "";
+    let release = requested_version != "" ? selected_rust_x_release(requested_version) :
+        x ? resolve_sing_box_x_release("", rust) : null;
+    if (requested_version != "" && release == null)
+        action_fail("sing_box", action, "Selected Xrust version is unavailable for this router", current_version, requested_version);
     let latest_version = x ? as_string(release?.version) : available_package_version(package_name);
     if (latest_version == "")
         latest_version = installed_package_version(package_name);
@@ -2800,9 +2864,9 @@ function install_forkop(requested_version) {
     action_success("forkop", "install", "Forkop has been installed", new_version, latest_version, 1, "latest", release.release_url);
 }
 
-function dispatch_sing_box(action) {
+function dispatch_sing_box(action, version) {
     if (action == "install_rust_x") {
-        install_package_sing_box(action, false, false, true);
+        install_package_sing_box(action, false, false, true, version);
         return;
     }
     if (action == "install_x") {
@@ -2964,7 +3028,7 @@ function component_action(component, action, version) {
         install_forkop(version);
     else if (component == "sing_box" && (action == "check_update" || action == "install" ||
         action == "install_rust_x" || action == "install_x" || action == "install_tiny" || action == "install_stable"))
-        dispatch_sing_box(action);
+        dispatch_sing_box(action, version);
     else if (component == "zapret" && (action == "check_update" || action == "install"))
         install_zapret(action);
     else if (component == "zapret" && action == "remove")
@@ -3026,6 +3090,8 @@ else if (mode == "forkop-package-space-fixture") {
 }
 else if (mode == "forkop-releases")
     forkop_releases();
+else if (mode == "rust-x-releases")
+    rust_x_releases();
 else if (mode == "forkop-resolve-release-fixture") {
     let input = fs.open("/dev/stdin", "r");
     let release = resolve_forkop_release(ARGV[1], json(input.read("all")));

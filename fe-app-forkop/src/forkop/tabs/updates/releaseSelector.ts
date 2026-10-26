@@ -1,17 +1,45 @@
 import { executeShellCommand } from '../../../helpers';
 import { renderButton } from '../../../partials';
 
+// Texts are functions so the literal _() calls stay visible to the
+// translation extractor.
+export interface ReleaseSelectorOptions {
+  title: () => string;
+  command: string;
+  warning: () => string;
+}
+
+export const FORKOP_RELEASE_SELECTOR: ReleaseSelectorOptions = {
+  title: () => _('Choose Forkop X version'),
+  command: 'forkop_releases',
+  warning: () =>
+    _(
+      'A configuration backup will be saved in /etc/forkop-backups. Older versions may not support all current settings.',
+    ),
+};
+
+export const RUST_X_RELEASE_SELECTOR: ReleaseSelectorOptions = {
+  title: () => _('Choose Xrust version'),
+  command: 'rust_x_releases',
+  warning: () =>
+    _(
+      'Older Xrust versions may not support all current settings. If the installation fails, the previous core is restored.',
+    ),
+};
+
 export async function showReleaseSelector(
   currentVersion: string,
   install: (version: string) => void,
+  options: ReleaseSelectorOptions = FORKOP_RELEASE_SELECTOR,
 ) {
+  const title = options.title();
   const status = E('p', { role: 'status' }, _('Loading available versions…'));
   const content = E('div', {}, [status]);
-  ui.showModal(_('Choose Forkop X version'), content);
+  ui.showModal(title, content);
   try {
     const response = await executeShellCommand({
       command: '/usr/bin/forkop',
-      args: ['forkop_releases'],
+      args: [options.command],
       timeout: 75000,
     });
     const result = JSON.parse(response.stdout || '{}');
@@ -20,7 +48,7 @@ export async function showReleaseSelector(
     }
     const select = E('select', {
       class: 'cbi-input-select',
-      'aria-label': _('Choose Forkop X version'),
+      'aria-label': title,
     }) as HTMLSelectElement;
     for (const release of result.releases) {
       if (!/^\d+\.\d+\.\d+(-canary\.\d+)?$/.test(release.version)) continue;
@@ -44,13 +72,7 @@ export async function showReleaseSelector(
           _('Confirm version change'),
           E('div', {}, [
             E('p', {}, `${currentVersion} → ${version}`),
-            E(
-              'p',
-              {},
-              _(
-                'A configuration backup will be saved in /etc/forkop-backups. Older versions may not support all current settings.',
-              ),
-            ),
+            E('p', {}, options.warning()),
             E('div', { class: 'right' }, [
               renderButton({
                 text: _('Cancel'),

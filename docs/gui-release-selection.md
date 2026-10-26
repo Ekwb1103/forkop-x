@@ -65,3 +65,24 @@ On mirror.51343.ru the script is installed as
 `/usr/local/lib/forkop/write-release-catalog.py`. The drop-in
 `mirror/release-catalog.conf` is applied to `forkop-git-update.service` and
 `forkop-canary-mirror.service` to regenerate the catalog after publishing.
+
+## Xrust version selection
+
+The Xrust card on the Updates page offers the same selector. It lists versions
+with `forkop rust_x_releases`, which reads the mirror catalog
+`/forkop/rust-x/releases.json` (`schema` 1, `name` `rust-x`, a `releases` array
+of `version`, `manifest_url` and `assets`). For each release the package is
+taken from `assets` by architecture and format together (APK on filogic reports
+`aarch64` and accepts `aarch64_cortex-a53`); its name, version, mirror URL, size
+and SHA-256 are checked as for a release manifest. Releases without a matching
+valid package are not offered.
+
+The selected version is passed to
+`component_action_async sing_box install_rust_x VERSION`. It is installed like
+the latest Xrust: the previous core is staged for rollback first, and a failed
+installation or start restores it. An older version is not pinned; the regular
+update check still offers the latest Xrust.
+
+The catalog is written by the Rust X mirror publisher. Publishing with an older
+publisher that does not maintain `releases.json` leaves the catalog without the
+new release.
