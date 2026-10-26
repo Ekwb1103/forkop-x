@@ -1694,9 +1694,6 @@ msgstr "Этой опции требуется значение."
 msgid "This permanently deletes saved sections and subscriptions. Other components remain installed."
 msgstr "Сохранённые секции и подписки будут удалены безвозвратно. Остальные компоненты останутся установленными."
 
-msgid "This subscription provider is not supported"
-msgstr "Этот провайдер подписок не поддерживается"
-
 msgid "Time"
 msgstr "Время"
 

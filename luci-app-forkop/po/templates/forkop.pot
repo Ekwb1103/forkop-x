@@ -2659,10 +2659,6 @@ msgstr ""
 msgid "This permanently deletes saved sections and subscriptions. Other components remain installed."
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4256
-msgid "This subscription provider is not supported"
-msgstr ""
-
 #: src/forkop/tabs/monitoring/initController.ts:789
 #: src/forkop/tabs/monitoring/initController.ts:845
 msgid "Time"
