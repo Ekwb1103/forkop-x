@@ -51,6 +51,9 @@ ops/deployed-nginx/
 !/tests/subscription_pin_compatibility.uc
 !/tests/subscription_protocol_compatibility.sh
 !/tests/subscription_protocol_compatibility.uc
+!/tests/subscription_any_provider.sh
+!/tests/subscription_any_provider.uc
+!/tests/subscription_any_provider.cjs
 !/tests/rust_x_tls12_fingerprints.sh
 !/tests/rust_x_vless_encryption.sh
 !/tests/rust_x_reality_pqv.sh
