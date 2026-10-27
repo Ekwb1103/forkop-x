@@ -21,7 +21,7 @@ LUCI_DEPENDS:=+luci-base +forkop
 LUCI_PKGARCH:=all
 LUCI_LANG.ru:=Русский (Russian)
 LUCI_LANG.en:=English
-LUCI_MAINTAINER:=Screamshow <235684779+Screamshow@users.noreply.github.com>
+LUCI_MAINTAINER:=Ekwb1103 <212845689+Ekwb1103@users.noreply.github.com>
 LUCI_DESCRIPTION:=Rule-based Forkop LuCI app with hybrid sing-box + zapret orchestration
 LUCI_MINIFY_JS:=0
 

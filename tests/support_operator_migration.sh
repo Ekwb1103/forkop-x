@@ -13,7 +13,8 @@ for scenario in missing empty disabled custom; do
     esac
     printf '{"settings":%s}' "$settings" > "$dir/input.json"
     FORKOP_LIB="$lib" ucode -L "$lib" "$lib/config/migration.uc" migrate-fixture "$dir/input.json" > "$dir/output.json"
-    EXPECTED="$expected" ucode -e 'let fs=require("fs"); let r=json(fs.readfile(ARGV[0])); assert(r.config.settings.support_operator_ip == getenv("EXPECTED")); assert(index(r.config.settings.applied_migrations,"support_operator_ip_v1") >= 0); fs.writefile(ARGV[1],sprintf("%J",r.config));' "$dir/output.json" "$dir/again.json"
+    # Fork: the migration is a no-op, so "missing" stays unset (null).
+    EXPECTED="$expected" ucode -e 'let fs=require("fs"); let r=json(fs.readfile(ARGV[0])); let v=r.config.settings.support_operator_ip; assert((v == null ? "" : v) == getenv("EXPECTED")); assert(index(r.config.settings.applied_migrations,"support_operator_ip_v1") >= 0); fs.writefile(ARGV[1],sprintf("%J",r.config));' "$dir/output.json" "$dir/again.json"
     FORKOP_LIB="$lib" ucode -L "$lib" "$lib/config/migration.uc" migrate-fixture "$dir/again.json" > "$dir/repeat.json"
     ucode -e 'let r=json(require("fs").readfile(ARGV[0])); assert(!r.changed); assert(length(r.operations)==0);' "$dir/repeat.json"
     echo "$scenario: migration and repeat passed"

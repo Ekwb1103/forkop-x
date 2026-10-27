@@ -2157,11 +2157,11 @@ check_system() {
 
     [ -n "$release" ] || fail "Unable to detect the OpenWrt release"
     # Beam uses its own release number, unrelated to the OpenWrt version.
-    # Keep this opt-in scoped to the verified main-based firmware and canary.
+    # Fork: accept any Beam WRT 1.5.x canary build on qualcommbe/ipq95xx
+    # (upstream pins a single verified revision; user firmware may be older).
     if [ "$(read_openwrt_release_value "DISTRIB_ID")" = "Beam WRT" ] &&
         [ "$FORKOP_CHANNEL" = "canary" ] &&
-        [ "$release" = "1.5.0" ] &&
-        [ "$(read_openwrt_release_value "DISTRIB_REVISION")" = "r20260929-d958caf" ] &&
+        case "$release" in 1.5.*) true ;; *) false ;; esac &&
         [ "$target" = "qualcommbe/ipq95xx" ] &&
         [ "$architecture" = "aarch64_cortex-a73" ]; then
         [ "$PKG_IS_APK" -eq 1 ] || fail "Beam WRT 1.5.0 requires apk packages"

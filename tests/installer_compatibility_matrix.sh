@@ -84,8 +84,12 @@ FORKOP_CHANNEL=canary
 expect_native_fallback 1.5.0 1 qualcommbe/ipq95xx aarch64_cortex-a73
 expect_rejected 1.5.0 0 qualcommbe/ipq95xx aarch64_cortex-a73
 expect_rejected 1.5.0 1 mediatek/filogic aarch64_cortex-a73
+# Fork accepts any Beam WRT 1.5.x revision, including unverified older ones.
 TEST_REVISION=unknown
-expect_rejected 1.5.0 1 qualcommbe/ipq95xx aarch64_cortex-a73
+expect_native_fallback 1.5.0 1 qualcommbe/ipq95xx aarch64_cortex-a73
+# Non-1.5 Beam releases remain rejected.
+TEST_REVISION=other
+expect_rejected 1.4.9 1 qualcommbe/ipq95xx aarch64_cortex-a73
 TEST_REVISION=r20260929-d958caf
 FORKOP_CHANNEL=stable
 expect_rejected 1.5.0 1 qualcommbe/ipq95xx aarch64_cortex-a73

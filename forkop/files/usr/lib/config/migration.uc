@@ -1185,10 +1185,9 @@ function migrate_interface_sections(ctx) {
 }
 
 function migrate_enable_component_checks(ctx) {
-    if (!release_at_most(ctx, "1.0.1"))
-        return;
-
-    set_option(ctx, ctx.model.settings, "component_update_check_enabled", "1");
+    // Fork: component update checks stay off (default in the shipped config);
+    // re-enabling on fresh installs would override that default.
+    void ctx;
 }
 
 function migration_port(value) {
@@ -1368,9 +1367,9 @@ function migrate_default_subscription_exclude_regex(ctx) {
 }
 
 function migrate_support_operator_ip(ctx) {
-    // Preserve explicit empty values (probes disabled) and custom operators.
-    if (ctx.model.settings.support_operator_ip == null)
-        set_option(ctx, ctx.model.settings, "support_operator_ip", "100.114.74.44");
+    // Fork: never set the upstream maintainer's support operator address.
+    // Explicit values (including empty, which disables probes) are preserved.
+    void ctx;
 }
 
 // ByeDPI support was removed. An enabled ByeDPI rule now fails validation
